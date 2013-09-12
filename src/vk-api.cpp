@@ -73,12 +73,12 @@ void process_error(PurpleHttpConnection* http_conn, const picojson::value& error
     }
 
     int error_code = error.get("error_code").get<double>();
-    if (error_code == 5 || error_code == 6) {
+    if (error_code == VK_AUTHORIZATION_FAILED || error_code == VK_TOO_MANY_REQUESTS_PER_SECOND) {
         PurpleConnection* gc = purple_http_conn_get_purple_connection(http_conn);
         PurpleHttpRequest* req = purple_http_conn_get_request(http_conn);
         purple_http_request_ref(req); // Increment references, or the request will die with http_conn.
 
-        if (error_code == 5) { // User authorization failed (most likely, access token has expired: redo auth).
+        if (error_code == VK_AUTHORIZATION_FAILED) {
             purple_debug_info("prpl-vkcom", "Access token expired, doing a reauthorization\n");
 
             VkConnData* data = (VkConnData*)purple_connection_get_protocol_data(gc);
@@ -90,7 +90,7 @@ void process_error(PurpleHttpConnection* http_conn, const picojson::value& error
                     error_cb(picojson::value());
             });
             return;
-        } else if (error_code == 6) { // Too many requests per second: send a new request after a moment.
+        } else if (error_code == VK_TOO_MANY_REQUESTS_PER_SECOND) {
             const int RETRY_TIMEOUT = 350; // 350msec is less than 3 requests per second (the current rate limit on Vk.com
             purple_debug_info("prpl-vkcom", "Call rate limit hit, retrying in %d msec\n", RETRY_TIMEOUT);
 
@@ -100,8 +100,8 @@ void process_error(PurpleHttpConnection* http_conn, const picojson::value& error
             });
         }
         return;
-    } else if (error_code == 9) { // Flood control: message with same guid already sent. Simply ignore the error.
-        return;
+    } else if (error_code == VK_FLOOD_CONTROL) {
+        return; // Simply ignore the error.
     }
 
     purple_debug_error("prpl-vkcom", "Vk.com call error: %s\n", error.serialize().c_str());
