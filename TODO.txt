@@ -1,0 +1,13 @@
+ * Add support for sending IM.
+ * Add support for loading big avatars in get_info.
+ * Add support for creating/joining multi-user chats.
+ * Support not overwriting client-side aliases and do something graceful with them.
+ * Supply a mobile emblem.
+ * Add groups (PurpleBuddys will have duplicate names, is it ok?)
+ * Add once per-hour or per-half-hour updating of buddy list, so that we do not end up with stale
+   avatars, status messages or buddy presences (the latter in case we somehow missed update from longpoll).
+ * Update buddy info asynchronously on "Get Info".
+ * Check what's with Unicode on Windows (let's assume everyone runs UTF-8 on Linux). Check what's with
+   building on windows.
+ * Support downloading message history (is log modification possible in libpurple?)
+ * Do HTTP retries on timeouts/50x errors?
