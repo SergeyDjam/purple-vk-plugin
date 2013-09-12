@@ -1,4 +1,5 @@
 #include <cstring>
+#include <util.h>
 
 #include "utils.h"
 
@@ -89,4 +90,18 @@ void timeout_add(unsigned milliseconds, const TimeoutCb& callback)
 {
     TimeoutCb* user_data = new TimeoutCb(callback);
     g_timeout_add(milliseconds, timeout_add_cb, user_data);
+}
+
+
+string unescape_html(const char* text)
+{
+    char* unescaped = purple_unescape_html(text);
+    string ret = unescaped;
+    g_free(unescaped);
+    return ret;
+}
+
+string unescape_html(const string& text)
+{
+    return unescape_html(text.c_str());
 }

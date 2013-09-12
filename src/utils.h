@@ -45,3 +45,8 @@ bool field_is_present(const picojson::value& v, const string& key)
 // A g_timeout_add wrapper, accepting std::function
 using TimeoutCb = std::function<bool(void)>;
 void timeout_add(unsigned milliseconds, const TimeoutCb& callback);
+
+
+// A tiny wrapper around purple_unescape_html, accepting and returning string.
+string unescape_html(const char* text);
+string unescape_html(const string& text);

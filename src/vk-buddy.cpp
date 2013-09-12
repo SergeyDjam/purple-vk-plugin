@@ -112,58 +112,6 @@ string make_education_string(const picojson::object& user_fields);
 void on_fetch_buddy_icon_cb(PurpleHttpConnection* http_conn, PurpleHttpResponse* response, PurpleAccount* account,
                             const string& name);
 
-string replace_html_entities(const string& s)
-{
-    string ret;
-    int len = s.length();
-    ret.reserve(s.length());
-    for (int i = 0; i < len; ++i) {
-        if (s[i] != '&') {
-            ret.append(1, s[i]);
-        } else {
-            const char* p = s.data() + i;
-            if (len - i >= 7) { // mdash, ndash
-                if (strncmp(p, "&mdash;", 7) == 0 || strncmp(p, "&ndash;", 7) == 0) {
-                    ret.append(1, '-');
-                    i += 6;
-                    continue;
-                }
-            }
-            if (len - i >= 6) { // apos, quot
-                if (strncmp(p, "&apos;", 6) == 0) {
-                    ret.append(1, '\'');
-                    i += 5;
-                    continue;
-                } else if (strncmp(p, "&quot;", 6) == 0) {
-                    ret.append(1, '"');
-                    i += 5;
-                    continue;
-                }
-            }
-            if (len - i >= 5) { // amp
-                if (strncmp(p, "&amp;", 5) == 0) {
-                    ret.append(1, '&');
-                    i += 4;
-                    continue;
-                }
-            }
-            if (len - i >= 4) { // lt, gt
-                if (strncmp(p, "&lt;", 4) == 0) {
-                    ret.append(1, '<');
-                    i += 3;
-                    continue;
-                } else if (strncmp(p, "&gt;", 4) == 0) {
-                    ret.append(1, '>');
-                    i += 3;
-                    continue;
-                }
-            }
-            break; // Let's skip all the escape sequence
-        }
-    }
-    return ret;
-}
-
 string make_education_string(const picojson::object& user_fields)
 {
     string ret;
@@ -257,13 +205,13 @@ string update_buddy_from_object(PurpleConnection* gc, const picojson::object& us
     }
 
     data->uid = user_fields.at("id").to_str();
-    data->activity = replace_html_entities(user_fields.at("activity").get<string>());
+    data->activity = unescape_html(user_fields.at("activity").get<string>());
     if (field_is_present<string>(user_fields, "bdate"))
-        data->bdate = replace_html_entities(user_fields.at("bdate").get<string>());
-    data->education = replace_html_entities(make_education_string(user_fields));
+        data->bdate = unescape_html(user_fields.at("bdate").get<string>());
+    data->education = unescape_html(make_education_string(user_fields));
     data->photo_max = user_fields.at("photo_max_orig").get<string>();
     if (field_is_present<string>(user_fields, "mobile_phone"))
-        data->mobile_phone = replace_html_entities(user_fields.at("mobile_phone").get<string>());
+        data->mobile_phone = unescape_html(user_fields.at("mobile_phone").get<string>());
     data->domain = user_fields.at("domain").get<string>();
     if (ccontains(user_fields, "online_mobile"))
         data->is_mobile = true;
