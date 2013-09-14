@@ -36,11 +36,25 @@ public:
         return m_uid;
     }
 
+    // If true, connection is in "closing" state. This is set in vk_close and is used in longpoll
+    // callback to differentiate the case of network timeout/silent connection dropping and connection
+    // cancellation.
+    bool is_closing() const
+    {
+        return m_closing;
+    }
+
+    void set_closing()
+    {
+        m_closing = true;
+    }
+
 private:
     string m_email;
     string m_password;
     string m_access_token;
     string m_uid;
+    bool m_closing;
 };
 
 // Data, associated with one buddy. See vk.com for documentation on each field.

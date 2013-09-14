@@ -1,6 +1,7 @@
 #include <accountopt.h>
 #include <debug.h>
 #include <prpl.h>
+#include <request.h>
 #include <version.h>
 
 #include "httputils.h"
@@ -89,6 +90,11 @@ void vk_login(PurpleAccount* acct)
 void vk_close(PurpleConnection* gc)
 {
     VkConnData* data = (VkConnData*)purple_connection_get_protocol_data(gc);
+    data->set_closing();
+
+    purple_request_close_with_handle(gc);
+    purple_http_conn_cancel_all(gc);
+
     purple_connection_set_protocol_data(gc, nullptr);
     delete data;
 }
@@ -151,7 +157,6 @@ gboolean vk_offline_message(const PurpleBuddy*)
 {
     return true;
 }
-
 
 GHashTable* vk_get_account_text_table(PurpleAccount*)
 {
@@ -253,7 +258,6 @@ gboolean load_plugin(PurplePlugin*)
 
 gboolean unload_plugin(PurplePlugin*)
 {
-    destroy_global_connection_set();
     destroy_global_keepalive_pool();
     return true;
 }

@@ -6,7 +6,8 @@ const char VK_CLIENT_ID[] = "3833170";
 
 VkConnData::VkConnData(const string& email, const string& password)
     : m_email(email),
-      m_password(password)
+      m_password(password),
+      m_closing(false)
 {
 }
 

@@ -10,12 +10,6 @@ PurpleHttpKeepalivePool* get_global_keepalive_pool();
 // Destroys the keep-alive pool (must be done in the plugin finalization).
 void destroy_global_keepalive_pool();
 
-// Adds connection to global connection set, which is used in plugin finalization for cancellation.
-void add_to_global_connection_set(PurpleHttpConnection* http_conn);
-
-// Destroys the global connection set during plugin finalization.
-void destroy_global_connection_set();
-
 
 using HttpCallback = std::function<void(PurpleHttpConnection *http_conn, PurpleHttpResponse *response)>;
 

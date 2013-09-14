@@ -17,21 +17,6 @@ void destroy_global_keepalive_pool()
     }
 }
 
-PurpleHttpConnectionSet* connection_set = nullptr;
-
-void add_to_global_connection_set(PurpleHttpConnection* http_conn)
-{
-    if (!connection_set)
-        connection_set = purple_http_connection_set_new();
-    purple_http_connection_set_add(connection_set, http_conn);
-}
-
-void destroy_global_connection_set()
-{
-    if (connection_set)
-        purple_http_connection_set_destroy(connection_set);
-}
-
 
 PurpleHttpConnection* http_get(PurpleConnection* gc, const char* url, const HttpCallback& callback)
 {
@@ -59,7 +44,6 @@ PurpleHttpConnection* http_request(PurpleConnection* gc, PurpleHttpRequest* requ
     purple_http_request_set_keepalive_pool(request, get_global_keepalive_pool());
     HttpCallback* user_data = new HttpCallback(callback);
     PurpleHttpConnection* hc = purple_http_request(gc, request, http_cb, user_data);
-    add_to_global_connection_set(hc);
     return hc;
 }
 
