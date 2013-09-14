@@ -7,6 +7,7 @@
 #include "vk-api.h"
 #include "vk-buddy.h"
 #include "vk-common.h"
+#include "vk-message.h"
 #include "utils.h"
 
 
@@ -92,9 +93,11 @@ void vk_close(PurpleConnection* gc)
     delete data;
 }
 
-int vk_send_im(PurpleConnection *gc, const char *to, const char *message, PurpleMessageFlags)
+int vk_send_im(PurpleConnection* gc, const char* to, const char* message, PurpleMessageFlags)
 {
-    return 1;
+    // Strip the first two symbols "id" from buddy name
+    assert(to[0] == 'i' && to[1] == 'd');
+    return send_im_message(gc, to + 2, message);
 }
 
 // Returns link to vk.com user page

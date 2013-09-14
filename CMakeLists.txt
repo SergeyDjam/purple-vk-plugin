@@ -59,6 +59,8 @@ set(SOURCES
   src/vk-auth.h
   src/vk-buddy.cpp
   src/vk-buddy.h
+  src/vk-captcha.cpp
+  src/vk-captcha.h
   src/vk-common.cpp
   src/vk-common.h
   src/vk-message.cpp

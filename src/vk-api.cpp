@@ -104,7 +104,9 @@ void process_error(PurpleHttpConnection* http_conn, const picojson::value& error
         return; // Simply ignore the error.
     }
 
-    purple_debug_error("prpl-vkcom", "Vk.com call error: %s\n", error.serialize().c_str());
+    // We do not process captcha requests on API level, but we do not consider them errors
+    if (error_code != VK_CAPTCHA_NEEDED)
+        purple_debug_error("prpl-vkcom", "Vk.com call error: %s\n", error.serialize().c_str());
     if (error_cb)
         error_cb(error);
 }

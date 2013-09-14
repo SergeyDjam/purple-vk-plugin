@@ -11,3 +11,5 @@
    building on windows.
  * Support downloading message history (is log modification possible in libpurple?)
  * Do HTTP retries on timeouts/50x errors?
+ * Investigate whether we can side-step captcha requests simply by waiting some timeout and repeating request.
+   Looks like this is allowed.
