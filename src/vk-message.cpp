@@ -44,14 +44,12 @@ void process_im_error(const picojson::value& error, PurpleConnection* gc, const 
 void send_im_message_internal(PurpleConnection* gc, const MessageData& message, const string& captcha_sid,
                               const string& captcha_key)
 {
-    VkConnData* data = (VkConnData*)purple_connection_get_protocol_data(gc);
-
     string_map params = { {"user_id", message.uid}, {"message", message.message}, {"type", "1"} };
     if (!captcha_sid.empty())
         params["captcha_sid"] = captcha_sid;
     if (!captcha_key.empty())
         params["captcha_key"] = captcha_key;
-    vk_call_api(gc, "messages.send", params, data->access_token(), [=](const picojson::value&) {
+    vk_call_api(gc, "messages.send", params, [=](const picojson::value&) {
         if (message.success_cb)
             message.success_cb();
     }, [=](const picojson::value& error) {

@@ -9,5 +9,5 @@
 using CallSuccessCb = std::function<void(const picojson::value& result)>;
 using CallErrorCb = std::function<void(const picojson::value& error)>;
 
-void vk_call_api(PurpleConnection* gc, const char* method_name, const string_map& params, const string& access_token,
+void vk_call_api(PurpleConnection* gc, const char* method_name, const string_map& params,
                  const CallSuccessCb& success_cb, const CallErrorCb& error_cb);

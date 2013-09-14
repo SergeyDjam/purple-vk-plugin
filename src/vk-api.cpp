@@ -11,9 +11,45 @@
 namespace
 {
 
+// Callback, which is called upon receiving response to API call.
+void on_vk_call_cb(PurpleHttpConnection* http_conn, PurpleHttpResponse* response, const CallSuccessCb& success_cb,
+                   const CallErrorCb& error_cb);
+
+}
+
+void vk_call_api(PurpleConnection* gc, const char* method_name, const string_map& params, const CallSuccessCb& success_cb, const CallErrorCb& error_cb)
+{
+    VkConnData* conn_data = (VkConnData*)purple_connection_get_protocol_data(gc);
+
+    string params_str = urlencode_form(params);
+    string method_url = str_format("https://api.vk.com/method/%s?v=5.0&access_token=%s", method_name,
+                                   conn_data->access_token().c_str());
+    if (!params_str.empty()) {
+        method_url += "&";
+        method_url += params_str;
+    }
+    PurpleHttpRequest* req = purple_http_request_new(method_url.c_str());
+    purple_http_request_set_method(req, "POST");
+    http_request(gc, req, [=](PurpleHttpConnection* http_conn, PurpleHttpResponse* response) {
+        // Connection has been cancelled due to account being disconnected. Do not do any response
+        // processing, as callbacks may initiate new HTTP requests.
+        if (conn_data->is_closing())
+            return;
+
+        on_vk_call_cb(http_conn, response, success_cb, error_cb);
+    });
+    purple_http_request_unref(req);
+}
+
+namespace
+{
+
 // Process error: maybe do another call and/or re-authorize.
 void process_error(PurpleHttpConnection* http_conn, const picojson::value& error, const CallSuccessCb& success_cb,
                    const CallErrorCb& error_cb);
+// Repeats API call
+void repeat_vk_call(PurpleConnection* gc, PurpleHttpRequest* req, const CallSuccessCb& success_cb,
+                    const CallErrorCb& error_cb);
 
 void on_vk_call_cb(PurpleHttpConnection* http_conn, PurpleHttpResponse* response, const CallSuccessCb& success_cb,
                    const CallErrorCb& error_cb)
@@ -50,10 +86,6 @@ void on_vk_call_cb(PurpleHttpConnection* http_conn, PurpleHttpResponse* response
 
     success_cb(root.get("response"));
 }
-
-// Repeats API call
-void repeat_vk_call(PurpleConnection* gc, PurpleHttpRequest* req, const CallSuccessCb& success_cb,
-                    const CallErrorCb& error_cb);
 
 void process_error(PurpleHttpConnection* http_conn, const picojson::value& error, const CallSuccessCb& success_cb,
                    const CallErrorCb& error_cb)
@@ -121,21 +153,3 @@ void repeat_vk_call(PurpleConnection* gc, PurpleHttpRequest* req, const CallSucc
 }
 
 } // End anonymous namespace
-
-void vk_call_api(PurpleConnection* gc, const char* method_name, const string_map& params,
-                 const string& access_token, const CallSuccessCb& success_cb, const CallErrorCb& error_cb)
-{
-    string params_str = urlencode_form(params);
-    string method_url = str_format("https://api.vk.com/method/%s?v=5.0&access_token=%s", method_name,
-                                   access_token.c_str());
-    if (!params_str.empty()) {
-        method_url += "&";
-        method_url += params_str;
-    }
-    PurpleHttpRequest* req = purple_http_request_new(method_url.c_str());
-    purple_http_request_set_method(req, "POST");
-    http_request(gc, req, [=](PurpleHttpConnection* http_conn, PurpleHttpResponse* response) {
-        on_vk_call_cb(http_conn, response, success_cb, error_cb);
-    });
-    purple_http_request_unref(req);
-}
