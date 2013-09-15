@@ -34,7 +34,7 @@ void update_buddy_list(PurpleConnection* gc, const OnUpdateCb& on_update_cb)
         clean_buddy_list(gc, on_update_buddy_list(gc, result, true));
         if (on_update_cb)
             on_update_cb();
-    }, nullptr);
+    });
 }
 
 void update_buddy(PurpleConnection* gc, const string& id, const OnUpdateCb& on_update_cb)
@@ -46,7 +46,7 @@ void update_buddy(PurpleConnection* gc, const string& id, const OnUpdateCb& on_u
         on_update_buddy_list(gc, result, false);
         if (on_update_cb)
             on_update_cb();
-    }, nullptr);
+    });
 }
 
 namespace
@@ -287,5 +287,5 @@ void get_buddy_full_name(PurpleConnection* gc, const string& id, FetchCb success
         string last_name = user_fields.at("last_name").get<string>();
 
         success_cb(first_name + " " + last_name);
-    }, nullptr);
+    });
 }
