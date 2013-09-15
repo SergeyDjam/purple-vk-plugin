@@ -81,11 +81,7 @@ void vk_login(PurpleAccount* acct)
             });
         }
 
-        // Fetch and update buddy list.
-        update_buddy_list(gc, [=] {
-            update_buddy(gc, data->uid()); // DEBUG DEBUG DEBUG
-        });
-
+        // Start Long Poll event processing. Buddy list and unread messages will be retrieved there.
         start_long_poll(gc);
     }, nullptr);
 }
