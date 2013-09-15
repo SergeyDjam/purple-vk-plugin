@@ -37,13 +37,13 @@ void update_buddy_list(PurpleConnection* gc, const OnUpdateCb& on_update_cb, boo
     });
 }
 
-void update_buddy(PurpleConnection* gc, const string& id, const OnUpdateCb& on_update_cb)
+void update_buddy(PurpleConnection* gc, const string& id, const OnUpdateCb& on_update_cb, bool update_presence)
 {
     purple_debug_info("prpl-vkcom", "Updating information for buddy %s\n", id.c_str());
 
     CallParams params = { {"user_ids", id}, {"fields", user_fields_param} };
     vk_call_api(gc, "users.get", params, [=](const picojson::value& result) {
-        on_update_buddy_list(gc, result, false, false);
+        on_update_buddy_list(gc, result, false, update_presence);
         if (on_update_cb)
             on_update_cb();
     });

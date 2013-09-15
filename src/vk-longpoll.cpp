@@ -224,12 +224,19 @@ void process_online(PurpleConnection* gc, const picojson::value& v, bool online)
                            v.serialize().c_str());
         return;
     }
-    // TODO: what do we do if uid is not present in buddy list?
     string uid = v.get(1).to_str().substr(1); // Skip "-" in the beginning of uid.
     string name = "id" + uid;
 
     purple_debug_info("prpl-vkcom", "User %s changed online to %d\n", name.c_str(), online);
+
     PurpleAccount* account = purple_connection_get_account(gc);
+    if (!purple_find_buddy(account, name.c_str())) {
+        purple_debug_info("prpl-vkcom", "User %s has come online, but is not present in buddy list."
+                          "He has probably been added behind our backs.", name.c_str());
+        update_buddy(gc, uid, nullptr, true);
+        return;
+    }
+
     if (online) {
         purple_prpl_got_user_status(account, name.c_str(), "online", nullptr);
         purple_prpl_got_user_login_time(account, name.c_str(), time(nullptr));
@@ -245,7 +252,6 @@ void process_typing(PurpleConnection* gc, const picojson::value& v)
                            v.serialize().c_str());
         return;
     }
-    // TODO: what do we do if uid is not present in buddy list?
     string uid = v.get(1).to_str();
 
     serv_got_typing(gc, ("id" + uid).c_str(), 6000, PURPLE_TYPING);
