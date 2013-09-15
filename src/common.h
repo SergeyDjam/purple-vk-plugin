@@ -16,11 +16,14 @@ using std::map;
 using std::pair;
 using std::set;
 using std::vector;
+
 using string = std::string;
 using string_map = map<string, string>;
 using string_pair = pair<string, string>;
 using string_set = set<string>;
 using string_vec = vector<string>;
+
+using uint64_vec = vector<uint64_t>;
 
 using std::make_pair;
 

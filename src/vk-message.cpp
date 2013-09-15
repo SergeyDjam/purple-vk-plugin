@@ -117,3 +117,33 @@ void show_error(PurpleConnection* gc, const string& uid, const MessageData& mess
 }
 
 } // End of anonymous namespace
+
+
+namespace
+{
+
+// Creates string of integers, separated by sep.
+template<typename Sep, typename It>
+string str_concat_int(Sep sep, It first, It last)
+{
+    string s;
+    for (It it = first; it != last; it++) {
+        if (!s.empty())
+            s += sep;
+        char buf[128];
+        sprintf(buf, "%lld", (long long)*it);
+        s += buf;
+    }
+    return s;
+}
+
+} // End of anonymous namespace
+
+void mark_message_as_read(PurpleConnection* gc, const uint64_vec& message_ids)
+{
+    // Creates string of identifiers, separated with comma.
+    string ids_str = str_concat_int(',', message_ids.begin(), message_ids.end());
+
+    CallParams params = { {"message_ids", ids_str} };
+    vk_call_api(gc, "messages.markAsRead", params, [=] (const picojson::value&) {});
+}

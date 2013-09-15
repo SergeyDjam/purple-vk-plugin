@@ -8,6 +8,7 @@
 #include "vk-api.h"
 #include "vk-buddy.h"
 #include "vk-common.h"
+#include "vk-message.h"
 #include "utils.h"
 
 #include "vk-longpoll.h"
@@ -51,7 +52,7 @@ void start_long_poll_internal(PurpleConnection* gc, uint64_t ts)
         if (ts != received_ts) {
             if (ts != 0) {
                 purple_debug_info("prpl-vkcom", "Timestamp, received from messages.LongPollServer:"
-                                  "%lu, old timestamp: %lu", long(received_ts), long(ts));
+                                  "%llu, old timestamp: %llu", (long long)received_ts, (long long)ts);
                 received_ts = ts;
             }
         }
@@ -200,12 +201,9 @@ void process_message(PurpleConnection* gc, const picojson::value& v)
                            v.serialize().c_str());
         return;
     }
-    int64_t mid = v.get(1).get<double>();
+    uint64_t mid = v.get(1).get<double>();
     string uid = v.get(3).to_str();
-    int64_t timestamp = v.get(4).get<double>();
-
-    // TODO: what do we do if uid is not present in buddy list?
-
+    uint64_t timestamp = v.get(4).get<double>();
     // NOTE:
     // * The text is simple UTF-8 text (no escaped sequences, no entities like ndash).
     // * The only tag which it may contain is <br> (API v5.0 stopped using <br>, but Long Poll still
@@ -214,7 +212,10 @@ void process_message(PurpleConnection* gc, const picojson::value& v)
     // * Smileys are returned as Unicode emoji (both emoji and pseudocode smileys are accepted on message send).
     const string& text = v.get(6).get<string>();
 
-    serv_got_im(gc, ("id" + uid).c_str(), text.c_str(), PURPLE_MESSAGE_RECV, timestamp);
+    string name = "id" + uid;
+    serv_got_im(gc, name.c_str(), text.c_str(), PURPLE_MESSAGE_RECV, timestamp);
+
+    mark_message_as_read(gc, { mid });
 }
 
 void process_online(PurpleConnection* gc, const picojson::value& v, bool online)
