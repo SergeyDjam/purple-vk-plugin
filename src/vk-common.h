@@ -1,8 +1,8 @@
 #pragma once
 
-#include <connection.h>
-
 #include "common.h"
+
+#include <connection.h>
 
 // Several useful error codes
 enum VkErrorCodes {
@@ -49,12 +49,21 @@ public:
         m_closing = true;
     }
 
+    // We need to remove all timed events added by timeout_add upon closing connection or the crash
+    // is possible otherwise. This set stores all ids of the events.
+    set<uint>& timeout_ids()
+    {
+        return m_timeout_ids;
+    }
+
 private:
     string m_email;
     string m_password;
     string m_access_token;
     string m_uid;
+
     bool m_closing;
+    set<uint> m_timeout_ids;
 };
 
 // Data, associated with one buddy. See vk.com for documentation on each field.

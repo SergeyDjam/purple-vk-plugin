@@ -126,7 +126,7 @@ void process_error(PurpleHttpConnection* http_conn, const picojson::value& error
             const int RETRY_TIMEOUT = 350; // 350msec is less than 3 requests per second (the current rate limit on Vk.com
             purple_debug_info("prpl-vkcom", "Call rate limit hit, retrying in %d msec\n", RETRY_TIMEOUT);
 
-            timeout_add(RETRY_TIMEOUT, [=] {
+            timeout_add(gc, RETRY_TIMEOUT, [=] {
                 repeat_vk_call(gc, req, success_cb, error_cb);
                 return false;
             });

@@ -92,6 +92,7 @@ void vk_close(PurpleConnection* gc)
     VkConnData* data = (VkConnData*)purple_connection_get_protocol_data(gc);
     data->set_closing();
 
+    timeout_remove_all(gc);
     purple_request_close_with_handle(gc);
     purple_http_conn_cancel_all(gc);
 

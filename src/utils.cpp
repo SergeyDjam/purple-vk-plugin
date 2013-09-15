@@ -1,6 +1,8 @@
 #include <cstring>
 #include <util.h>
 
+#include "vk-common.h"
+
 #include "utils.h"
 
 string get_xml_node_prop(xmlNode* node, const char* tag, const char* default_value)
@@ -71,25 +73,45 @@ string_map parse_urlencoded_form(const char* encoded)
 namespace
 {
 
+// Helper structure for timeout_add. The two latter members are used to remove id upon
+// timeout end.
+struct TimeoutCbData
+{
+    TimeoutCb callback;
+    set<uint>& timeout_ids;
+    uint id;
+};
+
 // Helper callback for timeout_add
 int timeout_add_cb(void* user_data)
 {
-    TimeoutCb* callback = (TimeoutCb*)user_data;
-    if ((*callback)()) {
+    TimeoutCbData* data = (TimeoutCbData*)user_data;
+    if (data->callback()) {
         return 1;
     } else {
-        *callback = nullptr;
-        delete callback;
+        data->timeout_ids.erase(data->id);
+        delete data;
         return 0;
     }
 }
 
 } // End of anonymous namespace
 
-void timeout_add(unsigned milliseconds, const TimeoutCb& callback)
+void timeout_add(PurpleConnection* gc, unsigned milliseconds, const TimeoutCb& callback)
 {
-    TimeoutCb* user_data = new TimeoutCb(callback);
-    g_timeout_add(milliseconds, timeout_add_cb, user_data);
+    VkConnData* conn_data = (VkConnData*)purple_connection_get_protocol_data(gc);
+    TimeoutCbData* data = new TimeoutCbData{ callback, conn_data->timeout_ids(), 0};
+    data->id = g_timeout_add(milliseconds, timeout_add_cb, data);
+    conn_data->timeout_ids().insert(data->id);
+}
+
+void timeout_remove_all(PurpleConnection* gc)
+{
+    VkConnData* conn_data = (VkConnData*)purple_connection_get_protocol_data(gc);
+    for (uint id: conn_data->timeout_ids()) {
+        g_source_remove(id);
+        conn_data->timeout_ids().erase(id);
+    }
 }
 
 

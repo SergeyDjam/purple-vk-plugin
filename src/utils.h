@@ -2,6 +2,7 @@
 
 #include "common.h"
 
+#include <connection.h>
 #include <libxml/tree.h>
 
 #include "contrib/purple/http.h"
@@ -42,10 +43,12 @@ bool field_is_present(const picojson::value& v, const string& key)
 }
 
 
-// A g_timeout_add wrapper, accepting std::function
+// A g_timeout_add wrapper, accepting std::function.
 using TimeoutCb = std::function<bool(void)>;
-void timeout_add(unsigned milliseconds, const TimeoutCb& callback);
+void timeout_add(PurpleConnection* gc, unsigned milliseconds, const TimeoutCb& callback);
 
+// Removes all timed events, added with timeout_add, associated with gc.
+void timeout_remove_all(PurpleConnection* gc);
 
 // A tiny wrapper around purple_unescape_html, accepting and returning string.
 string unescape_html(const char* text);
