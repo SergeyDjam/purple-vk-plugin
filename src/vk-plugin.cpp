@@ -83,6 +83,13 @@ void vk_login(PurpleAccount* acct)
 
         // Start Long Poll event processing. Buddy list and unread messages will be retrieved there.
         start_long_poll(gc);
+
+        // Add updating buddy list every 15 minutes. If we do not update regularily, we might miss
+        // updates to buddy status text, buddy icon or other information.
+        timeout_add(gc, 15 * 60 * 1000, [=] {
+            update_buddy_list(gc);
+            return true;
+        });
     }, nullptr);
 }
 
