@@ -195,12 +195,17 @@ void process_update(PurpleConnection* gc, const picojson::value& v)
 
 void process_message(PurpleConnection* gc, const picojson::value& v)
 {
-    if (!v.contains(6) || !v.get(1).is<double>() || !v.get(3).is<double>() || !v.get(4).is<double>()
-            || !v.get(6).is<string>()) {
+    if (!v.contains(6) || !v.get(1).is<double>() || !v.get(2).is<double>() || !v.get(3).is<double>()
+            || !v.get(4).is<double>() || !v.get(6).is<string>()) {
         purple_debug_error("prpl-vkcom", "Strange response from Long Poll in updates: %s\n",
                            v.serialize().c_str());
         return;
     }
+    int flags = v.get(2).get<double>();
+    // Ignore outgoing messages.
+    if (flags & MESSAGE_FLAGS_OUTBOX)
+        return;
+
     uint64_t mid = v.get(1).get<double>();
     string uid = v.get(3).to_str();
     uint64_t timestamp = v.get(4).get<double>();
