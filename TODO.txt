@@ -1,24 +1,22 @@
- * Periodically mark received messages as read.
- * Fix messages which are received between two getLongPollServer calls. Receive
-   unread messages upon login (both problems will be solved with getLongPollHistory?).
+ * Receive unread messages upon login.
  * Add support for receiving IM attachments.
+ * Add support for sending files and/or Vk.com links.
+ * Add support for having non-friend contacts (get messages.getDialogs).
+ * Add support for creating/joining multi-user chats.
+ * Batch marking received messages as read.
  * Replace emoji unicode back with smiles?
  * Add support for loading big avatars in get_info.
- * Investigate whether friends.getOnline before friends.get in order to
-   get online list as fast as possible.
- * Add support for creating/joining multi-user chats.
  * Support not overwriting client-side aliases and do something graceful with them.
  * Supply a mobile emblem.
  * Add groups (PurpleBuddys will have duplicate names, is it ok?)
- * Add once per-hour or per-half-hour updating of buddy list, so that we do not end up with stale
-   avatars, status messages or buddy presences (the latter in case we somehow missed update from longpoll).
  * Update buddy info asynchronously on "Get Info".
+ * Add fast setting of user presences via friends.getOnline and update all other user information later.
+   Currently friends.get returns about 800 bytes per friend, which is a lot for mobile connections and modern
+   Vk.com users with thousands of friends.
  * Check what's with Unicode on Windows (let's assume everyone runs UTF-8 on Linux). Check what's with
    building on windows.
  * Support downloading message history (is log modification possible in libpurple?)
  * Do HTTP retries on timeouts/50x errors?
- * Investigate whether we can side-step captcha requests simply by waiting some timeout and repeating request.
-   Looks like this is allowed.
  * Do something with constant copying of strings and std::functions on lambda capture. This is just ugly.
    Probably should use std::bind with std::move, but god, this will be ugly. At least, move from std::string
    to vstring on gcc, so that string copy would not induce malloc in most cases?
