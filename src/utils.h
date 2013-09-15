@@ -19,17 +19,6 @@ string urlencode_form(const vector<string_pair>& params);
 string_map parse_urlencoded_form(const char* encoded);
 
 
-// Checks if JSON object contains key and the type of value for that key is T.
-template<typename T>
-bool field_is_present(const picojson::object& o, const string& key)
-{
-    if (!ccontains(o, key))
-        return false;
-    if (!o.at(key).is<T>())
-        return false;
-    return true;
-}
-
 // Checks if JSON value is an object, contains key and the type of value for that key is T.
 template<typename T>
 bool field_is_present(const picojson::value& v, const string& key)
