@@ -29,6 +29,9 @@ void send_im_message_internal(PurpleConnection* gc, const MessageData& message, 
 int send_im_message(PurpleConnection* gc, const char* uid, const char* message,
                     const SendSuccessCb& success_cb, const ErrorCb& error_cb)
 {
+    // NOTE: We de-HTMLify message before sending, because
+    //  * Vk.com chat is plaintext anyway
+    //  * Vk.com accepts '\n' in place of <br>
     char* unescaped_message = purple_unescape_html(message);
     send_im_message_internal(gc, { uid, unescaped_message, success_cb, error_cb });
     g_free(unescaped_message);

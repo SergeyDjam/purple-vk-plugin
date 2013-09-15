@@ -23,7 +23,7 @@ class VkConnData
 public:
     VkConnData(const string& email, const string& password);
 
-    using AuthSuccessCb = std::function<void(void)>;
+    using AuthSuccessCb = std::function<void()>;
     void authenticate(PurpleConnection* gc, const AuthSuccessCb& success_cb, const ErrorCb& error_cb = nullptr);
 
     const string& access_token() const

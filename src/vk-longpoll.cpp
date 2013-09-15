@@ -68,9 +68,6 @@ void start_long_poll_internal(PurpleConnection* gc, uint64_t ts)
     });
 }
 
-namespace
-{
-
 // Reads and processes an event from updates array.
 void process_update(PurpleConnection* gc, const picojson::value& v);
 
@@ -131,7 +128,7 @@ void request_long_poll(PurpleConnection* gc, const string& server, const string&
 }
 
 // Update codes coming from Long Poll
-enum LONG_POLL_CODES
+enum LongPollCodes
 {
     LONG_POLL_MESSAGE_DELETED = 0,
     LONG_POLL_FLAGS_RESET = 1,
@@ -144,6 +141,21 @@ enum LONG_POLL_CODES
     LONG_POLL_USER_STARTED_TYPING = 61,
     LONG_POLL_USER_STARTED_CHAT_TYPING = 62,
     LONG_POLL_USER_CALLED = 70
+};
+
+// Flags, which can be present for message.
+enum MessageFlags
+{
+    MESSAGE_FLAG_UNREAD = 1,
+    MESSAGE_FLAGS_OUTBOX = 2,
+    MESSAGE_FLAG_REPLIED = 4,
+    MESSAGE_FLAG_IMPORTANT = 8,
+    MESSAGE_FLAG_CHAT = 16,
+    MESSAGE_FLAG_FRIENDS = 32,
+    MESSAGE_FLAG_SPAM = 64,
+    MESSAGE_FLAG_DELETED = 128,
+    MESSAGE_FLAG_FIXED = 256,
+    MESSAGE_FLAG_MEDIA = 512
 };
 
 // Processes message event.
@@ -189,8 +201,17 @@ void process_message(PurpleConnection* gc, const picojson::value& v)
         return;
     }
     int64_t mid = v.get(1).get<double>();
-    int64_t timestamp = v.get(4).get<double>();
     string uid = v.get(3).to_str();
+    int64_t timestamp = v.get(4).get<double>();
+
+    // TODO: what do we do if uid is not present in buddy list?
+
+    // NOTE:
+    // * The text is simple UTF-8 text (no escaped sequences, no entities like ndash).
+    // * The only tag which it may contain is <br> (API v5.0 stopped using <br>, but Long Poll still
+    //   sends <br>). Thankfully, Pidgin readily accepts <br> as place of "\n", so everything works perfectly.
+    // * Links are sent as plaintext, both Vk.com and Pidgin linkify messages automatically.
+    // * Smileys are returned as Unicode emoji (both emoji and pseudocode smileys are accepted on message send).
     const string& text = v.get(6).get<string>();
 
     serv_got_im(gc, ("id" + uid).c_str(), text.c_str(), PURPLE_MESSAGE_RECV, timestamp);
@@ -203,6 +224,7 @@ void process_online(PurpleConnection* gc, const picojson::value& v, bool online)
                            v.serialize().c_str());
         return;
     }
+    // TODO: what do we do if uid is not present in buddy list?
     string uid = v.get(1).to_str().substr(1); // Skip "-" in the beginning of uid.
     string name = "id" + uid;
 
@@ -223,6 +245,7 @@ void process_typing(PurpleConnection* gc, const picojson::value& v)
                            v.serialize().c_str());
         return;
     }
+    // TODO: what do we do if uid is not present in buddy list?
     string uid = v.get(1).to_str();
 
     serv_got_typing(gc, ("id" + uid).c_str(), 6000, PURPLE_TYPING);

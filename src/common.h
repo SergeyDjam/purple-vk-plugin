@@ -20,6 +20,7 @@ using string = std::string;
 using string_map = map<string, string>;
 using string_pair = pair<string, string>;
 using string_set = set<string>;
+using string_vec = vector<string>;
 
 using std::make_pair;
 
@@ -51,6 +52,19 @@ inline void str_replace(string& s, const char* from, const char* to)
         s.replace(pos, from_len, to);
         pos += from_len;
     }
+}
+
+// Concatenates strings into one string, separating them with given separator like "smth".join() in Python.
+template<typename Sep, typename It>
+inline string str_concat(Sep sep, It first, It last)
+{
+    string s;
+    for (It it = first; it != last; it++) {
+        if (!s.empty())
+            s += sep;
+        s += *it;
+    }
+    return s;
 }
 
 // Converts string to upper-case
