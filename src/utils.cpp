@@ -120,6 +120,9 @@ string unescape_html(const char* text)
 {
     char* unescaped = purple_unescape_html(text);
     string ret = unescaped;
+    // Really ugly, but works: replace the most common HTML entities.
+    str_replace(ret, "&ndash;", "\xe2\x80\x93");
+    str_replace(ret, "&mdash;", "\xe2\x80\x94");
     g_free(unescaped);
     return ret;
 }
