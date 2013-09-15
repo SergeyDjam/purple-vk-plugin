@@ -4,6 +4,7 @@
 #include "vk-captcha.h"
 #include "vk-common.h"
 #include "vk-message.h"
+#include "utils.h"
 
 #include "vk-api.h"
 
@@ -68,8 +69,8 @@ PurpleConversation* find_conv_for_uid(PurpleConnection* gc, const string& uid)
 
 void process_im_error(const picojson::value& error, PurpleConnection* gc, const MessageData& message)
 {
-    if (!error.is<picojson::object>() || !error.contains("error_code")
-            || !error.get("error_code").is<double>()) { // Most probably, network timeout.
+    if (!error.is<picojson::object>() || !field_is_present<double>(error, "error_code")) {
+        // Most probably, network timeout.
         show_error(gc, message.uid, message);
         return;
     }
@@ -78,8 +79,7 @@ void process_im_error(const picojson::value& error, PurpleConnection* gc, const 
         show_error(gc, message.uid, message);
         return;
     }
-    if (!error.contains("captcha_sid") || !error.get("captcha_sid").is<string>()
-            || !error.contains("captcha_img") || !error.contains("captcha_img")) {
+    if (!field_is_present<string>(error, "captcha_sid") || !field_is_present<string>(error, "captcha_img")) {
         purple_debug_error("prpl-vkcom", "Captcha request does not contain captcha_sid or captcha_img");
         show_error(gc, message.uid, message);
         return;

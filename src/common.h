@@ -15,7 +15,7 @@
 using std::map;
 using std::pair;
 using std::set;
-using std::string;
+using string = std::string;
 using string_map = map<string, string>;
 using string_pair = pair<string, string>;
 using string_set = set<string>;
