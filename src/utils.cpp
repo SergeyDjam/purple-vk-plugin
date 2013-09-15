@@ -83,16 +83,18 @@ struct TimeoutCbData
 };
 
 // Helper callback for timeout_add
-int timeout_add_cb(void* user_data)
+int timeout_cb(void* user_data)
 {
     TimeoutCbData* data = (TimeoutCbData*)user_data;
-    if (data->callback()) {
-        return 1;
-    } else {
-        data->timeout_ids.erase(data->id);
-        delete data;
-        return 0;
-    }
+    return data->callback();
+}
+
+// Helper callback for timeout_add
+void timeout_destroy_cb(void* user_data)
+{
+    TimeoutCbData* data = (TimeoutCbData*)user_data;
+    data->timeout_ids.erase(data->id);
+    delete data;
 }
 
 } // End of anonymous namespace
@@ -101,17 +103,16 @@ void timeout_add(PurpleConnection* gc, unsigned milliseconds, const TimeoutCb& c
 {
     VkConnData* conn_data = (VkConnData*)purple_connection_get_protocol_data(gc);
     TimeoutCbData* data = new TimeoutCbData{ callback, conn_data->timeout_ids(), 0};
-    data->id = g_timeout_add(milliseconds, timeout_add_cb, data);
+    data->id = g_timeout_add_full(G_PRIORITY_DEFAULT, milliseconds, timeout_cb, data,
+                                  timeout_destroy_cb);
     conn_data->timeout_ids().insert(data->id);
 }
 
 void timeout_remove_all(PurpleConnection* gc)
 {
     VkConnData* conn_data = (VkConnData*)purple_connection_get_protocol_data(gc);
-    for (uint id: conn_data->timeout_ids()) {
+    for (uint id: conn_data->timeout_ids())
         g_source_remove(id);
-        conn_data->timeout_ids().erase(id);
-    }
 }
 
 
