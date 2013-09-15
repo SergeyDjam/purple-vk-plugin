@@ -71,7 +71,7 @@ void start_long_poll_internal(PurpleConnection* gc, uint64_t ts)
 // Reads and processes an event from updates array.
 void process_update(PurpleConnection* gc, const picojson::value& v);
 
-const char* long_poll_url = "https://%s?act=a_check&key=%s&ts=%llu&wait=25&mode=34";
+const char* long_poll_url = "https://%s?act=a_check&key=%s&ts=%llu&wait=25&mode=2";
 
 void request_long_poll(PurpleConnection* gc, const string& server, const string& key, uint64_t ts)
 {
