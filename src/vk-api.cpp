@@ -17,7 +17,7 @@ void on_vk_call_cb(PurpleHttpConnection* http_conn, PurpleHttpResponse* response
 
 } // End of anonymous namespace
 
-void vk_call_api(PurpleConnection* gc, const char* method_name, const string_map& params,
+void vk_call_api(PurpleConnection* gc, const char* method_name, const CallParams& params,
                  const CallSuccessCb& success_cb, const CallErrorCb& error_cb)
 {
     VkConnData* conn_data = (VkConnData*)purple_connection_get_protocol_data(gc);

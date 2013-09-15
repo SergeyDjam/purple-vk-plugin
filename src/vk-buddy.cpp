@@ -29,7 +29,7 @@ void update_buddy_list(PurpleConnection* gc, const OnUpdateCb& on_update_cb)
     purple_debug_info("prpl-vkcom", "Updating full buddy list\n");
 
     VkConnData* data = (VkConnData*)purple_connection_get_protocol_data(gc);
-    string_map params = { {"user_id", data->uid()}, {"fields", user_fields_param} };
+    CallParams params = { {"user_id", data->uid()}, {"fields", user_fields_param} };
     vk_call_api(gc, "friends.get", params, [=](const picojson::value& result) {
         clean_buddy_list(gc, on_update_buddy_list(gc, result, true));
         if (on_update_cb)
@@ -41,7 +41,7 @@ void update_buddy(PurpleConnection* gc, const string& id, const OnUpdateCb& on_u
 {
     purple_debug_info("prpl-vkcom", "Updating information for buddy %s\n", id.c_str());
 
-    string_map params = { {"user_ids", id}, {"fields", user_fields_param} };
+    CallParams params = { {"user_ids", id}, {"fields", user_fields_param} };
     vk_call_api(gc, "users.get", params, [=](const picojson::value& result) {
         on_update_buddy_list(gc, result, false);
         if (on_update_cb)
@@ -256,7 +256,7 @@ void get_buddy_full_name(PurpleConnection* gc, const string& id, FetchCb success
 {
     purple_debug_info("prpl-vkcom", "Getting full name for %s\n", id.c_str());
 
-    string_map params = { {"user_ids", id}, {"fields", "first_name,second_name"} };
+    CallParams params = { {"user_ids", id}, {"fields", "first_name,second_name"} };
     vk_call_api(gc, "users.get", params, [=](const picojson::value& result) {
         if (!result.is<picojson::array>()) {
             purple_debug_error("prpl-vkcom", "Wrong type returned as users.get call result: %s\n",

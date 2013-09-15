@@ -13,6 +13,7 @@ string get_xml_node_prop(xmlNode* node, const char* tag, const char* default_val
 
 // Returns an x-www-form-urlencoded representation of a set of parameters.
 string urlencode_form(const string_map& params);
+string urlencode_form(const vector<string_pair>& params);
 
 // Returns mapping key -> value from urlencoded form.
 string_map parse_urlencoded_form(const char* encoded);

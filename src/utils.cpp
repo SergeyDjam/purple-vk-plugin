@@ -15,17 +15,34 @@ string get_xml_node_prop(xmlNode* node, const char* tag, const char* default_val
         return prop;
 }
 
-string urlencode_form(const string_map& params)
+namespace
+{
+
+// Generic version of different urlencode_form variants.
+template<typename It>
+string urlencode_form(It first, It last)
 {
     string ret;
-    for (const string_pair& it: params) {
+    for (It it = first; it != last; it++) {
         if (!ret.empty())
             ret += '&';
-        ret += purple_url_encode(it.first.c_str());
+        ret += purple_url_encode(it->first.c_str());
         ret += '=';
-        ret += purple_url_encode(it.second.c_str());
+        ret += purple_url_encode(it->second.c_str());
     }
     return ret;
+}
+
+} // End anonymous namespace
+
+string urlencode_form(const string_map& params)
+{
+    return urlencode_form(params.begin(), params.end());
+}
+
+string urlencode_form(const vector<string_pair>& params)
+{
+    return urlencode_form(params.begin(), params.end());
 }
 
 namespace

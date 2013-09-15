@@ -16,7 +16,6 @@ namespace
 
 // Connects to given Long Poll server and starts reading events from it.
 void request_long_poll(PurpleConnection* gc, const string& server, const string& key, uint64_t ts);
-
 // Disconnects account on Long Poll errors as we do not have anything to do after that really.
 void long_poll_fatal(PurpleConnection* gc);
 
@@ -25,7 +24,7 @@ void long_poll_fatal(PurpleConnection* gc);
 
 void start_long_poll(PurpleConnection* gc)
 {
-    string_map params = { {"use_ssl", "1"}, {"need_pts", "1"} };
+    CallParams params = { {"use_ssl", "1"}, {"need_pts", "1"} };
     vk_call_api(gc, "messages.getLongPollServer", params, [=](const picojson::value& v) {
         if (!v.is<picojson::object>() || !field_is_present<string>(v, "key")
                 || !field_is_present<string>(v, "server") || !field_is_present<double>(v, "ts")) {

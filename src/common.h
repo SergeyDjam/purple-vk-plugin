@@ -15,10 +15,13 @@
 using std::map;
 using std::pair;
 using std::set;
+using std::vector;
 using string = std::string;
 using string_map = map<string, string>;
 using string_pair = pair<string, string>;
 using string_set = set<string>;
+
+using std::make_pair;
 
 // This function type is used for returning errors via callback.
 using ErrorCb = std::function<void()>;
