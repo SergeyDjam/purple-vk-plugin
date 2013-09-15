@@ -8,6 +8,7 @@
 #include "vk-api.h"
 #include "vk-buddy.h"
 #include "vk-common.h"
+#include "vk-longpoll.h"
 #include "vk-message.h"
 #include "utils.h"
 
@@ -84,6 +85,8 @@ void vk_login(PurpleAccount* acct)
         update_buddy_list(gc, [=] {
             update_buddy(gc, data->uid()); // DEBUG DEBUG DEBUG
         });
+
+        start_long_poll(gc);
     }, nullptr);
 }
 

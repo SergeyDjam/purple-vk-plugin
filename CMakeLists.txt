@@ -63,6 +63,8 @@ set(SOURCES
   src/vk-captcha.h
   src/vk-common.cpp
   src/vk-common.h
+  src/vk-longpoll.cpp
+  src/vk-longpoll.h
   src/vk-message.cpp
   src/vk-message.h
   src/vk-plugin.cpp

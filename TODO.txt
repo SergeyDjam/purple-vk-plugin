@@ -1,5 +1,11 @@
- * Add support for sending IM.
+ * Periodically mark received messages as read.
+ * Fix messages which are received between two getLongPollServer calls. Receive
+   unread messages upon login (both problems will be solved with getLongPollHistory?).
+ * Add support for receiving IM attachments.
+ * Replace emoji unicode back with smiles?
  * Add support for loading big avatars in get_info.
+ * Investigate whether friends.getOnline before friends.get in order to
+   get online list as fast as possible.
  * Add support for creating/joining multi-user chats.
  * Support not overwriting client-side aliases and do something graceful with them.
  * Supply a mobile emblem.
@@ -13,3 +19,6 @@
  * Do HTTP retries on timeouts/50x errors?
  * Investigate whether we can side-step captcha requests simply by waiting some timeout and repeating request.
    Looks like this is allowed.
+ * Do something with constant copying of strings and std::functions on lambda capture. This is just ugly.
+   Probably should use std::bind with std::move, but god, this will be ugly. At least, move from std::string
+   to vstring on gcc, so that string copy would not induce malloc in most cases?
