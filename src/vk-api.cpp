@@ -21,6 +21,10 @@ void vk_call_api(PurpleConnection* gc, const char* method_name, const string_map
                  const CallSuccessCb& success_cb, const CallErrorCb& error_cb)
 {
     VkConnData* conn_data = (VkConnData*)purple_connection_get_protocol_data(gc);
+    if (conn_data->is_closing()) {
+        purple_debug_error("prpl-vkcom", "Programming error: API method %s called during logout\n", method_name);
+        return;
+    }
 
     string params_str = urlencode_form(params);
     string method_url = str_format("https://api.vk.com/method/%s?v=5.0&access_token=%s", method_name,

@@ -1,4 +1,5 @@
 #include <cstring>
+#include <debug.h>
 #include <util.h>
 
 #include "vk-common.h"
@@ -102,6 +103,11 @@ void timeout_destroy_cb(void* user_data)
 void timeout_add(PurpleConnection* gc, unsigned milliseconds, const TimeoutCb& callback)
 {
     VkConnData* conn_data = (VkConnData*)purple_connection_get_protocol_data(gc);
+    if (conn_data->is_closing()) {
+        purple_debug_error("prpl-vkcom", "Programming error: timeout_add(%d) called during logout\n", milliseconds);
+        return;
+    }
+
     TimeoutCbData* data = new TimeoutCbData{ callback, conn_data->timeout_ids(), 0};
     data->id = g_timeout_add_full(G_PRIORITY_DEFAULT, milliseconds, timeout_cb, data,
                                   timeout_destroy_cb);
