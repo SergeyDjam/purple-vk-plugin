@@ -58,7 +58,7 @@ void send_im_message_internal(PurpleConnection* gc, const MessageData& message, 
 }
 
 // Add error message to debug log, message window and call error_cb
-void show_error(PurpleConversation* conv, const MessageData& message);
+void show_error(PurpleConnection* gc, const string& uid, const MessageData& message);
 
 PurpleConversation* find_conv_for_uid(PurpleConnection* gc, const string& uid)
 {
@@ -68,22 +68,20 @@ PurpleConversation* find_conv_for_uid(PurpleConnection* gc, const string& uid)
 
 void process_im_error(const picojson::value& error, PurpleConnection* gc, const MessageData& message)
 {
-    PurpleConversation* conv = find_conv_for_uid(gc, message.uid);
-
     if (!error.is<picojson::object>() || !error.contains("error_code")
             || !error.get("error_code").is<double>()) { // Most probably, network timeout.
-        show_error(conv, message);
+        show_error(gc, message.uid, message);
         return;
     }
     int error_code = error.get("error_code").get<double>();
     if (error_code != VK_CAPTCHA_NEEDED) {
-        show_error(conv, message);
+        show_error(gc, message.uid, message);
         return;
     }
     if (!error.contains("captcha_sid") || !error.get("captcha_sid").is<string>()
             || !error.contains("captcha_img") || !error.contains("captcha_img")) {
         purple_debug_error("prpl-vkcom", "Captcha request does not contain captcha_sid or captcha_img");
-        show_error(conv, message);
+        show_error(gc, message.uid, message);
         return;
     }
 
@@ -94,14 +92,15 @@ void process_im_error(const picojson::value& error, PurpleConnection* gc, const 
     request_captcha(gc, captcha_img, [=](const string& captcha_key) {
         send_im_message_internal(gc, message, captcha_sid, captcha_key);
     }, [=] {
-        show_error(conv, message);
+        show_error(gc, message.uid, message);
     });
 }
 
-void show_error(PurpleConversation* conv, const MessageData& message)
+void show_error(PurpleConnection* gc, const string& uid, const MessageData& message)
 {
     purple_debug_error("prpl-vkcom", "Error sending message to %s: %s\n", message.uid.c_str(), message.message.c_str());
 
+    PurpleConversation* conv = find_conv_for_uid(gc, uid);
     if (conv) {
         char* escaped_message = g_markup_escape_text(message.message.c_str(), -1);
         string error_msg = str_format("Error sending message '%s'", escaped_message);
