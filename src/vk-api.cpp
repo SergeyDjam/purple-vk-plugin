@@ -89,7 +89,8 @@ void on_vk_call_cb(PurpleHttpConnection* http_conn, PurpleHttpResponse* response
         return;
     }
 
-    success_cb(root.get("response"));
+    if (success_cb)
+        success_cb(root.get("response"));
 }
 
 void process_error(PurpleHttpConnection* http_conn, const picojson::value& error, const CallSuccessCb& success_cb,
