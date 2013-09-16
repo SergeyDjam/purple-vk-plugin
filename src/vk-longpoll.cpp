@@ -16,10 +16,6 @@
 namespace
 {
 
-// Starts Long Poll connection. If ts != 0, the value received from messages.getLongPollServer is ignored
-// This is used to ensure that we do not miss events when one Long Poll server gives up and the connection
-// to another one is established.
-void start_long_poll_internal(PurpleConnection* gc, uint64_t ts = 0);
 // Connects to given Long Poll server and starts reading events from it.
 void request_long_poll(PurpleConnection* gc, const string& server, const string& key, uint64_t ts);
 // Disconnects account on Long Poll errors as we do not have anything to do after that really.
@@ -27,16 +23,7 @@ void long_poll_fatal(PurpleConnection* gc);
 
 } // End of anonymous namespace
 
-
 void start_long_poll(PurpleConnection* gc)
-{
-    start_long_poll_internal(gc);
-}
-
-namespace
-{
-
-void start_long_poll_internal(PurpleConnection* gc, uint64_t ts)
 {
     CallParams params = { {"use_ssl", "1"} };
     vk_call_api(gc, "messages.getLongPollServer", params, [=](const picojson::value& v) {
@@ -48,26 +35,21 @@ void start_long_poll_internal(PurpleConnection* gc, uint64_t ts)
             return;
         }
 
-        uint64_t received_ts = v.get("ts").get<double>();
-        if (ts != received_ts) {
-            if (ts != 0) {
-                purple_debug_info("prpl-vkcom", "Timestamp, received from messages.LongPollServer:"
-                                  "%llu, old timestamp: %llu", (long long)received_ts, (long long)ts);
-                received_ts = ts;
-            }
-        }
-
-        // First, we update buddy presence and only then start processing events. We won't miss any events
-        // because we already got starting timestamp from server.
-        // TODO: fetch messages here.
+        // First, we update buddy presence and receive unread messages and only then start processing
+        // events. We won't miss any events because we already got starting timestamp from server.
         update_buddy_list(gc, [=] {
-            request_long_poll(gc, v.get("server").get<string>(), v.get("key").get<string>(),
-                              received_ts);
+            receive_unread_messages(gc, [=] {
+                request_long_poll(gc, v.get("server").get<string>(), v.get("key").get<string>(),
+                                  v.get("ts").get<double>());
+            });
         }, true);
     }, [=](const picojson::value&) {
         long_poll_fatal(gc);
     });
 }
+
+namespace
+{
 
 // Reads and processes an event from updates array.
 void process_update(PurpleConnection* gc, const picojson::value& v);
@@ -109,7 +91,7 @@ void request_long_poll(PurpleConnection* gc, const string& server, const string&
 
         if (root.contains("failed")) {
             purple_debug_info("prpl-vkcom", "Long Poll got tired, re-requesting Long Poll server address\n");
-            start_long_poll_internal(gc, ts);
+            start_long_poll(gc);
             return;
         }
 
