@@ -14,3 +14,7 @@ unsigned send_typing_notification(PurpleConnection* gc, const char* uid);
 
 // Marks messages as read.
 void mark_message_as_read(PurpleConnection* gc, const uint64_vec& message_ids);
+
+// Receives unread messages.
+using FinishedCb = std::function<void()>;
+void receive_unread_messages(PurpleConnection* gc, const FinishedCb& finished_cb);

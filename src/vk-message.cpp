@@ -1,4 +1,5 @@
 #include <debug.h>
+#include <server.h>
 #include <util.h>
 
 #include "vk-captcha.h"
@@ -156,3 +157,124 @@ void mark_message_as_read(PurpleConnection* gc, const uint64_vec& message_ids)
     CallParams params = { {"message_ids", ids_str} };
     vk_call_api(gc, "messages.markAsRead", params, [=] (const picojson::value&) {});
 }
+
+namespace
+{
+
+// Two reasons for creating a separate class:
+//  a) messages.get returns answers in reverse time order, so we have to store messages and sort them later;
+//  b) messages.get paginates the answers, so that multiple calls may be required in order to retrieve all
+//     messages.
+// NOTE: This design (along with VkAuthenticator in vk-auth.cpp) seems to bee too heavyweight and Java-ish,
+// but I cannot create any better. Any ideas?
+
+class MessageReceiver
+{
+public:
+    static MessageReceiver* create(PurpleConnection* gc, const FinishedCb& finished_cb);
+
+    void run();
+
+private:
+    struct ReceivedMessage
+    {
+        uint64_t uid;
+        uint64_t mid;
+        string text;
+        uint64_t timestamp;
+    };
+    vector<ReceivedMessage> m_messages;
+
+    PurpleConnection* m_gc;
+    FinishedCb m_finished_cb;
+
+    MessageReceiver(PurpleConnection* gc, const FinishedCb& finished_cb)
+        : m_gc(gc),
+          m_finished_cb(finished_cb)
+    {
+    }
+
+    void receive(int offset);
+    void finish();
+};
+
+} // End of anonymous namespace
+
+void receive_unread_messages(PurpleConnection* gc, const FinishedCb& finished_cb)
+{
+    MessageReceiver* receiver = MessageReceiver::create(gc, finished_cb);
+    receiver->run();
+}
+
+namespace
+{
+
+MessageReceiver* MessageReceiver::create(PurpleConnection* gc, const FinishedCb& finished_cb)
+{
+    return new MessageReceiver(gc, finished_cb);
+}
+
+void MessageReceiver::run()
+{
+    receive(0);
+}
+
+void MessageReceiver::receive(int offset)
+{
+    CallParams params = { {"out", "0"}, {"filters", "1"}, {"offset", str_format("%d", offset)} };
+    vk_call_api(m_gc, "messages.get", params, [=] (const picojson::value& result) {
+        if (!field_is_present<double>(result, "count") || !field_is_present<picojson::array>(result, "items")) {
+            purple_debug_error("prpl-vkcom", "Strange response to messages.get: %s\n", result.serialize().c_str());
+            finish();
+            return;
+        }
+
+        const picojson::array& items = result.get("items").get<picojson::array>();
+        // We ignore "count", simply increasing offset until we receive empty list.
+        if (items.size() == 0) {
+            finish();
+            return;
+        }
+
+        for (const picojson::value& v: items) {
+            if (!field_is_present<double>(v, "user_id") || !field_is_present<double>(v, "date")
+                    || !field_is_present<string>(v, "body") || !field_is_present<double>(v, "id")) {
+                purple_debug_error("prpl-vkcom", "Strange response to messages.get: %s\n", result.serialize().c_str());
+                finish();
+                return;
+            }
+
+            uint64_t uid = v.get("user_id").get<double>();
+            uint64_t mid = v.get("id").get<double>();
+            const string& text = v.get("body").get<string>();
+            uint64_t timestamp = v.get("date").get<double>();
+
+            m_messages.push_back({ uid, mid, text, timestamp });
+        }
+        receive(offset + items.size());
+    }, [=] (const picojson::value&) {
+        finish();
+    });
+}
+
+void MessageReceiver::finish()
+{
+    std::sort(m_messages.begin(), m_messages.end(), [](const ReceivedMessage& a, const ReceivedMessage& b) {
+        return a.timestamp < b.timestamp;
+    });
+
+    uint64_vec message_ids;
+    for (const ReceivedMessage& m: m_messages) {
+        char name[128];
+        sprintf(name, "id%llu", (long long)m.uid);
+        serv_got_im(m_gc, name, m.text.c_str(), PURPLE_MESSAGE_RECV, m.timestamp);
+        message_ids.push_back(m.mid);
+    }
+    mark_message_as_read(m_gc, message_ids);
+
+    if (m_finished_cb)
+        m_finished_cb();
+    delete this;
+}
+
+} // End of anonymous namespace
