@@ -13,7 +13,7 @@ namespace
 {
 
 // Helper struct used to reduce length of function signatures.
-struct MessageData
+struct SendMessage
 {
     string uid;
     string message;
@@ -22,7 +22,7 @@ struct MessageData
 };
 
 // Helper function, used in send_im_message and request_captcha.
-void send_im_message_internal(PurpleConnection* gc, const MessageData& message, const string& captcha_sid = "",
+void send_im_message_internal(PurpleConnection* gc, const SendMessage& message, const string& captcha_sid = "",
                               const string& captcha_key = "");
 
 } // End of anonymous namespace
@@ -44,9 +44,9 @@ namespace
 
 // Process error and call either success_cb or error_cb. The only error which is meaningfully
 // processed is CAPTCHA request.
-void process_im_error(const picojson::value& error, PurpleConnection* gc, const MessageData& message);
+void process_im_error(const picojson::value& error, PurpleConnection* gc, const SendMessage& message);
 
-void send_im_message_internal(PurpleConnection* gc, const MessageData& message, const string& captcha_sid,
+void send_im_message_internal(PurpleConnection* gc, const SendMessage& message, const string& captcha_sid,
                               const string& captcha_key)
 {
     CallParams params = { {"user_id", message.uid}, {"message", message.message}, {"type", "1"} };
@@ -63,7 +63,7 @@ void send_im_message_internal(PurpleConnection* gc, const MessageData& message, 
 }
 
 // Add error message to debug log, message window and call error_cb
-void show_error(PurpleConnection* gc, const string& uid, const MessageData& message);
+void show_error(PurpleConnection* gc, const string& uid, const SendMessage& message);
 
 PurpleConversation* find_conv_for_uid(PurpleConnection* gc, const string& uid)
 {
@@ -71,7 +71,7 @@ PurpleConversation* find_conv_for_uid(PurpleConnection* gc, const string& uid)
                                                  purple_connection_get_account(gc));
 }
 
-void process_im_error(const picojson::value& error, PurpleConnection* gc, const MessageData& message)
+void process_im_error(const picojson::value& error, PurpleConnection* gc, const SendMessage& message)
 {
     if (!error.is<picojson::object>() || !field_is_present<double>(error, "error_code")) {
         // Most probably, network timeout.
@@ -100,7 +100,7 @@ void process_im_error(const picojson::value& error, PurpleConnection* gc, const 
     });
 }
 
-void show_error(PurpleConnection* gc, const string& uid, const MessageData& message)
+void show_error(PurpleConnection* gc, const string& uid, const SendMessage& message)
 {
     purple_debug_error("prpl-vkcom", "Error sending message to %s: %s\n", message.uid.c_str(), message.message.c_str());
 
@@ -128,6 +128,7 @@ unsigned send_typing_notification(PurpleConnection* gc, const char* uid)
     // Resend typing notification in 5 seconds
     return 5;
 }
+
 
 namespace
 {
