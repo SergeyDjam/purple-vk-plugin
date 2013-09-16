@@ -31,7 +31,7 @@ public:
         return m_access_token;
     }
 
-    const string& uid() const
+    uint64 uid() const
     {
         return m_uid;
     }
@@ -60,7 +60,7 @@ private:
     string m_email;
     string m_password;
     string m_access_token;
-    string m_uid;
+    uint64 m_uid;
 
     bool m_closing;
     set<uint> m_timeout_ids;
@@ -69,7 +69,7 @@ private:
 // Data, associated with one buddy. See vk.com for documentation on each field.
 struct VkBuddyData
 {
-    string uid;
+    uint64 uid;
 
     string activity;
     string bdate;
@@ -79,3 +79,8 @@ struct VkBuddyData
     string domain;
     bool is_mobile;
 };
+
+// Functions for converting buddy name to/from uid.
+string buddy_name_from_uid(uint64 uid);
+
+uint64 uid_from_buddy_name(const char* name);

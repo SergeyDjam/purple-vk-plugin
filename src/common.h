@@ -23,9 +23,10 @@ using string_pair = pair<string, string>;
 using string_set = set<string>;
 using string_vec = vector<string>;
 
-using uint64_vec = vector<uint64_t>;
+using uint64 = uint64_t;
+using uint64_vec = vector<uint64>;
 
-using std::make_pair;
+using std::to_string;
 
 // This function type is used for returning errors via callback.
 using ErrorCb = std::function<void()>;

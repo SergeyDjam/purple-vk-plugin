@@ -17,7 +17,7 @@ namespace
 {
 
 // Connects to given Long Poll server and starts reading events from it.
-void request_long_poll(PurpleConnection* gc, const string& server, const string& key, uint64_t ts);
+void request_long_poll(PurpleConnection* gc, const string& server, const string& key, uint64 ts);
 // Disconnects account on Long Poll errors as we do not have anything to do after that really.
 void long_poll_fatal(PurpleConnection* gc);
 
@@ -56,7 +56,7 @@ void process_update(PurpleConnection* gc, const picojson::value& v);
 
 const char* long_poll_url = "https://%s?act=a_check&key=%s&ts=%llu&wait=25&mode=2";
 
-void request_long_poll(PurpleConnection* gc, const string& server, const string& key, uint64_t ts)
+void request_long_poll(PurpleConnection* gc, const string& server, const string& key, uint64 ts)
 {
     VkConnData* conn_data = (VkConnData*)purple_connection_get_protocol_data(gc);
 
@@ -105,7 +105,7 @@ void request_long_poll(PurpleConnection* gc, const string& server, const string&
         for (const picojson::value& v: updates)
             process_update(gc, v);
 
-        uint64_t next_ts = root.get("ts").get<double>();
+        uint64 next_ts = root.get("ts").get<double>();
         request_long_poll(gc, server, key, next_ts);
     });
 }
@@ -188,9 +188,9 @@ void process_message(PurpleConnection* gc, const picojson::value& v)
     if (flags & MESSAGE_FLAGS_OUTBOX)
         return;
 
-    uint64_t mid = v.get(1).get<double>();
-    string uid = v.get(3).to_str();
-    uint64_t timestamp = v.get(4).get<double>();
+    uint64 mid = v.get(1).get<double>();
+    uint64 uid = v.get(3).get<double>();
+    uint64 timestamp = v.get(4).get<double>();
     // NOTE:
     // * The text is simple UTF-8 text (no escaped sequences, no entities like ndash).
     // * The only tag which it may contain is <br> (API v5.0 stopped using <br>, but Long Poll still
@@ -199,9 +199,7 @@ void process_message(PurpleConnection* gc, const picojson::value& v)
     // * Smileys are returned as Unicode emoji (both emoji and pseudocode smileys are accepted on message send).
     const string& text = v.get(6).get<string>();
 
-    string name = "id" + uid;
-    serv_got_im(gc, name.c_str(), text.c_str(), PURPLE_MESSAGE_RECV, timestamp);
-
+    serv_got_im(gc, buddy_name_from_uid(uid).c_str(), text.c_str(), PURPLE_MESSAGE_RECV, timestamp);
     mark_message_as_read(gc, { mid });
 }
 
@@ -212,8 +210,13 @@ void process_online(PurpleConnection* gc, const picojson::value& v, bool online)
                            v.serialize().c_str());
         return;
     }
-    string uid = v.get(1).to_str().substr(1); // Skip "-" in the beginning of uid.
-    string name = "id" + uid;
+    if (v.get(1).get<double>() > 0) {
+        purple_debug_error("prpl-vkcom", "Strange response from Long Poll in updates: %s\n",
+                           v.serialize().c_str());
+        return;
+    }
+    uint64 uid = -v.get(1).get<double>();
+    string name = buddy_name_from_uid(uid);
 
     purple_debug_info("prpl-vkcom", "User %s changed online to %d\n", name.c_str(), online);
 
@@ -240,9 +243,9 @@ void process_typing(PurpleConnection* gc, const picojson::value& v)
                            v.serialize().c_str());
         return;
     }
-    string uid = v.get(1).to_str();
+    uint64 uid = v.get(1).get<double>();
 
-    serv_got_typing(gc, ("id" + uid).c_str(), 6000, PURPLE_TYPING);
+    serv_got_typing(gc, buddy_name_from_uid(uid).c_str(), 6000, PURPLE_TYPING);
 }
 
 void long_poll_fatal(PurpleConnection* gc)

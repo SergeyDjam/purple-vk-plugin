@@ -108,18 +108,14 @@ void vk_close(PurpleConnection* gc)
 
 int vk_send_im(PurpleConnection* gc, const char* to, const char* message, PurpleMessageFlags)
 {
-    // Strip the first two symbols "id" from buddy name
-    assert(to[0] == 'i' && to[1] == 'd');
-    return send_im_message(gc, to + 2, message);
+    return send_im_message(gc, uid_from_buddy_name(to), message);
 }
 
 unsigned int vk_send_typing(PurpleConnection* gc, const char* name, PurpleTypingState state)
 {
     if (state != PURPLE_TYPING)
         return 0;
-    // Strip the first two symbols "id" from buddy name
-    assert(name[0] == 'i' && name[1] == 'd');
-    return send_typing_notification(gc, name + 2);
+    return send_typing_notification(gc, uid_from_buddy_name(name));
 }
 
 // Returns link to vk.com user page
@@ -128,7 +124,7 @@ string get_user_page(const VkBuddyData* data)
     if (!data->domain.empty())
         return str_format("http://vk.com/%s", data->domain.c_str());
     else
-        return str_format("http://vk.com/id%s", data->uid.c_str());
+        return str_format("http://vk.com/id%lld", (long long)data->uid);
 }
 
 // Called when user chooses "Get Info".

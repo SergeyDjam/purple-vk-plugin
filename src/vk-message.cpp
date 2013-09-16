@@ -15,7 +15,7 @@ namespace
 // Helper struct used to reduce length of function signatures.
 struct SendMessage
 {
-    string uid;
+    uint64 uid;
     string message;
     SendSuccessCb success_cb;
     ErrorCb error_cb;
@@ -27,7 +27,7 @@ void send_im_message_internal(PurpleConnection* gc, const SendMessage& message, 
 
 } // End of anonymous namespace
 
-int send_im_message(PurpleConnection* gc, const char* uid, const char* message,
+int send_im_message(PurpleConnection* gc, uint64 uid, const char* message,
                     const SendSuccessCb& success_cb, const ErrorCb& error_cb)
 {
     // NOTE: We de-HTMLify message before sending, because
@@ -49,7 +49,8 @@ void process_im_error(const picojson::value& error, PurpleConnection* gc, const 
 void send_im_message_internal(PurpleConnection* gc, const SendMessage& message, const string& captcha_sid,
                               const string& captcha_key)
 {
-    CallParams params = { {"user_id", message.uid}, {"message", message.message}, {"type", "1"} };
+    CallParams params = { {"user_id", to_string(message.uid)}, {"message", message.message},
+                          {"type", "1"} };
     if (!captcha_sid.empty())
         params.push_back(make_pair("captcha_sid", captcha_sid));
     if (!captcha_key.empty())
@@ -63,11 +64,11 @@ void send_im_message_internal(PurpleConnection* gc, const SendMessage& message, 
 }
 
 // Add error message to debug log, message window and call error_cb
-void show_error(PurpleConnection* gc, const string& uid, const SendMessage& message);
+void show_error(PurpleConnection* gc, uint64 uid, const SendMessage& message);
 
-PurpleConversation* find_conv_for_uid(PurpleConnection* gc, const string& uid)
+PurpleConversation* find_conv_for_uid(PurpleConnection* gc, uint64 uid)
 {
-    return purple_find_conversation_with_account(PURPLE_CONV_TYPE_IM, ("id" + uid).c_str(),
+    return purple_find_conversation_with_account(PURPLE_CONV_TYPE_IM, buddy_name_from_uid(uid).c_str(),
                                                  purple_connection_get_account(gc));
 }
 
@@ -100,9 +101,10 @@ void process_im_error(const picojson::value& error, PurpleConnection* gc, const 
     });
 }
 
-void show_error(PurpleConnection* gc, const string& uid, const SendMessage& message)
+void show_error(PurpleConnection* gc, uint64 uid, const SendMessage& message)
 {
-    purple_debug_error("prpl-vkcom", "Error sending message to %s: %s\n", message.uid.c_str(), message.message.c_str());
+    purple_debug_error("prpl-vkcom", "Error sending message to %lld: %s\n", (long long)message.uid,
+                       message.message.c_str());
 
     PurpleConversation* conv = find_conv_for_uid(gc, uid);
     if (conv) {
@@ -120,9 +122,9 @@ void show_error(PurpleConnection* gc, const string& uid, const SendMessage& mess
 } // End of anonymous namespace
 
 
-unsigned send_typing_notification(PurpleConnection* gc, const char* uid)
+unsigned send_typing_notification(PurpleConnection* gc, uint64 uid)
 {
-    CallParams params = { {"user_id", uid}, {"type", "typing"} };
+    CallParams params = { {"user_id", to_string(uid)}, {"type", "typing"} };
     vk_call_api(gc, "messages.setActivity", params);
 
     // Resend typing notification in 5 seconds
@@ -179,10 +181,10 @@ public:
 private:
     struct ReceivedMessage
     {
-        uint64_t uid;
-        uint64_t mid;
+        uint64 uid;
+        uint64 mid;
         string text;
-        uint64_t timestamp;
+        uint64 timestamp;
     };
     vector<ReceivedMessage> m_messages;
 
@@ -245,10 +247,10 @@ void MessageReceiver::receive(int offset)
                 return;
             }
 
-            uint64_t uid = v.get("user_id").get<double>();
-            uint64_t mid = v.get("id").get<double>();
+            uint64 uid = v.get("user_id").get<double>();
+            uint64 mid = v.get("id").get<double>();
             const string& text = v.get("body").get<string>();
-            uint64_t timestamp = v.get("date").get<double>();
+            uint64 timestamp = v.get("date").get<double>();
 
             m_messages.push_back({ uid, mid, text, timestamp });
         }
