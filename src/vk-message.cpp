@@ -119,6 +119,15 @@ void show_error(PurpleConnection* gc, const string& uid, const MessageData& mess
 } // End of anonymous namespace
 
 
+unsigned send_typing_notification(PurpleConnection* gc, const char* uid)
+{
+    CallParams params = { {"user_id", uid}, {"type", "typing"} };
+    vk_call_api(gc, "messages.setActivity", params);
+
+    // Resend typing notification in 5 seconds
+    return 5;
+}
+
 namespace
 {
 

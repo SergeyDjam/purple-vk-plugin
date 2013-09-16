@@ -113,6 +113,15 @@ int vk_send_im(PurpleConnection* gc, const char* to, const char* message, Purple
     return send_im_message(gc, to + 2, message);
 }
 
+unsigned int vk_send_typing(PurpleConnection* gc, const char* name, PurpleTypingState state)
+{
+    if (state != PURPLE_TYPING)
+        return 0;
+    // Strip the first two symbols "id" from buddy name
+    assert(name[0] == 'i' && name[1] == 'd');
+    return send_typing_notification(gc, name + 2);
+}
+
 // Returns link to vk.com user page
 string get_user_page(const VkBuddyData* data)
 {
@@ -197,7 +206,7 @@ PurplePluginProtocolInfo prpl_info = {
     vk_close, /* close */
     vk_send_im, /* send_im */
     nullptr, /* set_info */
-    nullptr, //    waprpl_send_typing, /* send_typing */
+    vk_send_typing, /* send_typing */
     vk_get_info, /* get_info */
     nullptr, /* set_status */
     nullptr, /* set_idle */
