@@ -29,7 +29,7 @@ void start_long_poll(PurpleConnection* gc)
     vk_call_api(gc, "messages.getLongPollServer", params, [=](const picojson::value& v) {
         if (!v.is<picojson::object>() || !field_is_present<string>(v, "key")
                 || !field_is_present<string>(v, "server") || !field_is_present<double>(v, "ts")) {
-            purple_debug_error("prpl-vkcom", "Strange response to messages.getLongPollServer: %s\n",
+            purple_debug_error("prpl-vkcom", "Strange response from messages.getLongPollServer: %s\n",
                                v.serialize().c_str());
             long_poll_fatal(gc);
             return;
@@ -194,7 +194,7 @@ void process_message(PurpleConnection* gc, const picojson::value& v)
     // NOTE:
     // * The text is simple UTF-8 text (no escaped sequences, no entities like ndash).
     // * The only tag which it may contain is <br> (API v5.0 stopped using <br>, but Long Poll still
-    //   sends <br>). Thankfully, Pidgin readily accepts <br> as place of "\n", so everything works perfectly.
+    //   sends <br>).
     // * Links are sent as plaintext, both Vk.com and Pidgin linkify messages automatically.
     // * Smileys are returned as Unicode emoji (both emoji and pseudocode smileys are accepted on message send).
     string text = v.get(6).get<string>();

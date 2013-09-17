@@ -52,9 +52,9 @@ void send_im_message_internal(PurpleConnection* gc, const SendMessage& message, 
     CallParams params = { {"user_id", to_string(message.uid)}, {"message", message.message},
                           {"type", "1"} };
     if (!captcha_sid.empty())
-        params.push_back(make_pair("captcha_sid", captcha_sid));
+        params.emplace_back("captcha_sid", captcha_sid);
     if (!captcha_key.empty())
-        params.push_back(make_pair("captcha_key", captcha_key));
+        params.emplace_back("captcha_key", captcha_key);
     vk_call_api(gc, "messages.send", params, [=](const picojson::value&) {
         if (message.success_cb)
             message.success_cb();
@@ -103,7 +103,7 @@ void process_im_error(const picojson::value& error, PurpleConnection* gc, const 
 
 void show_error(PurpleConnection* gc, uint64 uid, const SendMessage& message)
 {
-    purple_debug_error("prpl-vkcom", "Error sending message to %lld: %s\n", (long long)message.uid,
+    purple_debug_error("prpl-vkcom", "Error sending message to %llu: %s\n", (unsigned long long)message.uid,
                        message.message.c_str());
 
     PurpleConversation* conv = find_conv_for_uid(gc, uid);
@@ -161,10 +161,10 @@ string str_concat_int(Sep sep, const C& c)
 void mark_message_as_read(PurpleConnection* gc, const uint64_vec& message_ids)
 {
     // Creates string of identifiers, separated with comma.
-    string ids_str = str_concat_int(',', message_ids.begin(), message_ids.end());
+    string ids_str = str_concat_int(',', message_ids);
 
     CallParams params = { {"message_ids", ids_str} };
-    vk_call_api(gc, "messages.markAsRead", params, [=] (const picojson::value&) {});
+    vk_call_api(gc, "messages.markAsRead", params);
 }
 
 namespace
@@ -390,9 +390,7 @@ void MessageReceiver::finish()
 
     uint64_vec message_ids;
     for (const ReceivedMessage& m: m_messages) {
-        char name[128];
-        sprintf(name, "id%llu", (long long)m.uid);
-        serv_got_im(m_gc, name, m.text.c_str(), PURPLE_MESSAGE_RECV, m.timestamp);
+        serv_got_im(m_gc, buddy_name_from_uid(m.uid).c_str(), m.text.c_str(), PURPLE_MESSAGE_RECV, m.timestamp);
         message_ids.push_back(m.mid);
     }
     mark_message_as_read(m_gc, message_ids);

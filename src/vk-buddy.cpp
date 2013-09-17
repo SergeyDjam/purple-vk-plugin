@@ -24,7 +24,7 @@ void clean_buddy_list(PurpleConnection* gc, const string_set& buddy_names);
 const char user_fields_param[] = "first_name,last_name,bdate,education,photo_50,photo_max_orig,"
                                  "online,contacts,can_write_private_message,activity,last_seen,domain";
 
-void update_buddy_list(PurpleConnection* gc, const OnUpdateCb& on_update_cb, bool update_presence)
+void update_buddy_list(PurpleConnection* gc, const BuddyUpdatedCb& on_update_cb, bool update_presence)
 {
     purple_debug_info("prpl-vkcom", "Updating full buddy list\n");
 
@@ -37,9 +37,9 @@ void update_buddy_list(PurpleConnection* gc, const OnUpdateCb& on_update_cb, boo
     });
 }
 
-void update_buddy(PurpleConnection* gc, uint64 uid, const OnUpdateCb& on_update_cb, bool update_presence)
+void update_buddy(PurpleConnection* gc, uint64 uid, const BuddyUpdatedCb& on_update_cb, bool update_presence)
 {
-    purple_debug_info("prpl-vkcom", "Updating information for buddy %lld\n", (long long)uid);
+    purple_debug_info("prpl-vkcom", "Updating information for buddy %llu\n", (unsigned long long)uid);
 
     CallParams params = { {"user_ids", to_string(uid)}, {"fields", user_fields_param} };
     vk_call_api(gc, "users.get", params, [=](const picojson::value& result) {
@@ -259,9 +259,9 @@ string update_buddy_from_object(PurpleConnection* gc, const picojson::value& v, 
 } // End anonymous namespace
 
 
-void get_buddy_full_name(PurpleConnection* gc, uint64 uid, const FetchCb& fetch_cb)
+void get_buddy_full_name(PurpleConnection* gc, uint64 uid, const NameFetchedCb& fetch_cb)
 {
-    purple_debug_info("prpl-vkcom", "Getting full name for %lld\n", (long long)uid);
+    purple_debug_info("prpl-vkcom", "Getting full name for %llu\n", (unsigned long long)uid);
 
     CallParams params = { {"user_ids", to_string(uid)}, {"fields", "first_name,last_name"} };
     vk_call_api(gc, "users.get", params, [=](const picojson::value& result) {
@@ -289,96 +289,3 @@ void get_buddy_full_name(PurpleConnection* gc, uint64 uid, const FetchCb& fetch_
         fetch_cb(first_name + " " + last_name);
     });
 }
-
-
-//namespace
-//{
-
-//// Updates only minimal information on buddies: adds to buddy list if not present, sets alias from
-//// first_name + last_name and sets presence. Used in update_buddies_presence.
-//void partial_update_buddies(PurpleConnection* gc, const string_vec& ids, const OnUpdateCb& update_cb);
-
-//} // End anonymous namespace
-
-//void update_buddies_presence(PurpleConnection* gc, const OnUpdateCb& on_update_cb)
-//{
-//    purple_debug_info("prpl-vkcom", "Updating full buddy list presence\n");
-
-//    CallParams params;
-//    vk_call_api(gc, "friends.getOnline", params, [=](const picojson::value& result) {
-//        if (!result.is<picojson::array>()) {
-//            purple_debug_error("prpl-vkcom", "Wrong type returned as friends.getOnline call result: %s\n",
-//                               result.serialize().c_str());
-//            return;
-//        }
-
-//        PurpleAccount* account = purple_connection_get_account(gc);
-//        // We collect all ids, which are not online and not present in buddy list in order to add
-//        // them a bit later.
-//        string_vec not_present_ids;
-//        for (const picojson::value& v: result.get<picojson::array>()) {
-//            if (!v.is<double>()) {
-//                purple_debug_error("prpl-vkcom", "Wrong type returned as friends.getOnline call result: %s\n",
-//                                   result.serialize().c_str());
-//                continue;
-//            }
-
-//            string uid = v.to_str();
-//            string name = "id" + uid;
-//            PurpleBuddy* buddy = purple_find_buddy(account, name.c_str());
-//            if (buddy)
-//                purple_prpl_got_user_status(account, name.c_str(), "online", nullptr);
-//            else
-//                not_present_ids.push_back(uid);
-//        }
-
-//        if (not_present_ids.empty()) {
-//            if (on_update_cb)
-//                on_update_cb();
-//        } else {
-//            partial_update_buddies(gc, not_present_ids, [=] {
-//                if (on_update_cb)
-//                    on_update_cb();
-//            });
-//        }
-//    });
-//}
-
-//namespace
-//{
-
-//void partial_update_buddies(PurpleConnection* gc, const string_vec& ids, const OnUpdateCb& update_cb)
-//{
-//    string ids_str = str_concat(',', ids.begin(), ids.end());
-//    purple_debug_info("prpl-vkcom", "Getting updates for %s\n", ids_str.c_str());
-
-//    CallParams params = { {"user_ids", ids_str}, {"fields", "first_name,last_name,online"} };
-//    vk_call_api(gc, "users.get", params, [=](const picojson::value& result) {
-//        if (!result.is<picojson::array>()) {
-//            purple_debug_error("prpl-vkcom", "Wrong type returned as users.get call result: %s\n",
-//                               result.serialize().c_str());
-//            return;
-//        }
-
-//        const picojson::array& users = result.get<picojson::array>();
-//        for (const picojson::value& v: users) {
-//            if (!field_is_present<double>(v, "id") || !field_is_present<string>(v, "first_name")
-//                    || !field_is_present<string>(v, "last_name") || !field_is_present<double>(v, "online")) {
-//                purple_debug_error("prpl-vkcom", "Wrong type returned as users.get call result: %s\n",
-//                                   result.serialize().c_str());
-//            }
-
-//            string name = update_buddy_basic(gc, v);
-//            PurpleAccount* account = purple_connection_get_account(gc);
-//            if (v.get("online").get<double>() == 1)
-//                purple_prpl_got_user_status(account, name.c_str(), "online", nullptr);
-//            else
-//                purple_prpl_got_user_status(account, name.c_str(), "offline", nullptr);
-//        }
-
-//        if (update_cb)
-//            update_cb();
-//    });
-//}
-
-//} // End anonymous namespace

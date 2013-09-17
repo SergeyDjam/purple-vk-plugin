@@ -17,6 +17,7 @@ using std::pair;
 using std::set;
 using std::vector;
 
+// NOTE: Should change string alias to __gnu_cxx::vstring;
 using string = std::string;
 using string_map = map<string, string>;
 using string_pair = pair<string, string>;
@@ -70,6 +71,13 @@ inline string str_concat(Sep sep, It first, It last)
         s += *it;
     }
     return s;
+}
+
+// Version of str_concat, which accepts container.
+template<typename Sep, typename C>
+inline string str_concat(Sep sep, const C& c)
+{
+    return str_concat(sep, c.cbegin(), c.cend());
 }
 
 // Converts string to upper-case

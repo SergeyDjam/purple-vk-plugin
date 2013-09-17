@@ -124,7 +124,7 @@ string get_user_page(const VkBuddyData* data)
     if (!data->domain.empty())
         return str_format("http://vk.com/%s", data->domain.c_str());
     else
-        return str_format("http://vk.com/id%lld", (long long)data->uid);
+        return str_format("http://vk.com/id%llu", (unsigned long long)data->uid);
 }
 
 // Called when user chooses "Get Info".

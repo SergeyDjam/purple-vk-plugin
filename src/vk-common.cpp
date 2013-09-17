@@ -35,7 +35,7 @@ void VkConnData::authenticate(PurpleConnection* gc, const AuthSuccessCb& success
 
 string buddy_name_from_uid(uint64 uid)
 {
-    return str_format("id%llu", (long long)uid);
+    return str_format("id%llu", (unsigned long long)uid);
 }
 
 
