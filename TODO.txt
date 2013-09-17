@@ -1,9 +1,10 @@
- * Receive unread messages upon login.
- * Add support for receiving IM attachments.
+ * Add support for showing previews of photo/video attachments.
  * Add support for sending files and/or Vk.com links.
  * Add support for having non-friend contacts (get messages.getDialogs).
+ * Add support for receiving geo-information.
  * Add support for creating/joining multi-user chats.
  * Batch marking received messages as read.
+ * Use exceptions in order to reduce error processing code? Use "get-with-default" wrappers?
  * Replace emoji unicode back with smiles?
  * Add support for loading big avatars in get_info.
  * Support not overwriting client-side aliases and do something graceful with them.
