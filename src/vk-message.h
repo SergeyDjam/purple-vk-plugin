@@ -16,5 +16,8 @@ unsigned send_typing_notification(PurpleConnection* gc, uint64 uid);
 void mark_message_as_read(PurpleConnection* gc, const uint64_vec& message_ids);
 
 // Receives unread messages.
-using FinishedCb = std::function<void()>;
-void receive_unread_messages(PurpleConnection* gc, const FinishedCb& finished_cb);
+using ReceivedCb = std::function<void()>;
+void receive_unread_messages(PurpleConnection* gc, const ReceivedCb& received_cb);
+
+// Receives messages with given ids. Used in vk-longpoll
+void receive_messages(PurpleConnection* gc, const uint64_vec& message_ids, const ReceivedCb& received_cb = nullptr);

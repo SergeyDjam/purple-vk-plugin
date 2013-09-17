@@ -15,7 +15,7 @@ VkConnData::VkConnData(const string& email, const string& password)
 
 void VkConnData::authenticate(PurpleConnection* gc, const AuthSuccessCb& success_cb, const ErrorCb& error_cb)
 {
-    vk_auth_user(gc, m_email, m_password, VK_CLIENT_ID, "friends,messages",
+    vk_auth_user(gc, m_email, m_password, VK_CLIENT_ID, "friends,photos,audio,video,docs,messages",
         [=](const string& access_token, const string& uid) {
             m_access_token = access_token;
             try {

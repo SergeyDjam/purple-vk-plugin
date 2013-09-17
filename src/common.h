@@ -23,6 +23,7 @@ using string_pair = pair<string, string>;
 using string_set = set<string>;
 using string_vec = vector<string>;
 
+using int64 = int64_t;
 using uint64 = uint64_t;
 using uint64_vec = vector<uint64>;
 

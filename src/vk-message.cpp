@@ -150,6 +150,12 @@ string str_concat_int(Sep sep, It first, It last)
     return s;
 }
 
+template<typename Sep, typename C>
+string str_concat_int(Sep sep, const C& c)
+{
+    return str_concat_int(sep, c.cbegin(), c.cend());
+}
+
 } // End of anonymous namespace
 
 void mark_message_as_read(PurpleConnection* gc, const uint64_vec& message_ids)
@@ -174,9 +180,12 @@ namespace
 class MessageReceiver
 {
 public:
-    static MessageReceiver* create(PurpleConnection* gc, const FinishedCb& finished_cb);
+    static MessageReceiver* create(PurpleConnection* gc, const ReceivedCb& recevied_cb);
 
-    void run();
+    // Receives all unread messages.
+    void run_unread();
+    // Receives messages with given ids.
+    void run(const uint64_vec& message_ids);
 
 private:
     struct ReceivedMessage
@@ -189,75 +198,188 @@ private:
     vector<ReceivedMessage> m_messages;
 
     PurpleConnection* m_gc;
-    FinishedCb m_finished_cb;
+    ReceivedCb m_received_cb;
 
-    MessageReceiver(PurpleConnection* gc, const FinishedCb& finished_cb)
+    MessageReceiver(PurpleConnection* gc, const ReceivedCb& received_cb)
         : m_gc(gc),
-          m_finished_cb(finished_cb)
+          m_received_cb(received_cb)
     {
     }
 
-    void receive(int offset);
+    // Runs messages.get from given offset.
+    void run_unread(int offset);
+    // Processes result of messages.get and messages.getById
+    int process_result(const picojson::value& result);
+    // Processes attachments: appends urls etc. to message text.
+    void process_attachments(const picojson::array& items, string& text);
+    // Sorts received messages, sends them to libpurple client and destroys this.
     void finish();
 };
 
 } // End of anonymous namespace
 
-void receive_unread_messages(PurpleConnection* gc, const FinishedCb& finished_cb)
+void receive_unread_messages(PurpleConnection* gc, const ReceivedCb& received_cb)
 {
-    MessageReceiver* receiver = MessageReceiver::create(gc, finished_cb);
-    receiver->run();
+    MessageReceiver* receiver = MessageReceiver::create(gc, received_cb);
+    receiver->run_unread();
+}
+
+void receive_messages(PurpleConnection* gc, const uint64_vec& message_ids, const ReceivedCb& received_cb)
+{
+    MessageReceiver* receiver = MessageReceiver::create(gc, received_cb);
+    receiver->run(message_ids);
 }
 
 namespace
 {
 
-MessageReceiver* MessageReceiver::create(PurpleConnection* gc, const FinishedCb& finished_cb)
+MessageReceiver* MessageReceiver::create(PurpleConnection* gc, const ReceivedCb& recevied_cb)
 {
-    return new MessageReceiver(gc, finished_cb);
+    return new MessageReceiver(gc, recevied_cb);
 }
 
-void MessageReceiver::run()
+void MessageReceiver::run_unread()
 {
-    receive(0);
+    run_unread(0);
 }
 
-void MessageReceiver::receive(int offset)
+void MessageReceiver::run(const uint64_vec& message_ids)
 {
-    CallParams params = { {"out", "0"}, {"filters", "1"}, {"offset", str_format("%d", offset)} };
-    vk_call_api(m_gc, "messages.get", params, [=] (const picojson::value& result) {
-        if (!field_is_present<double>(result, "count") || !field_is_present<picojson::array>(result, "items")) {
-            purple_debug_error("prpl-vkcom", "Strange response to messages.get: %s\n", result.serialize().c_str());
-            finish();
-            return;
-        }
-
-        const picojson::array& items = result.get("items").get<picojson::array>();
-        // We ignore "count", simply increasing offset until we receive empty list.
-        if (items.size() == 0) {
-            finish();
-            return;
-        }
-
-        for (const picojson::value& v: items) {
-            if (!field_is_present<double>(v, "user_id") || !field_is_present<double>(v, "date")
-                    || !field_is_present<string>(v, "body") || !field_is_present<double>(v, "id")) {
-                purple_debug_error("prpl-vkcom", "Strange response to messages.get: %s\n", result.serialize().c_str());
-                finish();
-                return;
-            }
-
-            uint64 uid = v.get("user_id").get<double>();
-            uint64 mid = v.get("id").get<double>();
-            const string& text = v.get("body").get<string>();
-            uint64 timestamp = v.get("date").get<double>();
-
-            m_messages.push_back({ uid, mid, text, timestamp });
-        }
-        receive(offset + items.size());
-    }, [=] (const picojson::value&) {
+    string ids_str = str_concat_int(',', message_ids);
+    CallParams params = { {"message_ids", ids_str} };
+    vk_call_api(m_gc, "messages.getById", params, [=](const picojson::value& result) {
+        process_result(result);
+        finish();
+    }, [=](const picojson::value&) {
         finish();
     });
+}
+
+void MessageReceiver::run_unread(int offset)
+{
+    CallParams params = { {"out", "0"}, {"filters", "1"}, {"offset", str_format("%d", offset)} };
+    vk_call_api(m_gc, "messages.get", params, [=](const picojson::value& result) {
+        int item_count = process_result(result);
+        if (item_count == 0) {
+            // We ignore "count" parameter in result and increase offset until it returns empty list.
+            finish();
+            return;
+        }
+        run_unread(offset + item_count);
+    }, [=](const picojson::value&) {
+        finish();
+    });
+}
+
+int MessageReceiver::process_result(const picojson::value& result)
+{
+    if (!field_is_present<double>(result, "count") || !field_is_present<picojson::array>(result, "items")) {
+        purple_debug_error("prpl-vkcom", "Strange response from messages.get or messages.getById: %s\n",
+                           result.serialize().c_str());
+        return 0;
+    }
+
+    const picojson::array& items = result.get("items").get<picojson::array>();
+    for (const picojson::value& v: items) {
+        if (!field_is_present<double>(v, "user_id") || !field_is_present<double>(v, "date")
+                || !field_is_present<string>(v, "body") || !field_is_present<double>(v, "id")) {
+            purple_debug_error("prpl-vkcom", "Strange response from messages.get or messages.getById: %s\n",
+                               result.serialize().c_str());
+            continue;
+        }
+
+        uint64 uid = v.get("user_id").get<double>();
+        uint64 mid = v.get("id").get<double>();
+        string text = v.get("body").get<string>();
+        uint64 timestamp = v.get("date").get<double>();
+
+        // Process attachments: append information to text.
+        if (field_is_present<picojson::array>(v, "attachments"))
+            process_attachments(v.get("attachments").get<picojson::array>(), text);
+
+        m_messages.push_back({ uid, mid, text, timestamp });
+    }
+    return items.size();
+}
+
+void MessageReceiver::process_attachments(const picojson::array& items, string& text)
+{
+    for (const picojson::value& v: items) {
+        if (!field_is_present<string>(v, "type")) {
+            purple_debug_error("prpl-vkcom", "Strange response from messages.get or messages.getById: %s\n",
+                               v.serialize().c_str());
+            return;
+        }
+        const string& type = v.get("type").get<string>();
+        if (!field_is_present<picojson::object>(v, type)) {
+            purple_debug_error("prpl-vkcom", "Strange response from messages.get or messages.getById: %s\n",
+                               v.serialize().c_str());
+            return;
+        }
+        const picojson::value& fields = v.get(type);
+
+        if (!text.empty())
+            text += '\n';
+
+        if (type == "photo") {
+            if (!field_is_present<double>(fields, "id") || !field_is_present<double>(fields, "owner_id")
+                    || !field_is_present<string>(fields, "text")) {
+                purple_debug_error("prpl-vkcom", "Strange response from messages.get or messages.getById: %s\n",
+                                   v.serialize().c_str());
+                continue;
+            }
+            const uint64 id = fields.get("id").get<double>();
+            const int64 owner_id = fields.get("owner_id").get<double>();
+            const string& photo_text = fields.get("text").get<string>();
+
+            if (!photo_text.empty())
+                text += str_format("<a href='http://vk.com/photo%lld_%llu'>%s</a>", (long long)owner_id,
+                                   (unsigned long long)id, photo_text.c_str());
+            else // Pidgin will linkify automatically, no need for <a href=...
+                text += str_format("http://vk.com/photo%lld_%llu", (long long)owner_id, (unsigned long long)id);
+        } else if (type == "video") {
+            if (!field_is_present<double>(fields, "id") || !field_is_present<double>(fields, "owner_id")
+                    || !field_is_present<string>(fields, "title")) {
+                purple_debug_error("prpl-vkcom", "Strange response from messages.get or messages.getById: %s\n",
+                                   v.serialize().c_str());
+                continue;
+            }
+            const uint64 id = fields.get("id").get<double>();
+            const int64 owner_id = fields.get("owner_id").get<double>();
+            const string& title = fields.get("title").get<string>();
+
+            text += str_format("<a href='http://vk.com/video%lld_%llu'>%s</a>", (long long)owner_id,
+                               (unsigned long long)id, title.c_str());
+        } else if (type == "audio") {
+            if (!field_is_present<string>(fields, "url") || !field_is_present<string>(fields, "artist")
+                    || !field_is_present<string>(fields, "title")) {
+                purple_debug_error("prpl-vkcom", "Strange response from messages.get or messages.getById: %s\n",
+                                   v.serialize().c_str());
+                continue;
+            }
+            const string& url = fields.get("url").get<string>();
+            const string& artist = fields.get("artist").get<string>();
+            const string& title = fields.get("title").get<string>();
+
+            text += str_format("<a href='%s'>%s - %s</a>", url.c_str(), artist.c_str(), title.c_str());
+        } else if (type == "doc") {
+            if (!field_is_present<string>(fields, "url") || !field_is_present<string>(fields, "title")) {
+                purple_debug_error("prpl-vkcom", "Strange response from messages.get or messages.getById: %s\n",
+                                   v.serialize().c_str());
+                continue;
+            }
+            const string& url = fields.get("url").get<string>();
+            const string& title = fields.get("title").get<string>();
+
+            text += str_format("<a href='%s'>%s</a>", url.c_str(), title.c_str());
+        } else {
+            purple_debug_error("prpl-vkcom", "Strange response from messages.get or messages.getById: %s\n",
+                               v.serialize().c_str());
+            text += "\nUnknown attachement type ";
+            text += type;
+            continue;
+        }
+    }
 }
 
 void MessageReceiver::finish()
@@ -275,8 +397,8 @@ void MessageReceiver::finish()
     }
     mark_message_as_read(m_gc, message_ids);
 
-    if (m_finished_cb)
-        m_finished_cb();
+    if (m_received_cb)
+        m_received_cb();
     delete this;
 }
 
