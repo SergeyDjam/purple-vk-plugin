@@ -54,7 +54,7 @@ namespace
 // Reads and processes an event from updates array.
 void process_update(PurpleConnection* gc, const picojson::value& v);
 
-const char* long_poll_url = "https://%s?act=a_check&key=%s&ts=%llu&wait=25&mode=2";
+const char* long_poll_url = "https://%s?act=a_check&key=%s&ts=%llu&wait=25";
 
 void request_long_poll(PurpleConnection* gc, const string& server, const string& key, uint64 ts)
 {
@@ -197,10 +197,26 @@ void process_message(PurpleConnection* gc, const picojson::value& v)
     //   sends <br>). Thankfully, Pidgin readily accepts <br> as place of "\n", so everything works perfectly.
     // * Links are sent as plaintext, both Vk.com and Pidgin linkify messages automatically.
     // * Smileys are returned as Unicode emoji (both emoji and pseudocode smileys are accepted on message send).
-    const string& text = v.get(6).get<string>();
+    string text = v.get(6).get<string>();
+    str_replace(text, "<br>", "\n"); // Replace just in case.
 
-    serv_got_im(gc, buddy_name_from_uid(uid).c_str(), text.c_str(), PURPLE_MESSAGE_RECV, timestamp);
-    mark_message_as_read(gc, { mid });
+    // NOTE:
+    //  There are two ways of processing messages with attachments:
+    //   a) either we can get attachement ids (photo ids, audio ids etc.) from Long Poll event and get information
+    //      via photo.getById et al.
+    //   or b) we can get all the messages with attachments via receive_messages.
+    //  While the first way seems preferable at first, it has quite a number of problems:
+    //   * access to information on private images/documents/etc. (e.g. ones uploaded from Vk.com chat UI)
+    //     is prohibited and we can only show links to the corresponding page;
+    //   * there is no video.getById so we can show no information on video;
+    //   * it takes at least one additional call per message (receive_messages takes exactly one call).
+    if (flags & MESSAGE_FLAG_MEDIA) {
+        receive_messages(gc, { mid });
+    } else {
+        // There are no attachments. Yes, messages with attached documents are also marked as media.
+        serv_got_im(gc, buddy_name_from_uid(uid).c_str(), text.c_str(), PURPLE_MESSAGE_RECV, timestamp);
+        mark_message_as_read(gc, { mid });
+    }
 }
 
 void process_online(PurpleConnection* gc, const picojson::value& v, bool online)
