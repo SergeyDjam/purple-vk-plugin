@@ -290,8 +290,16 @@ int MessageReceiver::process_result(const picojson::value& result)
 
         uint64 uid = v.get("user_id").get<double>();
         uint64 mid = v.get("id").get<double>();
-        string text = v.get("body").get<string>();
         uint64 timestamp = v.get("date").get<double>();
+
+        // NOTE:
+        //  * We must escape text, otherwise we cannot receive comment, containing &amp; or <br> as libpurple
+        //    will wrongfully interpret them as markup.
+        //  * Links are returned as plaintext, linkified by Pidgin etc.
+        //  * Smileys are returned as Unicode emoji (both emoji and pseudocode smileys are accepted on message send).
+        char* escaped = purple_markup_escape_text(v.get("body").get<string>().c_str(), -1);
+        string text = escaped;
+        g_free(escaped);
 
         // Process attachments: append information to text.
         if (field_is_present<picojson::array>(v, "attachments"))
@@ -319,7 +327,7 @@ void MessageReceiver::process_attachments(const picojson::array& items, string& 
         const picojson::value& fields = v.get(type);
 
         if (!text.empty())
-            text += '\n';
+            text += "<br>";
 
         if (type == "photo") {
             if (!field_is_present<double>(fields, "id") || !field_is_present<double>(fields, "owner_id")

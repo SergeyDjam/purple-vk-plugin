@@ -192,13 +192,13 @@ void process_message(PurpleConnection* gc, const picojson::value& v)
     uint64 uid = v.get(3).get<double>();
     uint64 timestamp = v.get(4).get<double>();
     // NOTE:
-    // * The text is simple UTF-8 text (no escaped sequences, no entities like ndash).
-    // * The only tag which it may contain is <br> (API v5.0 stopped using <br>, but Long Poll still
-    //   sends <br>).
+    // * The text is simple UTF-8 text with some HTML leftovers:
+    //   * The only tag which it may contain is <br> (API v5.0 stopped using <br>, but Long Poll still
+    //     sends <br>).
+    //   * &amp; &lt; &gt; &quot; are escaped.
     // * Links are sent as plaintext, both Vk.com and Pidgin linkify messages automatically.
     // * Smileys are returned as Unicode emoji (both emoji and pseudocode smileys are accepted on message send).
     string text = v.get(6).get<string>();
-    str_replace(text, "<br>", "\n"); // Replace just in case.
 
     // NOTE:
     //  There are two ways of processing messages with attachments:
