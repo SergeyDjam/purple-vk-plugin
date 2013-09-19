@@ -160,6 +160,8 @@ string str_concat_int(Sep sep, const C& c)
 
 void mark_message_as_read(PurpleConnection* gc, const uint64_vec& message_ids)
 {
+    if (message_ids.empty())
+        return;
     // Creates string of identifiers, separated with comma.
     string ids_str = str_concat_int(',', message_ids);
 
