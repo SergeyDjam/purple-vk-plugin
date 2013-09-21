@@ -45,7 +45,7 @@ void request_captcha_cancel(CaptchaRequestData* data, PurpleRequestFields*)
 
 void request_captcha(PurpleConnection* gc, const string& captcha_img, const CaptchaInputCb& captcha_input_cb, const ErrorCb& error_cb)
 {
-    http_get(gc, captcha_img.c_str(), [=](PurpleHttpConnection*, PurpleHttpResponse* response) {
+    http_get(gc, captcha_img, [=](PurpleHttpConnection*, PurpleHttpResponse* response) {
         if (!purple_http_response_is_successful(response)) {
             purple_debug_error("prpl-vkcom", "Error while fetching captcha: %s\n",
                                purple_http_response_get_error(response));

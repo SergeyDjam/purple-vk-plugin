@@ -63,7 +63,7 @@ void request_long_poll(PurpleConnection* gc, const string& server, const string&
     string server_url = str_format(long_poll_url, server.c_str(), key.c_str(), ts);
     purple_debug_info("prpl-vkcom", "Connecting to Long Poll %s\n", server_url.c_str());
 
-    http_get(gc, server_url.c_str(), [=](PurpleHttpConnection*, PurpleHttpResponse* response) {
+    http_get(gc, server_url, [=](PurpleHttpConnection*, PurpleHttpResponse* response) {
         // Connection has been cancelled due to account being disconnected.
         if (conn_data->is_closing())
             return;

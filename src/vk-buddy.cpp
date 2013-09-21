@@ -247,7 +247,7 @@ string update_buddy_from_object(PurpleConnection* gc, const picojson::value& v, 
     } else {
         const char* checksum = purple_buddy_icons_get_checksum_for_user(buddy);
         if (!checksum || checksum != photo_url) {
-            http_get(gc, photo_url.c_str(), [=](PurpleHttpConnection* http_conn, PurpleHttpResponse* response) {
+            http_get(gc, photo_url, [=](PurpleHttpConnection* http_conn, PurpleHttpResponse* response) {
                 on_fetch_buddy_icon_cb(http_conn, response, account, name);
             });
         }

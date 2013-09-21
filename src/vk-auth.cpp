@@ -149,7 +149,7 @@ void VkAuthenticator::run()
     string url = str_format("http://oauth.vk.com/oauth/authorize?redirect_uri=http://oauth.vk.com/blank.html"
                             "&response_type=token&client_id=%s&scope=%s&display=page", m_client_id.c_str(),
                             m_scope.c_str());
-    http_get(m_gc, url.c_str(), [this](PurpleHttpConnection* http_conn, PurpleHttpResponse* response) {
+    http_get(m_gc, url, [this](PurpleHttpConnection* http_conn, PurpleHttpResponse* response) {
         on_fetch_vk_oauth_form(http_conn, response);
     });
 }

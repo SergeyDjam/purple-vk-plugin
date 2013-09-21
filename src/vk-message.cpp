@@ -425,7 +425,7 @@ void MessageReceiver::download_thumbnail(int message, int thumbnail)
     }
 
     const string& url = m_messages[message].thumbnail_urls[thumbnail];
-    http_get(m_gc, url.c_str(), [=](PurpleHttpConnection*, PurpleHttpResponse* response) {
+    http_get(m_gc, url, [=](PurpleHttpConnection*, PurpleHttpResponse* response) {
         if (!purple_http_response_is_successful(response)) {
             purple_debug_error("prpl-vkcom", "Unable to download thumbnail: %s\n",
                                purple_http_response_get_error(response));

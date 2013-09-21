@@ -18,9 +18,9 @@ void destroy_global_keepalive_pool()
 }
 
 
-PurpleHttpConnection* http_get(PurpleConnection* gc, const char* url, const HttpCallback& callback)
+PurpleHttpConnection* http_get(PurpleConnection* gc, const string& url, const HttpCallback& callback)
 {
-    PurpleHttpRequest* request = purple_http_request_new(url);
+    PurpleHttpRequest* request = purple_http_request_new(url.c_str());
     PurpleHttpConnection* hc = http_request(gc, request, callback);
     purple_http_request_unref(request);
     return hc;

@@ -14,7 +14,7 @@ void destroy_global_keepalive_pool();
 using HttpCallback = std::function<void(PurpleHttpConnection *http_conn, PurpleHttpResponse *response)>;
 
 // Utility function: run purple_http_get with global keep-alive pool and add to global connection set.
-PurpleHttpConnection* http_get(PurpleConnection *gc, const char* url, const HttpCallback& callback);
+PurpleHttpConnection* http_get(PurpleConnection *gc, const string& url, const HttpCallback& callback);
 
 // Utility function: run purple_http_get with global keep-alive pool and add to global connection set.
 PurpleHttpConnection* http_request(PurpleConnection* gc, PurpleHttpRequest* request, const HttpCallback& callback);
