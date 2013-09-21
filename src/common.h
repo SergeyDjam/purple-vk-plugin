@@ -60,6 +60,11 @@ inline void str_replace(string& s, const char* from, const char* to)
     }
 }
 
+inline void str_replace(string& s, const string& from, const string& to)
+{
+    str_replace(s, from.c_str(), to.c_str());
+}
+
 // Concatenates strings into one string, separating them with given separator like "smth".join() in Python.
 template<typename Sep, typename It>
 inline string str_concat(Sep sep, It first, It last)
