@@ -4,6 +4,12 @@
 
 #include <connection.h>
 
+// Initializes regular expression used to parse messages for vk.com links.
+bool init_message_regexps();
+
+// Destroys regexps created in init_message_regexps()
+void destroy_message_regexps();
+
 // Sends IM to a buddy.
 using SendSuccessCb = std::function<void()>;
 int send_im_message(PurpleConnection* gc, uint64 uid, const char* message,

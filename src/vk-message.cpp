@@ -14,14 +14,48 @@
 namespace
 {
 
+// We match on all URLS, beginning with http[s]://vk.com/ and containing photoXXX_YYY or videoXXX_YYY
+// because there are too many ways to open photo/video in vk.com: from search, from newsfeed etc.
+const char attachment_regex_const[] = "https?://vk.com/\\S*(?<attachment>photo-?\\d*_\\d*)"
+                                      "|https?://vk.com/\\S*(?<attachment>video-?\\d*_\\d*)";
+GRegex* attachment_regex = nullptr;
+
+} // End of anonymous namespace
+
+bool init_message_regexps()
+{
+    attachment_regex = g_regex_new(attachment_regex_const, GRegexCompileFlags(G_REGEX_OPTIMIZE | G_REGEX_DUPNAMES),
+                                   GRegexMatchFlags(0), nullptr);
+    if (!attachment_regex) {
+        purple_debug_error("prpl-vkcom", "Unable to compile message attachment regexp, aborting");
+        return false;
+    }
+    return true;
+}
+
+
+void destroy_message_regexps()
+{
+    g_regex_unref(attachment_regex);
+}
+
+namespace
+{
+
 // Helper struct used to reduce length of function signatures.
 struct SendMessage
 {
     uint64 uid;
     string message;
+    string attachments;
     SendSuccessCb success_cb;
     ErrorCb error_cb;
 };
+
+// Prepares a string, which will be passed as "attachment" parameter to message.send. It searches
+// message for instances of "http://vk.com/...photoXXX_YYY..." or "http://vk.com/...videoXXX_YYY..."
+// and appends corresponding attachments.
+string prepare_attachments(const char* message);
 
 // Helper function, used in send_im_message and request_captcha.
 void send_im_message_internal(PurpleConnection* gc, const SendMessage& message, const string& captcha_sid = "",
@@ -36,13 +70,33 @@ int send_im_message(PurpleConnection* gc, uint64 uid, const char* message,
     //  * Vk.com chat is plaintext anyway
     //  * Vk.com accepts '\n' in place of <br>
     char* unescaped_message = purple_unescape_html(message);
-    send_im_message_internal(gc, { uid, unescaped_message, success_cb, error_cb });
+    string attachments = prepare_attachments(unescaped_message);
+    send_im_message_internal(gc, { uid, unescaped_message, attachments, success_cb, error_cb });
     g_free(unescaped_message);
     return 1;
 }
 
 namespace
 {
+
+string prepare_attachments(const char* message)
+{
+    GMatchInfo* match_info;
+    if (!g_regex_match(attachment_regex, message, GRegexMatchFlags(0), &match_info))
+        return string();
+
+    string ret;
+    while (g_match_info_matches(match_info)) {
+        gchar* attach = g_match_info_fetch_named(match_info, "attachment");
+        if (!ret.empty())
+            ret += ',';
+        ret += attach;
+        g_free(attach);
+        g_match_info_next(match_info, NULL);
+    }
+    g_match_info_free(match_info);
+    return ret;
+}
 
 // Process error and call either success_cb or error_cb. The only error which is meaningfully
 // processed is CAPTCHA request.
@@ -52,7 +106,7 @@ void send_im_message_internal(PurpleConnection* gc, const SendMessage& message, 
                               const string& captcha_key)
 {
     CallParams params = { {"user_id", to_string(message.uid)}, {"message", message.message},
-                          {"type", "1"} };
+                          {"attachment", message.attachments }, {"type", "1"} };
     if (!captcha_sid.empty())
         params.emplace_back("captcha_sid", captcha_sid);
     if (!captcha_key.empty())

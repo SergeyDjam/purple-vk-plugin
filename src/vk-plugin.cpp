@@ -265,12 +265,15 @@ PurplePluginProtocolInfo prpl_info = {
 gboolean load_plugin(PurplePlugin*)
 {
     purple_http_init();
+    if (!init_message_regexps())
+        return false;
     return true;
 }
 
 gboolean unload_plugin(PurplePlugin*)
 {
     destroy_global_keepalive_pool();
+    destroy_message_regexps();
     return true;
 }
 
