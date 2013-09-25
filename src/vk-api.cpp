@@ -67,10 +67,11 @@ void on_vk_call_cb(PurpleHttpConnection* http_conn, PurpleHttpResponse* response
     }
 
     const char* response_text = purple_http_response_get_data(response, nullptr);
+    const char* response_text_copy = response_text; // Picojson updates iterators it received.
     picojson::value root;
     string error = picojson::parse(root, response_text, response_text + strlen(response_text));
     if (!error.empty()) {
-        purple_debug_error("prpl-vkcom", "Error parsing %s: %s\n", response_text, error.c_str());
+        purple_debug_error("prpl-vkcom", "Error parsing %s: %s\n", response_text_copy, error.c_str());
         if (error_cb)
             error_cb(picojson::value());
         return;

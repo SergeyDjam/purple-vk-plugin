@@ -76,15 +76,16 @@ void request_long_poll(PurpleConnection* gc, const string& server, const string&
         }
 
         const char* response_text = purple_http_response_get_data(response, nullptr);
+        const char* response_text_copy = response_text; // Picojson updates iterators it received.
         picojson::value root;
         string error = picojson::parse(root, response_text, response_text + strlen(response_text));
         if (!error.empty()) {
-            purple_debug_error("prpl-vkcom", "Error parsing %s: %s\n", response_text, error.c_str());
+            purple_debug_error("prpl-vkcom", "Error parsing %s: %s\n", response_text_copy, error.c_str());
             request_long_poll(gc, server, key, ts);
             return;
         }
         if (!root.is<picojson::object>()) {
-            purple_debug_error("prpl-vkcom", "Strange response from Long Poll: %s\n", response_text);
+            purple_debug_error("prpl-vkcom", "Strange response from Long Poll: %s\n", response_text_copy);
             request_long_poll(gc, server, key, ts);
             return;
         }
@@ -96,7 +97,7 @@ void request_long_poll(PurpleConnection* gc, const string& server, const string&
         }
 
         if (!field_is_present<double>(root, "ts") || !field_is_present<picojson::array>(root, "updates")) {
-            purple_debug_error("prpl-vkcom", "Strange response from Long Poll: %s\n", response_text);
+            purple_debug_error("prpl-vkcom", "Strange response from Long Poll: %s\n", response_text_copy);
             request_long_poll(gc, server, key, ts);
             return;
         }
