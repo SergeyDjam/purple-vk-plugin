@@ -1,5 +1,4 @@
- * Add support for showing previews of photo/video attachments.
- * Add support for sending files and/or Vk.com links.
+ * Add support for sending already stored files (compute md5sum).
  * Add support for having non-friend contacts (get messages.getDialogs).
  * Add support for receiving geo-information.
  * Add support for creating/joining multi-user chats.
