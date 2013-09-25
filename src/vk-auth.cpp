@@ -25,7 +25,7 @@ xmlNode* find_form_element(xmlDoc* doc);
 // Finds HTML form (it must be the only one) in the document and return its parameters.
 HtmlForm find_html_form(xmlDoc* doc);
 // Returns POST headers for given url and data to be sent in x-www-form-urlencoded
-PurpleHttpRequest* make_form_request(const HtmlForm& form);
+PurpleHttpRequest* prepare_form_request(const HtmlForm& form);
 
 xmlNode* find_form_element(xmlDoc* doc)
 {
@@ -74,7 +74,7 @@ HtmlForm find_html_form(xmlDoc* doc)
     return ret;
 }
 
-PurpleHttpRequest* make_form_request(const HtmlForm& form)
+PurpleHttpRequest* prepare_form_request(const HtmlForm& form)
 {
     PurpleHttpRequest* req = purple_http_request_new(form.action_url.c_str());
 
@@ -121,6 +121,10 @@ private:
           m_scope(scope),
           m_success_cb(success_cb),
           m_error_cb(error_cb)
+    {
+    }
+
+    ~VkAuthenticator()
     {
     }
 
@@ -211,7 +215,7 @@ void VkAuthenticator::on_fetch_vk_oauth_form(PurpleHttpConnection* http_conn, Pu
         return;
     }
 
-    PurpleHttpRequest* request = make_form_request(form);
+    PurpleHttpRequest* request = prepare_form_request(form);
     http_request_copy_cookie_jar(request, http_conn);
     http_request_update_on_redirect(m_gc, request, [this](PurpleHttpConnection* new_conn, PurpleHttpResponse* new_response) {
         on_fetch_vk_confirmation_form(new_conn, new_response);
@@ -256,7 +260,7 @@ void VkAuthenticator::on_fetch_vk_confirmation_form(PurpleHttpConnection* http_c
         return;
     }
 
-    PurpleHttpRequest* request = make_form_request(form);
+    PurpleHttpRequest* request = prepare_form_request(form);
     http_request_copy_cookie_jar(request, http_conn);
     http_request_update_on_redirect(m_gc, request, [this](PurpleHttpConnection* new_conn, PurpleHttpResponse* new_response) {
         on_fetch_vk_access_token(new_conn, new_response);

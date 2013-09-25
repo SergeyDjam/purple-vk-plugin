@@ -275,6 +275,10 @@ private:
     {
     }
 
+    ~MessageReceiver()
+    {
+    }
+
     // Runs messages.get from given offset.
     void run_unread(int offset);
     // Processes result of messages.get and messages.getById
@@ -284,7 +288,7 @@ private:
     // Downloads the given thumbnail for given message, modifies corresponding message text
     // and calls either next download_thumbnail() or finish(). message is index into m_messages,
     // thumbnail is index into thumbnail_urls.
-    void download_thumbnail(int message, int thumbnail);
+    void download_thumbnail(size_t message, size_t thumbnail);
     // Sorts received messages, sends them to libpurple client and destroys this.
     void finish();
 };
@@ -472,13 +476,13 @@ void MessageReceiver::process_attachments(const picojson::array& items, Received
     }
 }
 
-void MessageReceiver::download_thumbnail(int message, int thumbnail)
+void MessageReceiver::download_thumbnail(size_t message, size_t thumbnail)
 {
-    if (message >= int(m_messages.size())) {
+    if (message >= m_messages.size()) {
         finish();
         return;
     }
-    if (thumbnail >= int(m_messages[message].thumbnail_urls.size())) {
+    if (thumbnail >= m_messages[message].thumbnail_urls.size()) {
         download_thumbnail(message + 1, 0);
         return;
     }
