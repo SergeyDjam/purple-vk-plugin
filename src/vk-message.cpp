@@ -403,7 +403,8 @@ void MessageReceiver::process_attachments(const picojson::array& items, Received
         }
         const picojson::value& fields = v.get(type);
 
-        message.text += "<br>";
+        if (!message.text.empty())
+            message.text += "<br>";
 
         if (type == "photo") {
             if (!field_is_present<double>(fields, "id") || !field_is_present<double>(fields, "owner_id")
