@@ -8,6 +8,7 @@
 #include "vk-api.h"
 #include "vk-buddy.h"
 #include "vk-common.h"
+#include "vk-filexfer.h"
 #include "vk-longpoll.h"
 #include "vk-message.h"
 #include "utils.h"
@@ -165,6 +166,25 @@ void vk_buddy_free(PurpleBuddy* buddy)
     delete data;
 }
 
+gboolean vk_can_receive_file(PurpleConnection*, const char*)
+{
+    return true;
+}
+
+PurpleXfer* vk_new_xfer(PurpleConnection* gc, const char* who)
+{
+    return new_xfer(gc, uid_from_buddy_name(who));
+}
+
+void vk_send_file(PurpleConnection* gc, const char* who, const char* filename)
+{
+    PurpleXfer* xfer = vk_new_xfer(gc, who);
+    if (filename)
+        purple_xfer_request_accepted(xfer, filename);
+    else
+        purple_xfer_request(xfer);
+}
+
 gboolean vk_offline_message(const PurpleBuddy*)
 {
     return true;
@@ -241,9 +261,9 @@ PurplePluginProtocolInfo prpl_info = {
     nullptr, /* roomlist_get_list */
     nullptr, /* roomlist_cancel */
     nullptr, /* roomlist_expand_category */
-    nullptr, //    waprpl_can_receive_file, /* can_receive_file */
-    nullptr, //    waprpl_send_file, /* send_file */
-    nullptr, //    waprpl_new_xfer, /* new_xfer */
+    vk_can_receive_file, /* can_receive_file */
+    vk_send_file, /* send_file */
+    vk_new_xfer, /* new_xfer */
     vk_offline_message, /* offline_message */
     nullptr, /* whiteboard_prpl_ops */
     nullptr, /* send_raw */

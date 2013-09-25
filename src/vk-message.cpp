@@ -76,6 +76,11 @@ int send_im_message(PurpleConnection* gc, uint64 uid, const char* message,
     return 1;
 }
 
+void send_im_attachment(PurpleConnection* gc, uint64 uid, const string& attachment)
+{
+    send_im_message_internal(gc, { uid, "", attachment, nullptr, nullptr });
+}
+
 namespace
 {
 
