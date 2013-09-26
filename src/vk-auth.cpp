@@ -6,7 +6,7 @@
 #include "contrib/purple/http.h"
 
 #include "httputils.h"
-#include "utils.h"
+#include "miscutils.h"
 #include "vk-auth.h"
 
 namespace

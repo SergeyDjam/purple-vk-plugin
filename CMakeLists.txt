@@ -53,6 +53,8 @@ set(SOURCES
   src/common.h
   src/httputils.cpp
   src/httputils.h
+  src/miscutils.cpp
+  src/miscutils.h
   src/vk-api.cpp
   src/vk-api.h
   src/vk-auth.cpp
@@ -70,8 +72,8 @@ set(SOURCES
   src/vk-message.cpp
   src/vk-message.h
   src/vk-plugin.cpp
-  src/utils.cpp
-  src/utils.h
+  src/vk-utils.cpp
+  src/vk-utils.h
 
   src/contrib/purple/http.c
   src/contrib/purple/http.h

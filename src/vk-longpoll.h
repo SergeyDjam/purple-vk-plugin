@@ -1,3 +1,5 @@
+// Long poll: receiving messages and user status changes.
+
 #pragma once
 
 #include <connection.h>

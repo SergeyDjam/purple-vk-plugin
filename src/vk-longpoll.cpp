@@ -5,11 +5,11 @@
 #include <server.h>
 
 #include "httputils.h"
+#include "miscutils.h"
 #include "vk-api.h"
 #include "vk-buddy.h"
 #include "vk-common.h"
 #include "vk-message.h"
-#include "utils.h"
 
 #include "vk-longpoll.h"
 

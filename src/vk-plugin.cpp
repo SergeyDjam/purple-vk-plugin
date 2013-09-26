@@ -5,13 +5,13 @@
 #include <version.h>
 
 #include "httputils.h"
+#include "miscutils.h"
 #include "vk-api.h"
 #include "vk-buddy.h"
 #include "vk-common.h"
 #include "vk-filexfer.h"
 #include "vk-longpoll.h"
 #include "vk-message.h"
-#include "utils.h"
 
 
 const char* vk_list_icon(PurpleAccount*, PurpleBuddy*)
@@ -285,15 +285,11 @@ PurplePluginProtocolInfo prpl_info = {
 gboolean load_plugin(PurplePlugin*)
 {
     purple_http_init();
-    if (!init_vkcom_regexps())
-        return false;
     return true;
 }
 
 gboolean unload_plugin(PurplePlugin*)
 {
-    destroy_global_keepalive_pool();
-    destroy_vkcom_regexps();
     return true;
 }
 

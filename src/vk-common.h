@@ -1,3 +1,5 @@
+// Common data structures for Vk.com interaction.
+
 #pragma once
 
 #include "common.h"
@@ -84,17 +86,3 @@ struct VkBuddyData
 string buddy_name_from_uid(uint64 uid);
 
 uint64 uid_from_buddy_name(const char* name);
-
-
-// Functions for converting vk.com url into string, which can be used as part of message
-// attachment
-
-// Initializes regular expression used to parse messages for vk.com links.
-bool init_vkcom_regexps();
-
-// Destroys regexps created in init_message_regexps()
-void destroy_vkcom_regexps();
-
-// Finds links to photo/video/docs on vk.com and returns attachment string, describing them
-// as required by message.send API call.
-string parse_vkcom_attachments(const char* message);

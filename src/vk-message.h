@@ -1,3 +1,5 @@
+// Sending and receiving messages, marking messages as read.
+
 #pragma once
 
 #include "common.h"

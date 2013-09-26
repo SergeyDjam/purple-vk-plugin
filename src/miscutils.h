@@ -1,3 +1,5 @@
+// Miscellaneous utilities
+
 #pragma once
 
 #include "common.h"

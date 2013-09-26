@@ -1,3 +1,5 @@
+// Utility functions for making HTTP requests.
+
 #pragma once
 
 #include "common.h"
@@ -6,9 +8,6 @@
 
 // Returns the keep-alive pool (one for the plugin).
 PurpleHttpKeepalivePool* get_global_keepalive_pool();
-
-// Destroys the keep-alive pool (must be done in the plugin finalization).
-void destroy_global_keepalive_pool();
 
 
 using HttpCallback = std::function<void(PurpleHttpConnection *http_conn, PurpleHttpResponse *response)>;

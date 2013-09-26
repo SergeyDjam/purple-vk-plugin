@@ -1,3 +1,6 @@
+// Common header, should be included in every file, contains the most basic
+// data structures and algorithms.
+
 #pragma once
 
 #include <algorithm>
@@ -32,6 +35,24 @@ using std::to_string;
 
 // This function type is used for returning errors via callback.
 using ErrorCb = std::function<void()>;
+
+// A very simple object, which calls given function upon termination.
+class OnExit
+{
+public:
+    OnExit(std::function<void()> deleter)
+        : m_deleter(deleter)
+    {
+    }
+
+    ~OnExit()
+    {
+        m_deleter();
+    }
+
+private:
+    std::function<void(void)> m_deleter;
+};
 
 // Miscellaneous string functions
 

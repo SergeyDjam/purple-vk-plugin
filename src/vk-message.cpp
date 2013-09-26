@@ -4,12 +4,15 @@
 #include <util.h>
 
 #include "httputils.h"
+#include "miscutils.h"
 #include "vk-captcha.h"
 #include "vk-common.h"
+#include "vk-filexfer.h"
 #include "vk-message.h"
-#include "utils.h"
+#include "vk-utils.h"
 
 #include "vk-api.h"
+
 
 namespace
 {

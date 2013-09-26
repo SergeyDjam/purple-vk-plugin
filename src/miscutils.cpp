@@ -4,7 +4,7 @@
 
 #include "vk-common.h"
 
-#include "utils.h"
+#include "miscutils.h"
 
 string get_xml_node_prop(xmlNode* node, const char* tag, const char* default_value)
 {

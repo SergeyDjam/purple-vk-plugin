@@ -1,3 +1,5 @@
+// Buddies and buddy list management
+
 #pragma once
 
 #include "common.h"

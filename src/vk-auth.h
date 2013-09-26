@@ -1,3 +1,5 @@
+// Vk.com authentication.
+
 #pragma once
 
 #include <connection.h>

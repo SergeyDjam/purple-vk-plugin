@@ -1,3 +1,5 @@
+// Vk.com API calling
+
 #pragma once
 
 #include "common.h"

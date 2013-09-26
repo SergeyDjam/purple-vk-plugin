@@ -1,3 +1,5 @@
+// User CAPTCHA input request.
+
 #pragma once
 
 #include "common.h"

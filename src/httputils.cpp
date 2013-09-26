@@ -1,20 +1,16 @@
 #include "httputils.h"
 
-PurpleHttpKeepalivePool* keepalive_pool = nullptr;
-
 PurpleHttpKeepalivePool* get_global_keepalive_pool()
 {
+    static PurpleHttpKeepalivePool* keepalive_pool = nullptr;
+    static OnExit keepalive_pool_deleter([=] {
+        if (keepalive_pool)
+            purple_http_keepalive_pool_unref(keepalive_pool);
+    });
+
     if (!keepalive_pool)
         keepalive_pool = purple_http_keepalive_pool_new();
     return keepalive_pool;
-}
-
-void destroy_global_keepalive_pool()
-{
-    if (keepalive_pool) {
-        purple_http_keepalive_pool_unref(keepalive_pool);
-        keepalive_pool = nullptr;
-    }
 }
 
 
