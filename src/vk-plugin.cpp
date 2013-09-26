@@ -285,7 +285,7 @@ PurplePluginProtocolInfo prpl_info = {
 gboolean load_plugin(PurplePlugin*)
 {
     purple_http_init();
-    if (!init_message_regexps())
+    if (!init_vkcom_regexps())
         return false;
     return true;
 }
@@ -293,7 +293,7 @@ gboolean load_plugin(PurplePlugin*)
 gboolean unload_plugin(PurplePlugin*)
 {
     destroy_global_keepalive_pool();
-    destroy_message_regexps();
+    destroy_vkcom_regexps();
     return true;
 }
 

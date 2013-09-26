@@ -73,9 +73,6 @@ private:
 // There seems to be no reason to call purple_xfer_start, so let's skip it.
 void xfer_init(PurpleXfer* xfer);
 
-// Sends message with document with url doc_url as an attachment to uid.
-void send_doc_with_url(PurpleConnection* gc, uint64 uid, const string& doc_url);
-
 } // End of anonymous namespace
 
 PurpleXfer* new_xfer(PurpleConnection* gc, uint64 uid)
@@ -84,7 +81,8 @@ PurpleXfer* new_xfer(PurpleConnection* gc, uint64 uid)
                                        buddy_name_from_uid(uid).c_str());
 
     XferData* xfer_data = new XferData(xfer, [=](const string& doc_url) {
-        send_doc_with_url(gc, uid, doc_url);
+        string attachment = parse_vkcom_attachments(doc_url.c_str());
+        send_im_attachment(gc, uid, attachment);
     });
     xfer->data = xfer_data;
 
@@ -295,51 +293,6 @@ void save_doc(PurpleXfer* xfer, const string& file)
         purple_debug_error("prpl-vkcom", "Received an error from docs.save: %s\n", error.serialize().c_str());
         xfer_data->cancel_remote();
     });
-}
-
-// Parses doc_url. Returns false if parsing failed. We expect doc_url to be in the form
-// http://domain/doc{doc_id}?...&hash={hash}?...
-bool parse_doc_url(const string& doc_url, string& doc_id, string& hash)
-{
-    size_t start = doc_url.find("/doc");
-    if (start == string::npos)
-        return false;
-    start++; // Skip '/'
-
-    size_t end = doc_url.find('?', start);
-    if (end == string::npos)
-        return false;
-    doc_id = doc_url.substr(start, end - start);
-    if (doc_id.find("_") == string::npos)
-        return false;
-
-    start = doc_url.find("hash=", end);
-    if (start == string::npos)
-        return false;
-    start += 5; // Skip 'hash='
-
-    end = doc_url.find("&", start);
-    if (end == string::npos)
-        return false;
-    hash = doc_url.substr(start, end - start);
-    return true;
-}
-
-void send_doc_with_url(PurpleConnection* gc, uint64 uid, const string& doc_url)
-{
-    string doc_id;
-    string hash;
-
-    // NOTE: We have to parse doc_url because Vk.com does not send us access_key for the document.
-    if (!parse_doc_url(doc_url, doc_id, hash)) {
-        purple_debug_error("prpl-vkcom", "Strange doc url: %s\n", doc_url.c_str());
-        // We send a message with plaintext doc URL as a last resort.
-        send_im_message(gc, uid, doc_url.c_str());
-        return;
-    }
-
-    string attachment = str_format("%s_%s", doc_id.c_str(), hash.c_str());
-    send_im_attachment(gc, uid, attachment);
 }
 
 } // End of anonymous namespace
