@@ -1,17 +1,19 @@
 #include <debug.h>
 
+#include "httputils.h"
+
 #include "vk-utils.h"
 
 namespace
 {
 
-// We match on all URLS, beginning with http[s]://vk.com/ and containing photoXXX_YYY or videoXXX_YYY
+// We match on all URLs, beginning with http[s]://vk.com/ and containing photoXXX_YYY or videoXXX_YYY
 // because there are too many ways to open photo/video in vk.com: from search, from newsfeed etc.
+
 #define VK_COM_URL(type) "https?://vk.com/\\S*(?<attachment>" type "-?\\d*_\\d*)\\S*?(\\Whash=(?<hash>\\w+))?"
 const char attachment_regex_const[] = VK_COM_URL("photo") "|" VK_COM_URL("video") "|" VK_COM_URL("doc");
 
 } // End of anonymous namespace
-
 
 string parse_vkcom_attachments(const string& message)
 {

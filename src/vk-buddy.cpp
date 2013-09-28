@@ -1,11 +1,11 @@
-#include "vk-buddy.h"
-
 #include <debug.h>
 
 #include "httputils.h"
 #include "miscutils.h"
 #include "vk-api.h"
 #include "vk-common.h"
+
+#include "vk-buddy.h"
 
 namespace
 {

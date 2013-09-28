@@ -3,10 +3,9 @@
 #include <libxml/HTMLparser.h>
 #include <libxml/xpath.h>
 
-#include "contrib/purple/http.h"
-
 #include "httputils.h"
 #include "miscutils.h"
+
 #include "vk-auth.h"
 
 namespace

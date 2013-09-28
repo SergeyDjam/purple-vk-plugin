@@ -6,12 +6,10 @@
 #include <algorithm>
 #include <cassert>
 #include <cstdarg>
-#include <cstdio>
 #include <cstring>
 #include <functional>
 #include <map>
 #include <set>
-#include <stdexcept>
 #include <string>
 
 // Let's make using most popular names easier.
@@ -27,6 +25,7 @@ using string_pair = pair<string, string>;
 using string_set = set<string>;
 using string_vec = vector<string>;
 
+using int_vec = vector<int>;
 using int64 = int64_t;
 using uint64 = uint64_t;
 using uint64_vec = vector<uint64>;

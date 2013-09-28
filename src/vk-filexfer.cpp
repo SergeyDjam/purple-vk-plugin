@@ -1,16 +1,13 @@
-#include "vk-filexfer.h"
-
 #include <debug.h>
-#include <gio/gio.h>
-#include <random>
 
-#include "httputils.h"
 #include "miscutils.h"
 #include "vk-api.h"
 #include "vk-common.h"
 #include "vk-message-send.h"
 #include "vk-upload.h"
 #include "vk-utils.h"
+
+#include "vk-filexfer.h"
 
 namespace
 {

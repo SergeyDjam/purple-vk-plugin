@@ -6,5 +6,5 @@
 
 #include <connection.h>
 
-// Initializes and starts PurpleXfer for trasnferring document to particular user.
+// Initializes and starts PurpleXfer for trasnferring document to particular user. Used for "Send File".
 PurpleXfer* new_xfer(PurpleConnection* gc, uint64 uid);

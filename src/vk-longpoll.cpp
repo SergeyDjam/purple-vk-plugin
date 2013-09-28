@@ -37,6 +37,14 @@ void start_long_poll(PurpleConnection* gc)
 
         // First, we update buddy presence and receive unread messages and only then start processing
         // events. We won't miss any events because we already got starting timestamp from server.
+        // We never process one message two times, because we keep last_msg_id and ignore received
+        // message events with equal or lesser id (this can happen if user sends the message after
+        // receiving answer from getLongPollServer but before the call to receive_messages).
+        //
+        // NOTE: messages.getLongPollHistory API is usually recommended as a way of getting messages
+        // between long polls but I cannot understand, why does this API even exist apart
+        // from "deleting message" and "setting message flag" events? The "message received" events
+        // are fully covered by message.get API
         update_buddy_list(gc, [=] {
             receive_unread_messages(gc, [=] {
                 request_long_poll(gc, v.get("server").get<string>(), v.get("key").get<string>(),
