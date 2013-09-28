@@ -8,8 +8,8 @@
 #include "miscutils.h"
 #include "vk-api.h"
 #include "vk-common.h"
+#include "vk-message-send.h"
 #include "vk-upload.h"
-#include "vk-message.h"
 #include "vk-utils.h"
 
 namespace

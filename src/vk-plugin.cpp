@@ -11,7 +11,7 @@
 #include "vk-common.h"
 #include "vk-filexfer.h"
 #include "vk-longpoll.h"
-#include "vk-message.h"
+#include "vk-message-send.h"
 
 
 const char* vk_list_icon(PurpleAccount*, PurpleBuddy*)

@@ -69,8 +69,10 @@ set(SOURCES
   src/vk-filexfer.h
   src/vk-longpoll.cpp
   src/vk-longpoll.h
-  src/vk-message.cpp
-  src/vk-message.h
+  src/vk-message-recv.cpp
+  src/vk-message-recv.h
+  src/vk-message-send.cpp
+  src/vk-message-send.h
   src/vk-plugin.cpp
   src/vk-upload.cpp
   src/vk-upload.h

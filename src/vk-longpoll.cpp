@@ -9,7 +9,7 @@
 #include "vk-api.h"
 #include "vk-buddy.h"
 #include "vk-common.h"
-#include "vk-message.h"
+#include "vk-message-recv.h"
 
 #include "vk-longpoll.h"
 
