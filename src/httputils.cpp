@@ -1,18 +1,25 @@
 #include "httputils.h"
 
+namespace
+{
+
+PurpleHttpKeepalivePool* keepalive_pool = nullptr;
+
+// Returns global keep-alive pool for all connection in the plugin.
 PurpleHttpKeepalivePool* get_global_keepalive_pool()
 {
-    static PurpleHttpKeepalivePool* keepalive_pool = nullptr;
-    static OnExit keepalive_pool_deleter([=] {
-        if (keepalive_pool)
-            purple_http_keepalive_pool_unref(keepalive_pool);
-    });
-
     if (!keepalive_pool)
         keepalive_pool = purple_http_keepalive_pool_new();
     return keepalive_pool;
 }
 
+} // End of anonymous namespace
+
+void destroy_keepalive_pool()
+{
+    if (keepalive_pool)
+        purple_http_keepalive_pool_unref(keepalive_pool);
+}
 
 PurpleHttpConnection* http_get(PurpleConnection* gc, const string& url, const HttpCallback& callback)
 {

@@ -290,6 +290,7 @@ gboolean load_plugin(PurplePlugin*)
 
 gboolean unload_plugin(PurplePlugin*)
 {
+    destroy_keepalive_pool();
     return true;
 }
 

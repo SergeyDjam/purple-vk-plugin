@@ -6,9 +6,9 @@
 
 #include "contrib/purple/http.h"
 
-// Returns the keep-alive pool (one for the plugin).
-PurpleHttpKeepalivePool* get_global_keepalive_pool();
-
+// Destroys global keepalive pool, which is used by all connections made by the plugin. Must be called
+// in unload_plugin.
+void destroy_keepalive_pool();
 
 using HttpCallback = std::function<void(PurpleHttpConnection *http_conn, PurpleHttpResponse *response)>;
 
