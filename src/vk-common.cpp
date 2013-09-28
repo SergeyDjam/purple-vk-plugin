@@ -24,7 +24,7 @@ void VkConnData::authenticate(PurpleConnection* gc, const AuthSuccessCb& success
 #pragma GCC diagnostic ignored "-fpermissive" // catch (...) makes GCC 4.7.2 return strange error, fixed in later GCCs
             } catch (...) {
 #pragma GCC diagnostic pop
-                purple_debug_error("prpl-vkcom", "Error converting uid %s to integer\n", uid.c_str());
+                purple_debug_error("prpl-vkcom", "Error converting uid %s to integer\n", uid.data());
                 if (error_cb)
                     error_cb();
             }

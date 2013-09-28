@@ -24,7 +24,7 @@ void xfer_init(PurpleXfer* xfer);
 PurpleXfer* new_xfer(PurpleConnection* gc, uint64 uid)
 {
     PurpleXfer* xfer = purple_xfer_new(purple_connection_get_account(gc), PURPLE_XFER_SEND,
-                                       buddy_name_from_uid(uid).c_str());
+                                       buddy_name_from_uid(uid).data());
 
     xfer->data = new uint64(uid);
 

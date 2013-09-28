@@ -29,8 +29,8 @@ string parse_vkcom_attachments(const string& message)
         }
     }
     GMatchInfo* match_info;
-    if (!g_regex_match(attachment_regex, message.c_str(), GRegexMatchFlags(0), &match_info))
-        return string();
+    if (!g_regex_match(attachment_regex, message.data(), GRegexMatchFlags(0), &match_info))
+        return "";
 
     string ret;
     while (g_match_info_matches(match_info)) {

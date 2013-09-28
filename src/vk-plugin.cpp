@@ -43,7 +43,7 @@ char* vk_status_text(PurpleBuddy* buddy)
             return nullptr;
         if (data->activity.empty())
             return nullptr;
-        return g_markup_escape_text(data->activity.c_str(), -1);
+        return g_markup_escape_text(data->activity.data(), -1);
     } else {
         return nullptr;
     }
@@ -57,7 +57,7 @@ void vk_tooltip_text(PurpleBuddy* buddy, PurpleNotifyUserInfo* info, gboolean)
         return;
 
     if (!data->activity.empty())
-        purple_notify_user_info_add_pair_plaintext(info, "Status", data->activity.c_str());
+        purple_notify_user_info_add_pair_plaintext(info, "Status", data->activity.data());
     if (data->is_mobile)
         purple_notify_user_info_add_pair_plaintext(info, "Uses mobile client", nullptr);
 }
@@ -78,7 +78,7 @@ void vk_login(PurpleAccount* acct)
         const char* alias = purple_account_get_alias(account);
         if (!alias || !alias[0]) {
             get_buddy_full_name(gc, data->uid(), [=](const string& full_name) {
-                purple_account_set_alias(account, full_name.c_str());
+                purple_account_set_alias(account, full_name.data());
             });
         }
 
@@ -123,7 +123,7 @@ unsigned int vk_send_typing(PurpleConnection* gc, const char* name, PurpleTyping
 string get_user_page(const VkBuddyData* data)
 {
     if (!data->domain.empty())
-        return str_format("http://vk.com/%s", data->domain.c_str());
+        return str_format("http://vk.com/%s", data->domain.data());
     else
         return str_format("http://vk.com/id%llu", (unsigned long long)data->uid);
 }
@@ -144,18 +144,18 @@ void vk_get_info(PurpleConnection* gc, const char* username)
 
     PurpleNotifyUserInfo* info = purple_notify_user_info_new();
 
-    purple_notify_user_info_add_pair(info, "Page", get_user_page(data).c_str());
+    purple_notify_user_info_add_pair(info, "Page", get_user_page(data).data());
     purple_notify_user_info_add_section_break(info);
     purple_notify_user_info_add_pair_plaintext(info, "Name", purple_buddy_get_contact_alias(buddy));
 
     if (!data->bdate.empty())
-        purple_notify_user_info_add_pair_plaintext(info, "Birthdate", data->bdate.c_str());
+        purple_notify_user_info_add_pair_plaintext(info, "Birthdate", data->bdate.data());
     if (!data->education.empty())
-        purple_notify_user_info_add_pair_plaintext(info, "Education", data->education.c_str());
+        purple_notify_user_info_add_pair_plaintext(info, "Education", data->education.data());
     if (!data->mobile_phone.empty())
-        purple_notify_user_info_add_pair_plaintext(info, "Mobile phone", data->mobile_phone.c_str());
+        purple_notify_user_info_add_pair_plaintext(info, "Mobile phone", data->mobile_phone.data());
     if (!data->activity.empty())
-        purple_notify_user_info_add_pair_plaintext(info, "Status", data->activity.c_str());
+        purple_notify_user_info_add_pair_plaintext(info, "Status", data->activity.data());
 
     purple_notify_userinfo(gc, username, info, nullptr, nullptr);
 }

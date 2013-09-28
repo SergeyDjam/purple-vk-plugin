@@ -76,13 +76,13 @@ HtmlForm find_html_form(xmlDoc* doc)
 
 PurpleHttpRequest* prepare_form_request(const HtmlForm& form)
 {
-    PurpleHttpRequest* req = purple_http_request_new(form.action_url.c_str());
+    PurpleHttpRequest* req = purple_http_request_new(form.action_url.data());
 
-    purple_http_request_set_method(req, form.method.c_str());
+    purple_http_request_set_method(req, form.method.data());
     purple_http_request_header_add(req, "Content-type", "application/x-www-form-urlencoded");
 
     string data = urlencode_form(form.params);
-    purple_http_request_set_contents(req, data.c_str(), -1);
+    purple_http_request_set_contents(req, data.data(), -1);
 
     return req;
 }
@@ -151,8 +151,8 @@ void VkAuthenticator::run()
     purple_debug_info("prpl-vkcom", "Starting authentication\n");
 
     string url = str_format("http://oauth.vk.com/oauth/authorize?redirect_uri=http://oauth.vk.com/blank.html"
-                            "&response_type=token&client_id=%s&scope=%s&display=page", m_client_id.c_str(),
-                            m_scope.c_str());
+                            "&response_type=token&client_id=%s&scope=%s&display=page", m_client_id.data(),
+                            m_scope.data());
     http_get(m_gc, url, [this](PurpleHttpConnection* http_conn, PurpleHttpResponse* response) {
         on_fetch_vk_oauth_form(http_conn, response);
     });
@@ -168,7 +168,7 @@ void VkAuthenticator::on_success(const string& access_token, const string& uid)
 
 void VkAuthenticator::on_error(PurpleConnectionError error, const string& error_string)
 {
-    purple_connection_error_reason(m_gc, error, error_string.c_str());
+    purple_connection_error_reason(m_gc, error, error_string.data());
     if (m_error_cb)
         m_error_cb();
     m_success_cb = nullptr;

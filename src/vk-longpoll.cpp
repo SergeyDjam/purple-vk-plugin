@@ -30,7 +30,7 @@ void start_long_poll(PurpleConnection* gc)
         if (!v.is<picojson::object>() || !field_is_present<string>(v, "key")
                 || !field_is_present<string>(v, "server") || !field_is_present<double>(v, "ts")) {
             purple_debug_error("prpl-vkcom", "Strange response from messages.getLongPollServer: %s\n",
-                               v.serialize().c_str());
+                               v.serialize().data());
             long_poll_fatal(gc);
             return;
         }
@@ -60,8 +60,8 @@ void request_long_poll(PurpleConnection* gc, const string& server, const string&
 {
     VkConnData* conn_data = (VkConnData*)purple_connection_get_protocol_data(gc);
 
-    string server_url = str_format(long_poll_url, server.c_str(), key.c_str(), ts);
-    purple_debug_info("prpl-vkcom", "Connecting to Long Poll %s\n", server_url.c_str());
+    string server_url = str_format(long_poll_url, server.data(), key.data(), ts);
+    purple_debug_info("prpl-vkcom", "Connecting to Long Poll %s\n", server_url.data());
 
     http_get(gc, server_url, [=](PurpleHttpConnection*, PurpleHttpResponse* response) {
         // Connection has been cancelled due to account being disconnected.
@@ -80,7 +80,7 @@ void request_long_poll(PurpleConnection* gc, const string& server, const string&
         picojson::value root;
         string error = picojson::parse(root, response_text, response_text + strlen(response_text));
         if (!error.empty()) {
-            purple_debug_error("prpl-vkcom", "Error parsing %s: %s\n", response_text_copy, error.c_str());
+            purple_debug_error("prpl-vkcom", "Error parsing %s: %s\n", response_text_copy, error.data());
             request_long_poll(gc, server, key, ts);
             return;
         }
@@ -153,7 +153,7 @@ void process_update(PurpleConnection* gc, const picojson::value& v)
 {
     if (!v.is<picojson::array>() || !v.contains(0)) {
         purple_debug_error("prpl-vkcom", "Strange response from Long Poll in updates: %s\n",
-                           v.serialize().c_str());
+                           v.serialize().data());
         return;
     }
 
@@ -181,7 +181,7 @@ void process_message(PurpleConnection* gc, const picojson::value& v)
     if (!v.contains(6) || !v.get(1).is<double>() || !v.get(2).is<double>() || !v.get(3).is<double>()
             || !v.get(4).is<double>() || !v.get(6).is<string>()) {
         purple_debug_error("prpl-vkcom", "Strange response from Long Poll in updates: %s\n",
-                           v.serialize().c_str());
+                           v.serialize().data());
         return;
     }
     int flags = v.get(2).get<double>();
@@ -215,7 +215,7 @@ void process_message(PurpleConnection* gc, const picojson::value& v)
         receive_messages(gc, { mid });
     } else {
         // There are no attachments. Yes, messages with attached documents are also marked as media.
-        serv_got_im(gc, buddy_name_from_uid(uid).c_str(), text.c_str(), PURPLE_MESSAGE_RECV, timestamp);
+        serv_got_im(gc, buddy_name_from_uid(uid).data(), text.data(), PURPLE_MESSAGE_RECV, timestamp);
         mark_message_as_read(gc, { mid });
     }
 }
@@ -224,32 +224,32 @@ void process_online(PurpleConnection* gc, const picojson::value& v, bool online)
 {
     if (!v.contains(1) || !v.get(1).is<double>()) {
         purple_debug_error("prpl-vkcom", "Strange response from Long Poll in updates: %s\n",
-                           v.serialize().c_str());
+                           v.serialize().data());
         return;
     }
     if (v.get(1).get<double>() > 0) {
         purple_debug_error("prpl-vkcom", "Strange response from Long Poll in updates: %s\n",
-                           v.serialize().c_str());
+                           v.serialize().data());
         return;
     }
     uint64 uid = -v.get(1).get<double>();
     string name = buddy_name_from_uid(uid);
 
-    purple_debug_info("prpl-vkcom", "User %s changed online to %d\n", name.c_str(), online);
+    purple_debug_info("prpl-vkcom", "User %s changed online to %d\n", name.data(), online);
 
     PurpleAccount* account = purple_connection_get_account(gc);
-    if (!purple_find_buddy(account, name.c_str())) {
+    if (!purple_find_buddy(account, name.data())) {
         purple_debug_info("prpl-vkcom", "User %s has come online, but is not present in buddy list."
-                          "He has probably been added behind our backs.", name.c_str());
+                          "He has probably been added behind our backs.", name.data());
         update_buddy(gc, uid, nullptr, true);
         return;
     }
 
     if (online) {
-        purple_prpl_got_user_status(account, name.c_str(), "online", nullptr);
-        purple_prpl_got_user_login_time(account, name.c_str(), time(nullptr));
+        purple_prpl_got_user_status(account, name.data(), "online", nullptr);
+        purple_prpl_got_user_login_time(account, name.data(), time(nullptr));
     } else {
-        purple_prpl_got_user_status(account, name.c_str(), "offline", nullptr);
+        purple_prpl_got_user_status(account, name.data(), "offline", nullptr);
     }
 }
 
@@ -257,12 +257,12 @@ void process_typing(PurpleConnection* gc, const picojson::value& v)
 {
     if (!v.contains(1) || !v.get(1).is<double>()) {
         purple_debug_error("prpl-vkcom", "Strange response from Long Poll in updates: %s\n",
-                           v.serialize().c_str());
+                           v.serialize().data());
         return;
     }
     uint64 uid = v.get(1).get<double>();
 
-    serv_got_typing(gc, buddy_name_from_uid(uid).c_str(), 6000, PURPLE_TYPING);
+    serv_got_typing(gc, buddy_name_from_uid(uid).data(), 6000, PURPLE_TYPING);
 }
 
 void long_poll_fatal(PurpleConnection* gc)

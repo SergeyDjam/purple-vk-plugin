@@ -28,12 +28,12 @@ void vk_call_api(PurpleConnection* gc, const char* method_name, const CallParams
 
     string params_str = urlencode_form(params);
     string method_url = str_format("https://api.vk.com/method/%s?v=5.0&access_token=%s", method_name,
-                                   conn_data->access_token().c_str());
+                                   conn_data->access_token().data());
     if (!params_str.empty()) {
         method_url += "&";
         method_url += params_str;
     }
-    PurpleHttpRequest* req = purple_http_request_new(method_url.c_str());
+    PurpleHttpRequest* req = purple_http_request_new(method_url.data());
     purple_http_request_set_method(req, "POST");
     http_request(gc, req, [=](PurpleHttpConnection* http_conn, PurpleHttpResponse* response) {
         // Connection has been cancelled due to account being disconnected. Do not do any response
@@ -71,7 +71,7 @@ void on_vk_call_cb(PurpleHttpConnection* http_conn, PurpleHttpResponse* response
     picojson::value root;
     string error = picojson::parse(root, response_text, response_text + strlen(response_text));
     if (!error.empty()) {
-        purple_debug_error("prpl-vkcom", "Error parsing %s: %s\n", response_text_copy, error.c_str());
+        purple_debug_error("prpl-vkcom", "Error parsing %s: %s\n", response_text_copy, error.data());
         if (error_cb)
             error_cb(picojson::value());
         return;
@@ -98,14 +98,14 @@ void process_error(PurpleHttpConnection* http_conn, const picojson::value& error
                    const CallErrorCb& error_cb)
 {
     if (!error.is<picojson::object>()) {
-        purple_debug_error("prpl-vkcom", "Unknown error response: %s\n", error.serialize().c_str());
+        purple_debug_error("prpl-vkcom", "Unknown error response: %s\n", error.serialize().data());
         if (error_cb)
             error_cb(picojson::value());
         return;
     }
 
     if (!field_is_present<double>(error, "error_code")) {
-        purple_debug_error("prpl-vkcom", "Unknown error response: %s\n", error.serialize().c_str());
+        purple_debug_error("prpl-vkcom", "Unknown error response: %s\n", error.serialize().data());
         if (error_cb)
             error_cb(picojson::value());
         return;
@@ -145,7 +145,7 @@ void process_error(PurpleHttpConnection* http_conn, const picojson::value& error
 
     // We do not process captcha requests on API level, but we do not consider them errors
     if (error_code != VK_CAPTCHA_NEEDED)
-        purple_debug_error("prpl-vkcom", "Vk.com call error: %s\n", error.serialize().c_str());
+        purple_debug_error("prpl-vkcom", "Vk.com call error: %s\n", error.serialize().data());
     if (error_cb)
         error_cb(error);
 }

@@ -26,9 +26,9 @@ string urlencode_form(It first, It last)
     for (It it = first; it != last; it++) {
         if (!ret.empty())
             ret += '&';
-        ret += purple_url_encode(it->first.c_str());
+        ret += purple_url_encode(it->first.data());
         ret += '=';
-        ret += purple_url_encode(it->second.c_str());
+        ret += purple_url_encode(it->second.data());
     }
     return ret;
 }
@@ -152,5 +152,5 @@ string unescape_html(const char* text)
 
 string unescape_html(const string& text)
 {
-    return unescape_html(text.c_str());
+    return unescape_html(text.data());
 }
