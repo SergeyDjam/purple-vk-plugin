@@ -9,6 +9,7 @@
 #include <cstring>
 #include <functional>
 #include <map>
+#include <memory>
 #include <set>
 #include <string>
 
@@ -16,6 +17,7 @@
 using std::map;
 using std::pair;
 using std::set;
+using std::shared_ptr;
 using std::vector;
 
 // NOTE: Should change string alias to __gnu_cxx::vstring;

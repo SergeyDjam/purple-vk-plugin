@@ -8,6 +8,7 @@
 #include "vk-api.h"
 #include "vk-captcha.h"
 #include "vk-common.h"
+#include "vk-upload.h"
 #include "vk-utils.h"
 
 #include "vk-message-send.h"
@@ -19,6 +20,11 @@ namespace
 // Parses and removes <img id="X"> out of message and returns cleaned message (without <img> tags)
 // and list of img ids.
 pair<string, int_vec> remove_img_tags(const char* message);
+// Uploads a number of images, stored in imgstore and returns the list of attachments to be added
+// to the message which contained the images.
+using ImagesUploadedCb = std::function<void(const string& attachments)>;
+void upload_imgstore_images(PurpleConnection* gc, const int_vec& img_ids, const ImagesUploadedCb& uploaded_cb,
+                            const ErrorCb& error_cb);
 
 // Helper struct used to reduce length of function signatures.
 struct SendMessage
@@ -54,18 +60,18 @@ int send_im_message(PurpleConnection* gc, uint64 uid, const char* raw_message,
 
     const string& message = p.first;
     const int_vec& img_ids = p.second;
-//    upload_images(gc, img_ids, [=](const string& img_attachments) {
-//        string attachments = parse_vkcom_attachments(message);
-//        // Append attachments for in-body images to other attachments.
-//        if (!img_attachments.empty()) {
-//            if (!attachments.empty())
-//                attachments += ',';
-//            attachments += img_attachments;
-//        }
-//        send_im_message_internal(gc, { uid, message, attachments, success_cb, error_cb });
-//    }, [=] {
-//        show_error(gc, uid, { uid, message, {}, success_cb, error_cb });
-//    });
+    upload_imgstore_images(gc, img_ids, [=](const string& img_attachments) {
+        string attachments = parse_vkcom_attachments(message);
+        // Append attachments for in-body images to other attachments.
+        if (!img_attachments.empty()) {
+            if (!attachments.empty())
+                attachments += ',';
+            attachments += img_attachments;
+         }
+        send_im_message_internal(gc, { uid, message, attachments, success_cb, error_cb });
+    }, [=] {
+        show_error(gc, uid, { uid, message, {}, success_cb, error_cb });
+    });
     return 1;
 }
 
@@ -118,6 +124,80 @@ pair<string, int_vec> remove_img_tags(const char* message)
     g_free(cleaned);
 
     return { cleaned_message, img_ids };
+}
+
+// Helper data structure for upload_imgstore_images.
+struct UploadImgstoreImages
+{
+    // List of all img_ids
+    int_vec img_ids;
+    // attachments from all the uploaded img_ids.
+    string attachments;
+
+    ImagesUploadedCb uploaded_cb;
+    ErrorCb error_cb;
+};
+using UploadImgstoreImages_ptr = shared_ptr<UploadImgstoreImages>;
+
+// Helper function for upload_imgstore_images.
+void upload_imgstore_images_internal(PurpleConnection* gc, const UploadImgstoreImages_ptr& data);
+
+void upload_imgstore_images(PurpleConnection* gc, const int_vec& img_ids, const ImagesUploadedCb& uploaded_cb,
+                            const ErrorCb& error_cb)
+{
+    if (img_ids.empty()) {
+        uploaded_cb("");
+        return;
+    }
+
+    UploadImgstoreImages_ptr data{ new UploadImgstoreImages{ img_ids, "", uploaded_cb, error_cb } };
+    // Reverse data->img_ids as we start pop the items from the back of the img_ids.
+    std::reverse(data->img_ids.begin(), data->img_ids.end());
+    upload_imgstore_images_internal(gc, data);
+}
+
+void upload_imgstore_images_internal(PurpleConnection* gc, const UploadImgstoreImages_ptr& data)
+{
+    int img_id = data->img_ids.back();
+    PurpleStoredImage* img = purple_imgstore_find_by_id(img_id);
+    const char* filename = purple_imgstore_get_filename(img);
+    const void* contents = purple_imgstore_get_data(img);
+    size_t size = purple_imgstore_get_size(img);
+
+    purple_debug_info("prpl-vkcom", "Uploading img %d\n", img_id);
+    upload_photo_for_im(gc, filename, contents, size, [=](const picojson::value& v) {
+        purple_debug_info("prpl-vkcom", "Sucessfully uploaded img %d\n", img_id);
+        if (!v.is<picojson::array>() || !v.contains(0)) {
+            purple_debug_error("prpl-vkcom", "Unknown photos.saveMessagesPhoto result: %s\n", v.serialize().data());
+            data->error_cb();
+            return;
+        }
+        const picojson::value& fields = v.get(0);
+        if (!field_is_present<double>(fields, "owner_id") || !field_is_present<double>(fields, "id")) {
+            purple_debug_error("prpl-vkcom", "Unknown photos.saveMessagesPhoto result: %s\n", v.serialize().data());
+            data->error_cb();
+            return;
+        }
+
+        if (!data->attachments.empty())
+            data->attachments += ',';
+        // NOTE: We do not receive "access_key" from photos.saveMessagesPhoto, but it seems it does not matter,
+        // vk.com will automatically add access_key to your private photos.
+        int64 owner_id = int64(fields.get("owner_id").get<double>());
+        uint64 id = uint64(fields.get("id").get<double>());
+        data->attachments += str_format("photo%d_%d", owner_id, id);
+
+        data->img_ids.pop_back();
+        if (data->img_ids.empty()) {
+            data->uploaded_cb(data->attachments);
+            return;
+        } else {
+            upload_imgstore_images_internal(gc, data);
+        }
+    }, [=] {
+        data->error_cb();
+    });
+
 }
 
 // Process error and call either success_cb or error_cb. The only error which is meaningfully

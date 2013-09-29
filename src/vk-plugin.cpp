@@ -198,7 +198,7 @@ GHashTable* vk_get_account_text_table(PurpleAccount*)
 }
 
 PurplePluginProtocolInfo prpl_info = {
-    PurpleProtocolOptions(0), /* options */
+    PurpleProtocolOptions(OPT_PROTO_IM_IMAGE), /* options */
     nullptr, /* user_splits */
     nullptr, /* protocol_options, initialized in waprpl_init() */
     { /* icon_spec, a PurpleBuddyIconSpec */
