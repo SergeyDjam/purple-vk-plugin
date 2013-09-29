@@ -44,13 +44,17 @@ void upload_photo_for_im(PurpleConnection* gc, const char* name, const void* con
                          const UploadProgressCb& upload_progress_cb)
 {
     upload_file(gc, "photos.getMessagesUploadServer", "photo", name, contents, size, [=](const picojson::value& v) {
-        if (!field_is_present<string>(v, "photo")) {
+        // Vk.com documentation says that "server" should be a string, however, this is contrary to observations.
+        if (!(field_is_present<int>(v, "server") || field_is_present<string>(v, "server"))
+                || !field_is_present<string>(v, "photo") || !field_is_present<string>(v, "hash")) {
             purple_debug_error("prpl-vkcom", "Strange response from upload server: %s\n", v.serialize().data());
             error_cb();
             return;
         }
+        const string& server = v.get("server").to_str();
         const string& photo = v.get("photo").get<string>();
-        CallParams params = { {"photo", photo} };
+        const string& hash = v.get("hash").get<string>();
+        CallParams params = { {"server", server}, {"photo", photo}, {"hash", hash} };
         vk_call_api(gc, "photos.saveMessagesPhoto", params, [=](const picojson::value& result) {
             uploaded_cb(result);
         }, [=](const picojson::value&) {
