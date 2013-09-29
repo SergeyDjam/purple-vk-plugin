@@ -6,16 +6,19 @@
 
 const char VK_CLIENT_ID[] = "3833170";
 
-VkConnData::VkConnData(const string& email, const string& password)
+VkConnData::VkConnData(PurpleConnection* gc, const string& email, const string& password)
     : m_email(email),
       m_password(password),
+      m_gc(gc),
       m_closing(false)
 {
+    PurpleAccount* account = purple_connection_get_account(m_gc);
+    m_last_msg_id = purple_account_get_int(account, "last_msg_id", 0);
 }
 
-void VkConnData::authenticate(PurpleConnection* gc, const AuthSuccessCb& success_cb, const ErrorCb& error_cb)
+void VkConnData::authenticate(const AuthSuccessCb& success_cb, const ErrorCb& error_cb)
 {
-    vk_auth_user(gc, m_email, m_password, VK_CLIENT_ID, "friends,photos,audio,video,docs,messages",
+    vk_auth_user(m_gc, m_email, m_password, VK_CLIENT_ID, "friends,photos,audio,video,docs,messages",
         [=](const string& access_token, const string& uid) {
             m_access_token = access_token;
             try {
@@ -30,6 +33,17 @@ void VkConnData::authenticate(PurpleConnection* gc, const AuthSuccessCb& success
             }
             success_cb();
         }, error_cb);
+}
+
+void VkConnData::set_last_msg_id(uint64 msg_id)
+{
+    // We can receive response from messages.send after receiving newer messages via longpoll.
+    if (msg_id > m_last_msg_id) {
+        m_last_msg_id = msg_id;
+        // PurpleAccount has 5 second timeout before storing the properties, so it should be fine
+        // calling set_int immediately after processing each message.
+        purple_account_set_int(purple_connection_get_account(m_gc), "last_msg_id", m_last_msg_id);
+    }
 }
 
 

@@ -121,7 +121,7 @@ void process_error(PurpleHttpConnection* http_conn, const picojson::value& error
             purple_debug_info("prpl-vkcom", "Access token expired, doing a reauthorization\n");
 
             VkConnData* data = get_conn_data(gc);
-            data->authenticate(gc, [=] {
+            data->authenticate([=] {
                 repeat_vk_call(gc, req, success_cb, error_cb);
             }, [=] {
                 purple_http_request_unref(req);

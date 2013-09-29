@@ -23,10 +23,10 @@ enum VkErrorCodes {
 class VkConnData
 {
 public:
-    VkConnData(const string& email, const string& password);
+    VkConnData(PurpleConnection* gc, const string& email, const string& password);
 
     using AuthSuccessCb = std::function<void()>;
-    void authenticate(PurpleConnection* gc, const AuthSuccessCb& success_cb, const ErrorCb& error_cb = nullptr);
+    void authenticate(const AuthSuccessCb& success_cb, const ErrorCb& error_cb = nullptr);
 
     const string& access_token() const
     {
@@ -48,12 +48,7 @@ public:
 
     // set_last_msg_id should be called both when receiving messages (via longpoll or messages.get) and sending
     // messages.
-    void set_last_msg_id(uint64 msg_id)
-    {
-        // We can receive response from messages.send after receiving newer messages via longpoll.
-        if (msg_id > m_last_msg_id)
-            m_last_msg_id = msg_id;
-    }
+    void set_last_msg_id(uint64 msg_id);
 
     // If true, connection is in "closing" state. This is set in vk_close and is used in longpoll
     // callback to differentiate the case of network timeout/silent connection dropping and connection
@@ -80,8 +75,9 @@ private:
     string m_password;
     string m_access_token;
     uint64 m_uid;
-    uint64 m_last_msg_id = 0;
+    uint64 m_last_msg_id;
 
+    PurpleConnection* m_gc;
     bool m_closing;
     set<uint> m_timeout_ids;
 };
