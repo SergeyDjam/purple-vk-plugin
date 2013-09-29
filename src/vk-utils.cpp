@@ -1,6 +1,7 @@
 #include <debug.h>
 
 #include "httputils.h"
+#include "vk-common.h"
 
 #include "vk-utils.h"
 
@@ -54,3 +55,16 @@ string parse_vkcom_attachments(const string& message)
     g_match_info_free(match_info);
     return ret;
 }
+
+
+string get_buddy_name(PurpleConnection* gc, uint64 uid)
+{
+    string who = buddy_name_from_uid(uid);
+    PurpleAccount* account = purple_connection_get_account(gc);
+    PurpleBuddy* buddy = purple_find_buddy(account, who.data());
+    if (buddy)
+        return purple_buddy_get_alias(buddy);
+    else
+        return who;
+}
+

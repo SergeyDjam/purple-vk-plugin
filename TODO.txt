@@ -15,7 +15,6 @@
    Vk.com users with thousands of friends.
  * Check what's with Unicode on Windows (let's assume everyone runs UTF-8 on Linux). Check what's with
    building on windows.
- * Support downloading message history (is log modification possible in libpurple?)
  * Do HTTP retries on timeouts/50x errors?
  * Do something with constant copying of strings and std::functions on lambda capture. This is just ugly.
    Probably should use std::bind with std::move, but god, this will be ugly. At least, move from std::string
