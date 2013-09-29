@@ -46,7 +46,7 @@ void start_long_poll(PurpleConnection* gc)
         // from "deleting message" and "setting message flag" events? The "message received" events
         // are fully covered by message.get API
         update_buddy_list(gc, [=] {
-            receive_unread_messages(gc, [=] {
+            receive_messages(gc, [=] {
                 request_long_poll(gc, v.get("server").get<string>(), v.get("key").get<string>(),
                                   v.get("ts").get<double>());
             });
