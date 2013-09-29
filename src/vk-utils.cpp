@@ -68,3 +68,33 @@ string get_buddy_name(PurpleConnection* gc, uint64 uid)
         return who;
 }
 
+
+LogCache::LogCache(PurpleConnection* gc)
+    : m_gc(gc)
+{
+}
+
+LogCache::~LogCache()
+{
+    for (pair<uint64, PurpleLog*> p: m_logs)
+        purple_log_free(p.second);
+}
+
+PurpleLog* LogCache::for_uid(uint64 uid)
+{
+    if (ccontains(m_logs, uid)) {
+        return m_logs[uid];
+    } else {
+        PurpleLog* log = open_for_uid(uid);
+        m_logs[uid] = log;
+        return log;
+    }
+}
+
+PurpleLog* LogCache::open_for_uid(uint64 uid)
+{
+    string buddy = buddy_name_from_uid(uid);
+    PurpleAccount* account = purple_connection_get_account(m_gc);
+    PurpleConversation* conv = purple_find_conversation_with_account(PURPLE_CONV_TYPE_IM, buddy.data(), account);
+    return purple_log_new(PURPLE_LOG_IM, buddy.data(), account, conv, time(nullptr), nullptr);
+}
