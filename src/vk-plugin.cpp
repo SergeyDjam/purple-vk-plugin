@@ -96,7 +96,7 @@ void vk_login(PurpleAccount* acct)
 
 void vk_close(PurpleConnection* gc)
 {
-    VkConnData* data = (VkConnData*)purple_connection_get_protocol_data(gc);
+    VkConnData* data = get_conn_data(gc);
     data->set_closing();
 
     timeout_remove_all(gc);

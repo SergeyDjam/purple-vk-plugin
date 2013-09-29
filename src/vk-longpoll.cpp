@@ -66,7 +66,7 @@ const char* long_poll_url = "https://%s?act=a_check&key=%s&ts=%llu&wait=25";
 
 void request_long_poll(PurpleConnection* gc, const string& server, const string& key, uint64 ts)
 {
-    VkConnData* conn_data = (VkConnData*)purple_connection_get_protocol_data(gc);
+    VkConnData* conn_data = get_conn_data(gc);
 
     string server_url = str_format(long_poll_url, server.data(), key.data(), ts);
     purple_debug_info("prpl-vkcom", "Connecting to Long Poll %s\n", server_url.data());

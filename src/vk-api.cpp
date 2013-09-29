@@ -20,7 +20,7 @@ void on_vk_call_cb(PurpleHttpConnection* http_conn, PurpleHttpResponse* response
 void vk_call_api(PurpleConnection* gc, const char* method_name, const CallParams& params,
                  const CallSuccessCb& success_cb, const CallErrorCb& error_cb)
 {
-    VkConnData* conn_data = (VkConnData*)purple_connection_get_protocol_data(gc);
+    VkConnData* conn_data = get_conn_data(gc);
     if (conn_data->is_closing()) {
         purple_debug_error("prpl-vkcom", "Programming error: API method %s called during logout\n", method_name);
         return;
@@ -120,7 +120,7 @@ void process_error(PurpleHttpConnection* http_conn, const picojson::value& error
         if (error_code == VK_AUTHORIZATION_FAILED) {
             purple_debug_info("prpl-vkcom", "Access token expired, doing a reauthorization\n");
 
-            VkConnData* data = (VkConnData*)purple_connection_get_protocol_data(gc);
+            VkConnData* data = get_conn_data(gc);
             data->authenticate(gc, [=] {
                 repeat_vk_call(gc, req, success_cb, error_cb);
             }, [=] {

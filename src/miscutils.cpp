@@ -119,7 +119,7 @@ void timeout_destroy_cb(void* user_data)
 
 void timeout_add(PurpleConnection* gc, unsigned milliseconds, const TimeoutCb& callback)
 {
-    VkConnData* conn_data = (VkConnData*)purple_connection_get_protocol_data(gc);
+    VkConnData* conn_data = get_conn_data(gc);
     if (conn_data->is_closing()) {
         purple_debug_error("prpl-vkcom", "Programming error: timeout_add(%d) called during logout\n", milliseconds);
         return;
@@ -133,8 +133,7 @@ void timeout_add(PurpleConnection* gc, unsigned milliseconds, const TimeoutCb& c
 
 void timeout_remove_all(PurpleConnection* gc)
 {
-    VkConnData* conn_data = (VkConnData*)purple_connection_get_protocol_data(gc);
-    for (uint id: conn_data->timeout_ids())
+    for (uint id: get_conn_data(gc)->timeout_ids())
         g_source_remove(id);
 }
 

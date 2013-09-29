@@ -68,6 +68,11 @@ private:
     set<uint> m_timeout_ids;
 };
 
+inline VkConnData* get_conn_data(PurpleConnection* gc)
+{
+    return (VkConnData*)purple_connection_get_protocol_data(gc);
+}
+
 // Data, associated with one buddy. See vk.com for documentation on each field.
 struct VkBuddyData
 {
