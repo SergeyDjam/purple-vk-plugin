@@ -86,7 +86,15 @@ private:
     // Processes result of messages.get and messages.getById
     int process_result(const picojson::value& result);
     // Processes attachments: appends urls to message text, adds thumbnail_urls.
-    void process_attachments(const picojson::array& items, ReceivedMessage& message) const;
+    static void process_attachments(const picojson::array& items, ReceivedMessage& message);
+    // Processes photo attachment.
+    static void process_photo_attachment(const picojson::value& items, ReceivedMessage& message);
+    // Processes video attachment.
+    static void process_video_attachment(const picojson::value& fields, ReceivedMessage& message);
+    // Processes audio attachment.
+    static void process_audio_attachment(const picojson::value& fields, ReceivedMessage& message);
+    // Processes doc attachment.
+    static void process_doc_attachment(const picojson::value& fields, ReceivedMessage& message);
     // Downloads the given thumbnail for given message, modifies corresponding message text
     // and calls either next download_thumbnail() or finish(). message is index into m_messages,
     // thumbnail is index into thumbnail_urls.
@@ -189,7 +197,7 @@ int MessageReceiver::process_result(const picojson::value& result)
     return items.size();
 }
 
-void MessageReceiver::process_attachments(const picojson::array& items, ReceivedMessage& message) const
+void MessageReceiver::process_attachments(const picojson::array& items, ReceivedMessage& message)
 {
     for (const picojson::value& v: items) {
         if (!field_is_present<string>(v, "type")) {
@@ -209,89 +217,109 @@ void MessageReceiver::process_attachments(const picojson::array& items, Received
             message.text += "<br>";
 
         if (type == "photo") {
-            if (!field_is_present<double>(fields, "id") || !field_is_present<double>(fields, "owner_id")
-                    || !field_is_present<string>(fields, "text") || !field_is_present<string>(fields, "photo_604")) {
-                purple_debug_error("prpl-vkcom", "Strange response from messages.get or messages.getById: %s\n",
-                                   v.serialize().data());
-                continue;
-            }
-            const uint64 id = fields.get("id").get<double>();
-            const int64 owner_id = fields.get("owner_id").get<double>();
-            const string& photo_text = fields.get("text").get<string>();
-            const string& thumbnail = fields.get("photo_604").get<string>();
-
-            // Apparently, there is no URL for private photos (such as the one for docs:
-            // http://vk.com/docXXX_XXX?hash="access_key". If we've got "access_key" as a parameter, it means
-            // that the photo is private, so we should rather link to the biggest version of the photo.
-            string url;
-            if (field_is_present<string>(fields, "access_key")) {
-                // We have to find the max photo URL, as we do not always receive all sizes.
-                if (field_is_present<string>(fields, "photo_2560"))
-                    url = fields.get("photo_2560").get<string>();
-                else if (field_is_present<string>(fields, "photo_1280"))
-                    url = fields.get("photo_1280").get<string>();
-                else if (field_is_present<string>(fields, "photo_807"))
-                    url = fields.get("photo_807").get<string>();
-                else
-                    url = thumbnail;
-            } else {
-                url = str_format("http://vk.com/photo%lld_%llu", (long long)owner_id, (unsigned long long)id);
-            }
-
-            if (!photo_text.empty())
-                message.text += str_format("<a href='%s'>%s</a>", url.data(), photo_text.data());
-            else
-                message.text += str_format("<a href='%s'>%s</a>", url.data(), url.data());
-            // We append placeholder text, so that we can replace it later in download_thumbnail.
-            message.text += str_format("<br><thumbnail-placeholder-%d>", message.thumbnail_urls.size());
-            message.thumbnail_urls.push_back(thumbnail);
+            process_photo_attachment(fields, message);
         } else if (type == "video") {
-            if (!field_is_present<double>(fields, "id") || !field_is_present<double>(fields, "owner_id")
-                    || !field_is_present<string>(fields, "title") || !field_is_present<string>(fields, "photo_320")) {
-                purple_debug_error("prpl-vkcom", "Strange response from messages.get or messages.getById: %s\n",
-                                   v.serialize().data());
-                continue;
-            }
-            const uint64 id = fields.get("id").get<double>();
-            const int64 owner_id = fields.get("owner_id").get<double>();
-            const string& title = fields.get("title").get<string>();
-            const string& thumbnail = fields.get("photo_320").get<string>();
-
-            message.text += str_format("<a href='http://vk.com/video%lld_%llu'>%s</a>", (long long)owner_id,
-                                       (unsigned long long)id, title.data());
-            // We append placeholder text, so that we can replace it later in download_thumbnail.
-            message.text += str_format("<br><thumbnail-placeholder-%d>", message.thumbnail_urls.size());
-            message.thumbnail_urls.push_back(thumbnail);
+            process_video_attachment(fields, message);
         } else if (type == "audio") {
-            if (!field_is_present<string>(fields, "url") || !field_is_present<string>(fields, "artist")
-                    || !field_is_present<string>(fields, "title")) {
-                purple_debug_error("prpl-vkcom", "Strange response from messages.get or messages.getById: %s\n",
-                                   v.serialize().data());
-                continue;
-            }
-            const string& url = fields.get("url").get<string>();
-            const string& artist = fields.get("artist").get<string>();
-            const string& title = fields.get("title").get<string>();
-
-            message.text += str_format("<a href='%s'>%s - %s</a>", url.data(), artist.data(), title.data());
+            process_audio_attachment(fields, message);
         } else if (type == "doc") {
-            if (!field_is_present<string>(fields, "url") || !field_is_present<string>(fields, "title")) {
-                purple_debug_error("prpl-vkcom", "Strange response from messages.get or messages.getById: %s\n",
-                                   v.serialize().data());
-                continue;
-            }
-            const string& url = fields.get("url").get<string>();
-            const string& title = fields.get("title").get<string>();
-
-            message.text += str_format("<a href='%s'>%s</a>", url.data(), title.data());
+            process_doc_attachment(fields, message);
         } else {
-            purple_debug_error("prpl-vkcom", "Strange response from messages.get or messages.getById: %s\n",
-                               v.serialize().data());
+            purple_debug_error("prpl-vkcom", "Strange attachment in response from messages.get "
+                               "or messages.getById: %s\n", v.serialize().data());
             message.text += "\nUnknown attachement type ";
             message.text += type;
             continue;
         }
     }
+}
+
+void MessageReceiver::process_photo_attachment(const picojson::value& fields, ReceivedMessage& message)
+{
+    if (!field_is_present<double>(fields, "id") || !field_is_present<double>(fields, "owner_id")
+            || !field_is_present<string>(fields, "text") || !field_is_present<string>(fields, "photo_604")) {
+        purple_debug_error("prpl-vkcom", "Strange attachment in response from messages.get "
+                           "or messages.getById: %s\n", fields.serialize().data());
+        return;
+    }
+    const uint64 id = fields.get("id").get<double>();
+    const int64 owner_id = fields.get("owner_id").get<double>();
+    const string& photo_text = fields.get("text").get<string>();
+    const string& thumbnail = fields.get("photo_604").get<string>();
+
+    // Apparently, there is no URL for private photos (such as the one for docs:
+    // http://vk.com/docXXX_XXX?hash="access_key". If we've got "access_key" as a parameter, it means
+    // that the photo is private, so we should rather link to the biggest version of the photo.
+    string url;
+    if (field_is_present<string>(fields, "access_key")) {
+        // We have to find the max photo URL, as we do not always receive all sizes.
+        if (field_is_present<string>(fields, "photo_2560"))
+            url = fields.get("photo_2560").get<string>();
+        else if (field_is_present<string>(fields, "photo_1280"))
+            url = fields.get("photo_1280").get<string>();
+        else if (field_is_present<string>(fields, "photo_807"))
+            url = fields.get("photo_807").get<string>();
+        else
+            url = thumbnail;
+    } else {
+        url = str_format("http://vk.com/photo%lld_%llu", (long long)owner_id, (unsigned long long)id);
+    }
+
+    if (!photo_text.empty())
+        message.text += str_format("<a href='%s'>%s</a>", url.data(), photo_text.data());
+    else
+        message.text += str_format("<a href='%s'>%s</a>", url.data(), url.data());
+    // We append placeholder text, so that we can replace it later in download_thumbnail.
+    message.text += str_format("<br><thumbnail-placeholder-%d>", message.thumbnail_urls.size());
+    message.thumbnail_urls.push_back(thumbnail);
+}
+
+void MessageReceiver::process_video_attachment(const picojson::value& fields, ReceivedMessage& message)
+{
+    if (!field_is_present<double>(fields, "id") || !field_is_present<double>(fields, "owner_id")
+            || !field_is_present<string>(fields, "title") || !field_is_present<string>(fields, "photo_320")) {
+        purple_debug_error("prpl-vkcom", "Strange attachment in response from messages.get "
+                           "or messages.getById: %s\n", fields.serialize().data());
+        return;
+    }
+    const uint64 id = fields.get("id").get<double>();
+    const int64 owner_id = fields.get("owner_id").get<double>();
+    const string& title = fields.get("title").get<string>();
+    const string& thumbnail = fields.get("photo_320").get<string>();
+
+    message.text += str_format("<a href='http://vk.com/video%lld_%llu'>%s</a>", (long long)owner_id,
+                               (unsigned long long)id, title.data());
+    // We append placeholder text, so that we can replace it later in download_thumbnail.
+    message.text += str_format("<br><thumbnail-placeholder-%d>", message.thumbnail_urls.size());
+    message.thumbnail_urls.push_back(thumbnail);
+}
+
+void MessageReceiver::process_audio_attachment(const picojson::value& fields, ReceivedMessage& message)
+{
+    if (!field_is_present<string>(fields, "url") || !field_is_present<string>(fields, "artist")
+            || !field_is_present<string>(fields, "title")) {
+        purple_debug_error("prpl-vkcom", "Strange attachment in response from messages.get "
+                           "or messages.getById: %s\n", fields.serialize().data());
+        return;
+    }
+    const string& url = fields.get("url").get<string>();
+    const string& artist = fields.get("artist").get<string>();
+    const string& title = fields.get("title").get<string>();
+
+    message.text += str_format("<a href='%s'>%s - %s</a>", url.data(), artist.data(), title.data());
+}
+
+void MessageReceiver::process_doc_attachment(const picojson::value& fields, ReceivedMessage& message)
+{
+    if (!field_is_present<string>(fields, "url") || !field_is_present<string>(fields, "title")) {
+        purple_debug_error("prpl-vkcom", "Strange attachment in response from messages.get "
+                           "or messages.getById: %s\n", fields.serialize().data());
+        return;
+    }
+    const string& url = fields.get("url").get<string>();
+    const string& title = fields.get("title").get<string>();
+
+    message.text += str_format("<a href='%s'>%s</a>", url.data(), title.data());
 }
 
 void MessageReceiver::download_thumbnail(size_t message, size_t thumbnail)
