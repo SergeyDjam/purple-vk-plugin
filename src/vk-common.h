@@ -90,8 +90,6 @@ inline VkConnData* get_conn_data(PurpleConnection* gc)
 // Data, associated with one buddy. See vk.com for documentation on each field.
 struct VkBuddyData
 {
-    uint64 uid;
-
     string activity;
     string bdate;
     string education;

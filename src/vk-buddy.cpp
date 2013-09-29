@@ -204,7 +204,6 @@ string update_buddy_from_object(PurpleConnection* gc, const picojson::value& v, 
         purple_buddy_set_protocol_data(buddy, data);
     }
 
-    data->uid = v.get("id").get<double>();
     data->activity = unescape_html(v.get("activity").get<string>());
     if (field_is_present<string>(v, "bdate"))
         data->bdate = unescape_html(v.get("bdate").get<string>());

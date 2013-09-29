@@ -121,31 +121,29 @@ unsigned int vk_send_typing(PurpleConnection* gc, const char* name, PurpleTyping
 }
 
 // Returns link to vk.com user page
-string get_user_page(const VkBuddyData* data)
+string get_user_page(PurpleBuddy* buddy, const VkBuddyData* data)
 {
-    if (!data->domain.empty())
+    if (data && !data->domain.empty())
         return str_format("http://vk.com/%s", data->domain.data());
     else
-        return str_format("http://vk.com/id%llu", (unsigned long long)data->uid);
+        return str_format("http://vk.com/%s", purple_buddy_get_name(buddy));
 }
 
 // Called when user chooses "Get Info".
 void vk_get_info(PurpleConnection* gc, const char* username)
 {
-//    int iid = purple_imgstore_add_with_id(g_memdup(icon,len),len,nullptr);
-//    profile_image = g_strdup_printf("<img id=\"%u\">",iid);
-//    purple_notify_user_info_add_pair(info, "Profile image", profile_image);
-
     PurpleAccount* account = purple_connection_get_account(gc);
     PurpleBuddy* buddy = purple_find_buddy(account, username);
-
     VkBuddyData* data = (VkBuddyData*)purple_buddy_get_protocol_data(buddy);
-    if (!data)
-        return;
 
     PurpleNotifyUserInfo* info = purple_notify_user_info_new();
+    purple_notify_user_info_add_pair(info, "Page", get_user_page(buddy, data).data());
 
-    purple_notify_user_info_add_pair(info, "Page", get_user_page(data).data());
+    if (!data) {
+        purple_notify_userinfo(gc, username, info, nullptr, nullptr);
+        return;
+    }
+
     purple_notify_user_info_add_section_break(info);
     purple_notify_user_info_add_pair_plaintext(info, "Name", purple_buddy_get_contact_alias(buddy));
 
