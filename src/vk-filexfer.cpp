@@ -74,6 +74,7 @@ void xfer_init(PurpleXfer* xfer)
         }
         delete uid;
         purple_xfer_unref(xfer);
+
         g_free(contents);
     }, [=] {
         if (purple_xfer_get_status(xfer) == PURPLE_XFER_STATUS_CANCEL_LOCAL)
@@ -82,6 +83,7 @@ void xfer_init(PurpleXfer* xfer)
             purple_xfer_cancel_remote(xfer);
         delete (uint64*)xfer->data;
         purple_xfer_unref(xfer);
+
         g_free(contents);
     }, [=](PurpleHttpConnection* http_conn, int processed, int total) {
         xfer_upload_progress(xfer, http_conn, processed, total);
@@ -115,8 +117,18 @@ bool send_doc(PurpleConnection* gc, uint64 uid, const picojson::value& v)
     }
 
     const string& doc_url = doc.get("url").get<string>();
+
     string attachemnt = parse_vkcom_attachments(doc_url);
     send_im_attachment(gc, uid, attachemnt);
+
+    // Write information about uploaded file. so that user will be able to send the link to someone else.
+    string who = buddy_name_from_uid(uid);
+    PurpleConversation* conv = purple_find_conversation_with_account(PURPLE_CONV_TYPE_IM, who.data(),
+                                                                      purple_connection_get_account(gc));
+    if (conv) {
+        string message = str_format("Sent file will be permanently available at %s", doc_url.data());
+        purple_conversation_write(conv, nullptr, message.data(), PURPLE_MESSAGE_SYSTEM, time(nullptr));
+    }
 
     return true;
 }
