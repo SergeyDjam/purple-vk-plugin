@@ -130,7 +130,7 @@ void process_error(PurpleHttpConnection* http_conn, const picojson::value& error
             });
             return;
         } else if (error_code == VK_TOO_MANY_REQUESTS_PER_SECOND) {
-            const int RETRY_TIMEOUT = 350; // 350msec is less than 3 requests per second (the current rate limit on Vk.com
+            const int RETRY_TIMEOUT = 400; // 400msec is less than 3 requests per second (the current rate limit on Vk.com
             purple_debug_info("prpl-vkcom", "Call rate limit hit, retrying in %d msec\n", RETRY_TIMEOUT);
 
             timeout_add(gc, RETRY_TIMEOUT, [=] {
