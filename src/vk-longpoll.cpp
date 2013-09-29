@@ -225,6 +225,8 @@ void process_message(PurpleConnection* gc, const picojson::value& v)
         // There are no attachments. Yes, messages with attached documents are also marked as media.
         serv_got_im(gc, buddy_name_from_uid(uid).data(), text.data(), PURPLE_MESSAGE_RECV, timestamp);
         mark_message_as_read(gc, { mid });
+
+        get_conn_data(gc)->set_last_msg_id(mid);
     }
 }
 

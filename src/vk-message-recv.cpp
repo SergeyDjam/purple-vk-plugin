@@ -358,6 +358,8 @@ void MessageReceiver::finish()
 {
     std::sort(m_messages.begin(), m_messages.end(), [](const ReceivedMessage& a, const ReceivedMessage& b) {
         return a.timestamp < b.timestamp;
+    std::sort(m_messages.begin(), m_messages.end(), [](const Message& a, const Message& b) {
+        return a.mid < b.mid;
     });
 
     uint64_vec message_ids;
@@ -366,6 +368,9 @@ void MessageReceiver::finish()
         message_ids.push_back(m.mid);
     }
     mark_message_as_read(m_gc, message_ids);
+    // Sets the last message id as m_messages are sorted by mid.
+    if (!m_messages.empty())
+        get_conn_data(m_gc)->set_last_msg_id(m_messages.back().mid);
 
     if (m_received_cb)
         m_received_cb();

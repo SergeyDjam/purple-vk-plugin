@@ -213,7 +213,15 @@ void send_im_message_internal(PurpleConnection* gc, const SendMessage& message, 
         params.emplace_back("captcha_sid", captcha_sid);
     if (!captcha_key.empty())
         params.emplace_back("captcha_key", captcha_key);
-    vk_call_api(gc, "messages.send", params, [=](const picojson::value&) {
+    vk_call_api(gc, "messages.send", params, [=](const picojson::value& v) {
+        if (!v.is<double>()) {
+            purple_debug_error("prpl-vkcom", "Wrong response from message.send: %s\n", v.serialize().data());
+            message.error_cb();
+            return;
+        }
+        uint64 mid = uint64(v.get<double>());
+        get_conn_data(gc)->set_last_msg_id(mid);
+
         if (message.success_cb)
             message.success_cb();
     }, [=](const picojson::value& error) {

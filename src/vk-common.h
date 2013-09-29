@@ -38,6 +38,23 @@ public:
         return m_uid;
     }
 
+    // NOTE: last_msg_id is the message id of the last message we have processed (either sent or received).
+    // It is permanently stored along with account information and is equal zero upon creation of account.
+    // Message ids are guaranteed to be monotonously increasing for each account (see message.get parameters).
+    uint64 last_msg_id() const
+    {
+        return m_last_msg_id;
+    }
+
+    // set_last_msg_id should be called both when receiving messages (via longpoll or messages.get) and sending
+    // messages.
+    void set_last_msg_id(uint64 msg_id)
+    {
+        // We can receive response from messages.send after receiving newer messages via longpoll.
+        if (msg_id > m_last_msg_id)
+            m_last_msg_id = msg_id;
+    }
+
     // If true, connection is in "closing" state. This is set in vk_close and is used in longpoll
     // callback to differentiate the case of network timeout/silent connection dropping and connection
     // cancellation.
@@ -63,6 +80,7 @@ private:
     string m_password;
     string m_access_token;
     uint64 m_uid;
+    uint64 m_last_msg_id = 0;
 
     bool m_closing;
     set<uint> m_timeout_ids;

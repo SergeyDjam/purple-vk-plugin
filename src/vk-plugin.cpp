@@ -71,7 +71,9 @@ void vk_login(PurpleAccount* acct)
     const char* email = purple_account_get_username(acct);
     const char* password = purple_account_get_password(acct);
     VkConnData* data = new VkConnData(email, password);
+    data->set_last_msg_id(purple_account_get_int(acct, "last_msg_id", 0));
     purple_connection_set_protocol_data(gc, data);
+
     data->authenticate(gc, [=] {
         // Set account alias to full user name if alias not set previously.
         PurpleAccount* account = purple_connection_get_account(gc);
@@ -103,6 +105,7 @@ void vk_close(PurpleConnection* gc)
     purple_request_close_with_handle(gc);
     purple_http_conn_cancel_all(gc);
 
+    purple_account_set_int(purple_connection_get_account(gc), "last_msg_id", data->last_msg_id());
     purple_connection_set_protocol_data(gc, nullptr);
     delete data;
 }
