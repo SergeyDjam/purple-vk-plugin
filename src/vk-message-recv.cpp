@@ -220,13 +220,28 @@ void MessageReceiver::process_attachments(const picojson::array& items, Received
             const string& photo_text = fields.get("text").get<string>();
             const string& thumbnail = fields.get("photo_604").get<string>();
 
+            // Apparently, there is no URL for private photos (such as the one for docs:
+            // http://vk.com/docXXX_XXX?hash="access_key". If we've got "access_key" as a parameter, it means
+            // that the photo is private, so we should rather link to the biggest version of the photo.
+            string url;
+            if (field_is_present<string>(fields, "access_key")) {
+                // We have to find the max photo URL, as we do not always receive all sizes.
+                if (field_is_present<string>(fields, "photo_2560"))
+                    url = fields.get("photo_2560").get<string>();
+                else if (field_is_present<string>(fields, "photo_1280"))
+                    url = fields.get("photo_1280").get<string>();
+                else if (field_is_present<string>(fields, "photo_807"))
+                    url = fields.get("photo_807").get<string>();
+                else
+                    url = thumbnail;
+            } else {
+                url = str_format("http://vk.com/photo%lld_%llu", (long long)owner_id, (unsigned long long)id);
+            }
+
             if (!photo_text.empty())
-                message.text += str_format("<a href='http://vk.com/photo%lld_%llu'>%s</a>", (long long)owner_id,
-                                           (unsigned long long)id, photo_text.data());
+                message.text += str_format("<a href='%s'>%s</a>", url.data(), photo_text.data());
             else
-                message.text += str_format("<a href='http://vk.com/photo%lld_%llu'>http://vk.com/photo%lld_%llu</a>",
-                                           (long long)owner_id, (unsigned long long)id, (long long)owner_id,
-                                           (unsigned long long)id);
+                message.text += str_format("<a href='%s'>%s</a>", url.data(), url.data());
             // We append placeholder text, so that we can replace it later in download_thumbnail.
             message.text += str_format("<br><thumbnail-placeholder-%d>", message.thumbnail_urls.size());
             message.thumbnail_urls.push_back(thumbnail);
