@@ -247,7 +247,7 @@ void MessageReceiver::process_attachments(const picojson::array& items, Message&
             process_doc_attachment(fields, message);
         } else {
             purple_debug_error("prpl-vkcom", "Strange attachment in response from messages.get "
-                               "or messages.getById: %s\n", v.serialize().data());
+                               "or messages.getById: type %s, %s\n", type.data(), fields.serialize().data());
             message.text += "\nUnknown attachement type ";
             message.text += type;
             continue;
