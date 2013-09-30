@@ -117,7 +117,7 @@ pair<string, int_vec> remove_img_tags(const char* message)
     // Clean message.
     char* cleaned = g_regex_replace_literal(img_regex, message, -1, 0, "", GRegexMatchFlags(0), nullptr);
     if (!cleaned) {
-        purple_debug_error("prpl-vkcom", "Unable to replace <img> in message %s\n", message);
+        purple_debug_error("prpl-vkcom", "Unable to replace <img> in message\n");
         return { string(message), img_ids };
     }
     string cleaned_message = cleaned;
@@ -266,8 +266,7 @@ void process_im_error(const picojson::value& error, PurpleConnection* gc, const 
 
 void show_error(PurpleConnection* gc, uint64 uid, const SendMessage& message)
 {
-    purple_debug_error("prpl-vkcom", "Error sending message to %llu: %s\n", (unsigned long long)message.uid,
-                       message.message.data());
+    purple_debug_error("prpl-vkcom", "Error sending message to %llu\n", (unsigned long long)message.uid);
 
     PurpleConversation* conv = find_conv_for_uid(gc, uid);
     if (conv) {

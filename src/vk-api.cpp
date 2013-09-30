@@ -144,8 +144,13 @@ void process_error(PurpleHttpConnection* http_conn, const picojson::value& error
     }
 
     // We do not process captcha requests on API level, but we do not consider them errors
-    if (error_code != VK_CAPTCHA_NEEDED)
-        purple_debug_error("prpl-vkcom", "Vk.com call error: %s\n", error.serialize().data());
+    if (error_code != VK_CAPTCHA_NEEDED) {
+        string error_string = error.serialize();
+        // Vk.com returns access_token among other error fields, let's remove it from the logs.
+        VkConnData* conn_data = get_conn_data(purple_http_conn_get_purple_connection(http_conn));
+        str_replace(error_string, conn_data->access_token(), "XXX-ACCESS-TOKEN-XXX");
+        purple_debug_error("prpl-vkcom", "Vk.com call error: %s\n", error_string.data());
+    }
     if (error_cb)
         error_cb(error);
 }
