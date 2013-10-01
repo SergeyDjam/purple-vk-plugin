@@ -150,7 +150,7 @@ PurpleHttpRequest* prepare_upload_request(const string& url, const char* partnam
     else
         mime_type = g_strdup("application/octet-stream");
     purple_debug_info("prpl-vkcom", "Sending file %s with size %lu and mime-type %s to %s\n",
-                      name, size, mime_type, url.data());
+                      name, (long unsigned)size, mime_type, url.data());
     string body_header = str_format("--%s\r\n"
                                     "Content-Disposition: form-data; name=\"%s\"; filename=\"%s\"\r\n"
                                     "Content-Type: %s\r\n"
