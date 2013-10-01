@@ -52,7 +52,7 @@ public:
     static MessageReceiver* create(PurpleConnection* gc, const ReceivedCb& recevied_cb);
 
     // Receives all messages.
-    void run_all();
+    void run_all(uint64 last_msg_id);
     // Receives messages with given ids.
     void run(const uint64_vec& message_ids);
 
@@ -86,7 +86,7 @@ private:
     }
 
     // Runs messages.get from given offset.
-    void run_all(int offset, bool outgoing);
+    void run_all(int offset, uint64 last_msg_id, bool outgoing);
     // Processes result of messages.get and messages.getById
     int process_result(const picojson::value& result);
     // Processes attachments: appends urls to message text, adds thumbnail_urls.
@@ -109,10 +109,10 @@ private:
 
 } // End of anonymous namespace
 
-void receive_messages(PurpleConnection* gc, const ReceivedCb& received_cb)
+void receive_messages(PurpleConnection* gc, uint64 last_msg_id, const ReceivedCb& received_cb)
 {
     MessageReceiver* receiver = MessageReceiver::create(gc, received_cb);
-    receiver->run_all();
+    receiver->run_all(last_msg_id);
 }
 
 void receive_messages(PurpleConnection* gc, const uint64_vec& message_ids, const ReceivedCb& received_cb)
@@ -129,9 +129,9 @@ MessageReceiver* MessageReceiver::create(PurpleConnection* gc, const ReceivedCb&
     return new MessageReceiver(gc, recevied_cb);
 }
 
-void MessageReceiver::run_all()
+void MessageReceiver::run_all(uint64 last_msg_id)
 {
-    run_all(0, false);
+    run_all(0, last_msg_id, false);
 }
 
 void MessageReceiver::run(const uint64_vec& message_ids)
@@ -146,17 +146,15 @@ void MessageReceiver::run(const uint64_vec& message_ids)
     });
 }
 
-void MessageReceiver::run_all(int offset, bool outgoing)
+void MessageReceiver::run_all(int offset, uint64 last_msg_id, bool outgoing)
 {
-    VkConnData* conn_data = get_conn_data(m_gc);
-
     CallParams params = { {"out", outgoing ? "1" : "0"}, {"offset", str_format("%d", offset)} };
-    if (conn_data->last_msg_id() == 0)
+    if (last_msg_id == 0)
         // First-time login, receive only unread messages.
         params.emplace_back("filters", "1");
     else
         // We've logged in before, let's download all messages since last time, including read ones.
-        params.emplace_back("last_message_id", to_string(conn_data->last_msg_id()));
+        params.emplace_back("last_message_id", to_string(last_msg_id));
 
     vk_call_api(m_gc, "messages.get", params, [=](const picojson::value& result) {
         int item_count = process_result(result);
@@ -164,13 +162,13 @@ void MessageReceiver::run_all(int offset, bool outgoing)
             // We ignore "count" parameter in result and increase offset until it returns empty list.
             if (!outgoing)
                 // Process outgoing
-                run_all(0, true);
+                run_all(0, last_msg_id, true);
             else
                 // Start downloading thumbnails.
                 download_thumbnail(0, 0);
             return;
         }
-        run_all(offset + item_count, outgoing);
+        run_all(offset + item_count, last_msg_id, outgoing);
     }, [=](const picojson::value&) {
         finish();
     });

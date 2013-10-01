@@ -25,6 +25,14 @@ void long_poll_fatal(PurpleConnection* gc);
 
 void start_long_poll(PurpleConnection* gc)
 {
+    // We have to get last_msg_id here, otherwise there is a possibility of data race:
+    //  1) account is connected;
+    //  2) start_long_poll calls messages.getLongPollServer
+    //  3) user calls message.send and retrieves result before retrieving result of messages.getLongPollServer
+    //  4) last_msg_id in VkConnData gets overwritten and we receive zero messages.
+    // The sames is true for reconnections to long-poll server.
+    uint64 last_msg_id = get_conn_data(gc)->last_msg_id();
+
     CallParams params = { {"use_ssl", "1"} };
     vk_call_api(gc, "messages.getLongPollServer", params, [=](const picojson::value& v) {
         if (!v.is<picojson::object>() || !field_is_present<string>(v, "key")
@@ -46,7 +54,7 @@ void start_long_poll(PurpleConnection* gc)
         // from "deleting message" and "setting message flag" events? The "message received" events
         // are fully covered by message.get API
         update_buddy_list(gc, [=] {
-            receive_messages(gc, [=] {
+            receive_messages(gc, last_msg_id, [=] {
                 request_long_poll(gc, v.get("server").get<string>(), v.get("key").get<string>(),
                                   v.get("ts").get<double>());
             });
