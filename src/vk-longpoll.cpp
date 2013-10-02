@@ -204,7 +204,6 @@ void process_message(PurpleConnection* gc, const picojson::value& v)
     // arrived after calling getLongPollServer and before calling messages.get).
     if (mid <= get_conn_data(gc)->last_msg_id())
         return;
-    get_conn_data(gc)->set_last_msg_id(mid);
 
     uint64 uid = v.get(3).get<double>();
     uint64 timestamp = v.get(4).get<double>();
@@ -218,8 +217,10 @@ void process_message(PurpleConnection* gc, const picojson::value& v)
     string text = v.get(6).get<string>();
 
     // TODO: Process outgoing message. This message could've been sent either by us, or by another connected client.
-    if (flags & MESSAGE_FLAGS_OUTBOX)
+    if (flags & MESSAGE_FLAGS_OUTBOX) {
+        get_conn_data(gc)->set_last_msg_id(mid);
         return;
+    }
 
     // NOTE:
     //  There are two ways of processing messages with attachments:
@@ -237,6 +238,7 @@ void process_message(PurpleConnection* gc, const picojson::value& v)
         // There are no attachments. Yes, messages with attached documents are also marked as media.
         serv_got_im(gc, buddy_name_from_uid(uid).data(), text.data(), PURPLE_MESSAGE_RECV, timestamp);
         mark_message_as_read(gc, { mid });
+        get_conn_data(gc)->set_last_msg_id(mid);
     }
 }
 
