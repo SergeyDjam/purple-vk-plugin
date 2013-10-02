@@ -162,9 +162,10 @@ PurpleHttpRequest* prepare_upload_request(const string& url, const char* partnam
 
     vector<char> body;
     body.reserve(body_header.size() + size + body_footer.size());
-    body.insert(body.end(), body_header.begin(), body_header.end());
-    body.insert(body.end(), reinterpret_cast<const char*>(contents),
-                            reinterpret_cast<const char*>(contents) + size);
+    append(body, body_header);
+    const char* char_contents = reinterpret_cast<const char*>(contents);
+    body.insert(body.end(), char_contents, char_contents + size);
+    append(body, body_footer);
     body.insert(body.end(), body_footer.begin(), body_footer.end());
 
     // Set an hour timeout, so that we never timeout anyway.

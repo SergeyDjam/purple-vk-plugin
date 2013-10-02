@@ -65,7 +65,7 @@ public:
 
     // We need to remove all timed events added by timeout_add upon closing connection or the crash
     // is possible otherwise. This set stores all ids of the events.
-    set<uint>& timeout_ids()
+    uint_set& timeout_ids()
     {
         return m_timeout_ids;
     }
@@ -79,7 +79,7 @@ private:
 
     PurpleConnection* m_gc;
     bool m_closing;
-    set<uint> m_timeout_ids;
+    uint_set m_timeout_ids;
 };
 
 inline VkConnData* get_conn_data(PurpleConnection* gc)

@@ -93,7 +93,7 @@ void clean_buddy_list(PurpleConnection* gc, const string_set& buddy_names)
     GSList* buddies_list = purple_find_buddies(account, nullptr);
     for (GSList* it = buddies_list; it; it = it->next) {
         PurpleBuddy* buddy = (PurpleBuddy*)it->data;
-        if (!ccontains(buddy_names, purple_buddy_get_name(buddy))) {
+        if (!contains_key(buddy_names, purple_buddy_get_name(buddy))) {
             purple_debug_info("prpl-vkcom", "Removing %s from buddy list\n", purple_buddy_get_name(buddy));
             purple_blist_remove_buddy(buddy);
         }

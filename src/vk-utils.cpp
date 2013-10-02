@@ -82,7 +82,7 @@ LogCache::~LogCache()
 
 PurpleLog* LogCache::for_uid(uint64 uid)
 {
-    if (ccontains(m_logs, uid)) {
+    if (contains_key(m_logs, uid)) {
         return m_logs[uid];
     } else {
         PurpleLog* log = open_for_uid(uid);

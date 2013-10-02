@@ -28,6 +28,7 @@ using string_set = set<string>;
 using string_vec = vector<string>;
 
 using int_vec = vector<int>;
+using uint_set = set<uint>;
 using int64 = int64_t;
 using uint64 = uint64_t;
 using uint64_vec = vector<uint64>;
@@ -140,7 +141,14 @@ inline V map_at_default(const M& map, const K& key, const V& default_value = V()
 
 // Returns true if map or set contains key.
 template<typename C, typename K>
-inline bool ccontains(const C& cont, const K& key)
+inline bool contains_key(const C& cont, const K& key)
 {
     return cont.find(key) != cont.end();
+}
+
+// Appends one container to another.
+template<typename D, typename S>
+inline void append(D& dst, const S& src)
+{
+    dst.insert(dst.end(), src.begin(), src.end());
 }
