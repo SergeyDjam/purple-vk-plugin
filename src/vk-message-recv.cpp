@@ -301,9 +301,12 @@ void MessageReceiver::process_photo_attachment(const picojson::value& fields, Me
         message.text += str_format("<a href='%s'>%s</a>", url.data(), photo_text.data());
     else
         message.text += str_format("<a href='%s'>%s</a>", url.data(), url.data());
-    // We append placeholder text, so that we can replace it later in download_thumbnail.
-    message.text += str_format("<br><thumbnail-placeholder-%d>", message.thumbnail_urls.size());
-    message.thumbnail_urls.push_back(thumbnail);
+    if (message.unread) {
+        // We append placeholder text, so that we can replace it later in download_thumbnail.
+        // There is no need to show images for already read messages (and it can take quite a while too!)
+        message.text += str_format("<br><thumbnail-placeholder-%d>", message.thumbnail_urls.size());
+        message.thumbnail_urls.push_back(thumbnail);
+    }
 }
 
 void MessageReceiver::process_video_attachment(const picojson::value& fields, Message& message)
@@ -321,9 +324,11 @@ void MessageReceiver::process_video_attachment(const picojson::value& fields, Me
 
     message.text += str_format("<a href='http://vk.com/video%lld_%llu'>%s</a>", (long long)owner_id,
                                (unsigned long long)id, title.data());
-    // We append placeholder text, so that we can replace it later in download_thumbnail.
-    message.text += str_format("<br><thumbnail-placeholder-%d>", message.thumbnail_urls.size());
-    message.thumbnail_urls.push_back(thumbnail);
+    if (message.unread) {
+        // See above comment in process_photo_attachment.
+        message.text += str_format("<br><thumbnail-placeholder-%d>", message.thumbnail_urls.size());
+        message.thumbnail_urls.push_back(thumbnail);
+    }
 }
 
 void MessageReceiver::process_audio_attachment(const picojson::value& fields, Message& message)
