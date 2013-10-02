@@ -25,14 +25,6 @@ void long_poll_fatal(PurpleConnection* gc);
 
 void start_long_poll(PurpleConnection* gc)
 {
-    // We have to get last_msg_id here, otherwise there is a possibility of data race:
-    //  1) account is connected;
-    //  2) start_long_poll calls messages.getLongPollServer
-    //  3) user calls message.send and retrieves result before retrieving result of messages.getLongPollServer
-    //  4) last_msg_id in VkConnData gets overwritten and we receive zero messages.
-    // The sames is true for reconnections to long-poll server.
-    uint64 last_msg_id = get_conn_data(gc)->last_msg_id();
-
     CallParams params = { {"use_ssl", "1"} };
     vk_call_api(gc, "messages.getLongPollServer", params, [=](const picojson::value& v) {
         if (!v.is<picojson::object>() || !field_is_present<string>(v, "key")
@@ -53,8 +45,13 @@ void start_long_poll(PurpleConnection* gc)
         // between long polls but I cannot understand, why does this API even exist apart
         // from "deleting message" and "setting message flag" events? The "message received" events
         // are fully covered by message.get API
+        //
+        // NOTE: Longpoll processing is the only place where we modify last_msg_id, because we receive
+        // events on both incoming and outgoing messages. Therefore, there are no races when updating
+        // last_msg_id (there will be in future when we switch to asynchronous loading of message history
+        // in the background).
         update_buddy_list(gc, [=] {
-            receive_messages(gc, last_msg_id, [=] {
+            receive_messages(gc, [=] {
                 request_long_poll(gc, v.get("server").get<string>(), v.get("key").get<string>(),
                                   v.get("ts").get<double>());
             });
@@ -201,11 +198,14 @@ void process_message(PurpleConnection* gc, const picojson::value& v)
         return;
     }
     int flags = v.get(2).get<double>();
-    // Ignore outgoing messages.
-    if (flags & MESSAGE_FLAGS_OUTBOX)
-        return;
 
     uint64 mid = v.get(1).get<double>();
+    // Check if we already processed this message in receive_messages (this could happen if the message has
+    // arrived after calling getLongPollServer and before calling messages.get).
+    if (mid <= get_conn_data(gc)->last_msg_id())
+        return;
+    get_conn_data(gc)->set_last_msg_id(mid);
+
     uint64 uid = v.get(3).get<double>();
     uint64 timestamp = v.get(4).get<double>();
     // NOTE:
@@ -216,6 +216,10 @@ void process_message(PurpleConnection* gc, const picojson::value& v)
     // * Links are sent as plaintext, both Vk.com and Pidgin linkify messages automatically.
     // * Smileys are returned as Unicode emoji (both emoji and pseudocode smileys are accepted on message send).
     string text = v.get(6).get<string>();
+
+    // TODO: Process outgoing message. This message could've been sent either by us, or by another connected client.
+    if (flags & MESSAGE_FLAGS_OUTBOX)
+        return;
 
     // NOTE:
     //  There are two ways of processing messages with attachments:
@@ -233,8 +237,6 @@ void process_message(PurpleConnection* gc, const picojson::value& v)
         // There are no attachments. Yes, messages with attached documents are also marked as media.
         serv_got_im(gc, buddy_name_from_uid(uid).data(), text.data(), PURPLE_MESSAGE_RECV, timestamp);
         mark_message_as_read(gc, { mid });
-
-        get_conn_data(gc)->set_last_msg_id(mid);
     }
 }
 

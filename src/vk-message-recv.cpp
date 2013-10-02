@@ -52,7 +52,7 @@ public:
     static MessageReceiver* create(PurpleConnection* gc, const ReceivedCb& recevied_cb);
 
     // Receives all messages.
-    void run_all(uint64 last_msg_id);
+    void run_all();
     // Receives messages with given ids.
     void run(const uint64_vec& message_ids);
 
@@ -87,7 +87,7 @@ private:
 
     // Runs messages.get from given offset.
     void run_all(int offset, uint64 last_msg_id, bool outgoing);
-    // Processes result of messages.get and messages.getById
+    // Processes result of messages.get and messages.getById.
     int process_result(const picojson::value& result);
     // Processes attachments: appends urls to message text, adds thumbnail_urls.
     static void process_attachments(const picojson::array& items, Message& message);
@@ -109,10 +109,10 @@ private:
 
 } // End of anonymous namespace
 
-void receive_messages(PurpleConnection* gc, uint64 last_msg_id, const ReceivedCb& received_cb)
+void receive_messages(PurpleConnection* gc, const ReceivedCb& received_cb)
 {
     MessageReceiver* receiver = MessageReceiver::create(gc, received_cb);
-    receiver->run_all(last_msg_id);
+    receiver->run_all();
 }
 
 void receive_messages(PurpleConnection* gc, const uint64_vec& message_ids, const ReceivedCb& received_cb)
@@ -129,8 +129,9 @@ MessageReceiver* MessageReceiver::create(PurpleConnection* gc, const ReceivedCb&
     return new MessageReceiver(gc, recevied_cb);
 }
 
-void MessageReceiver::run_all(uint64 last_msg_id)
+void MessageReceiver::run_all()
 {
+    uint64 last_msg_id = get_conn_data(m_gc)->last_msg_id();
     run_all(0, last_msg_id, false);
 }
 

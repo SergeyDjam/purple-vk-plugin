@@ -219,8 +219,9 @@ void send_im_message_internal(PurpleConnection* gc, const SendMessage& message, 
             message.error_cb();
             return;
         }
-        uint64 mid = uint64(v.get<double>());
-        get_conn_data(gc)->set_last_msg_id(mid);
+//        uint64 mid = uint64(v.get<double>());
+        // NOTE: We do not set last_msg_id here, because it is done when corresponding notification is received
+        // in longpoll.
 
         if (message.success_cb)
             message.success_cb();

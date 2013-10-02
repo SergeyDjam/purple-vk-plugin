@@ -37,12 +37,14 @@ void VkConnData::authenticate(const AuthSuccessCb& success_cb, const ErrorCb& er
 
 void VkConnData::set_last_msg_id(uint64 msg_id)
 {
-    // We can receive response from messages.send after receiving newer messages via longpoll.
     if (msg_id > m_last_msg_id) {
         m_last_msg_id = msg_id;
         // PurpleAccount has 5 second timeout before storing the properties, so it should be fine
         // calling set_int immediately after processing each message.
         purple_account_set_int(purple_connection_get_account(m_gc), "last_msg_id", m_last_msg_id);
+    } else {
+        purple_debug_error("prpl-vkcom", "Trying to set last msg id %llu earlier than an already received"
+                           "one %llu\n", (long long unsigned)msg_id, (long long unsigned)m_last_msg_id);
     }
 }
 
