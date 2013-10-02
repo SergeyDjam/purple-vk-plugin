@@ -1,11 +1,9 @@
+ * Add support for creating/joining multi-user chats.
+ * Add support for loading big avatars in get_info.
  * Add support for sending already stored files (compute md5sum).
  * Add support for having non-friend contacts (get messages.getDialogs).
  * Add support for receiving geo-information.
- * Add support for creating/joining multi-user chats.
- * Batch marking received messages as read.
- * Use exceptions in order to reduce error processing code? Use "get-with-default" wrappers?
  * Replace emoji unicode back with smiles?
- * Add support for loading big avatars in get_info.
  * Support not overwriting client-side aliases and do something graceful with them.
  * Supply a mobile emblem.
  * Add groups (PurpleBuddys will have duplicate names, is it ok?)
@@ -13,9 +11,8 @@
  * Add fast setting of user presences via friends.getOnline and update all other user information later.
    Currently friends.get returns about 800 bytes per friend, which is a lot for mobile connections and modern
    Vk.com users with thousands of friends.
+ * Split loading messages into "fast get unread" and "load chat history in background".
  * Check what's with Unicode on Windows (let's assume everyone runs UTF-8 on Linux). Check what's with
    building on windows.
  * Do HTTP retries on timeouts/50x errors?
- * Do something with constant copying of strings and std::functions on lambda capture. This is just ugly.
-   Probably should use std::bind with std::move, but god, this will be ugly. At least, move from std::string
-   to vstring on gcc, so that string copy would not induce malloc in most cases?
+ * Replace manual pointer lifetime management with shared_ptr everywhere.

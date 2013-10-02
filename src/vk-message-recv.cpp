@@ -150,18 +150,30 @@ void MessageReceiver::run(const uint64_vec& message_ids)
 void MessageReceiver::run_all(int offset, uint64 last_msg_id, bool outgoing)
 {
     CallParams params = { {"out", outgoing ? "1" : "0"}, {"offset", str_format("%d", offset)} };
-    if (last_msg_id == 0)
-        // First-time login, receive only unread messages.
+    if (last_msg_id == 0) {
+        // First-time login, receive only incoming unread messages.
+        assert(!outgoing);
+        purple_debug_info("prpl-vkcom", "First login, receiving only unread %s messages\n",
+                          outgoing ? "outgoing" : "incoming");
         params.emplace_back("filters", "1");
-    else
+    } else {
         // We've logged in before, let's download all messages since last time, including read ones.
+        purple_debug_info("prpl-vkcom", "Receiving %s messages starting from %llu\n",
+                          outgoing ? "outgoing" : "incoming", (long long unsigned)last_msg_id + 1);
         params.emplace_back("last_message_id", to_string(last_msg_id));
+    }
 
     vk_call_api(m_gc, "messages.get", params, [=](const picojson::value& result) {
         int item_count = process_result(result);
+        if (item_count > 0)
+            purple_debug_info("prpl-vkcom", "Already processed %d %s messages\n", offset + item_count,
+                              outgoing ? "outgoing" : "incoming");
+        else
+            purple_debug_info("prpl-vkcom", "Finished processing %s messages\n", outgoing ? "outgoing" : "incoming");
+
+        // We ignore "count" parameter in result and increase offset until it returns empty list.
         if (item_count == 0) {
-            // We ignore "count" parameter in result and increase offset until it returns empty list.
-            if (!outgoing)
+            if (!outgoing && last_msg_id != 0)
                 // Process outgoing
                 run_all(0, last_msg_id, true);
             else
