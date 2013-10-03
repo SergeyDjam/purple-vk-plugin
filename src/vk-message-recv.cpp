@@ -51,8 +51,8 @@ class MessageReceiver
 public:
     static MessageReceiver* create(PurpleConnection* gc, const ReceivedCb& recevied_cb);
 
-    // Receives all messages.
-    void run_all();
+    // Receives all messages starting after last_msg_id.
+    void run_all(uint64 last_msg_id);
     // Receives messages with given ids.
     void run(const uint64_vec& message_ids);
 
@@ -109,10 +109,10 @@ private:
 
 } // End of anonymous namespace
 
-void receive_messages(PurpleConnection* gc, const ReceivedCb& received_cb)
+void receive_messages_range(PurpleConnection* gc, uint64 last_msg_id, const ReceivedCb& received_cb)
 {
     MessageReceiver* receiver = MessageReceiver::create(gc, received_cb);
-    receiver->run_all();
+    receiver->run_all(last_msg_id);
 }
 
 void receive_messages(PurpleConnection* gc, const uint64_vec& message_ids, const ReceivedCb& received_cb)
@@ -129,14 +129,19 @@ MessageReceiver* MessageReceiver::create(PurpleConnection* gc, const ReceivedCb&
     return new MessageReceiver(gc, recevied_cb);
 }
 
-void MessageReceiver::run_all()
+void MessageReceiver::run_all(uint64 last_msg_id)
 {
-    uint64 last_msg_id = get_conn_data(m_gc)->last_msg_id();
     run_all(0, last_msg_id, false);
 }
 
 void MessageReceiver::run(const uint64_vec& message_ids)
 {
+    if (message_ids.empty()) {
+        if (m_received_cb)
+            m_received_cb(0);
+        return;
+    }
+
     string ids_str = str_concat_int(',', message_ids);
     CallParams params = { {"message_ids", ids_str} };
     vk_call_api(m_gc, "messages.getById", params, [=](const picojson::value& result) {
@@ -420,11 +425,12 @@ void MessageReceiver::finish()
     mark_message_as_read(m_gc, unread_message_ids);
 
     // Sets the last message id as m_messages are sorted by mid.
+    uint64 max_msg_id = 0;
     if (!m_messages.empty())
-        get_conn_data(m_gc)->set_last_msg_id(m_messages.back().mid);
+        max_msg_id = m_messages.back().mid;
 
     if (m_received_cb)
-        m_received_cb();
+        m_received_cb(max_msg_id);
     delete this;
 }
 

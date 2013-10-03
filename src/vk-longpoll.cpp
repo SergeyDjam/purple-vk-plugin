@@ -16,14 +16,67 @@
 namespace
 {
 
-// Connects to given Long Poll server and starts reading events from it.
-void request_long_poll(PurpleConnection* gc, const string& server, const string& key, uint64 ts);
-// Disconnects account on Long Poll errors as we do not have anything to do after that really.
-void long_poll_fatal(PurpleConnection* gc);
+// NOTE: Re last_msg_id: last_msg_id is the id of the last message we have processed (either sent or received).
+// It is permanently stored along with account information and is equal zero upon creation of account.
+//
+// Message ids are guaranteed to be monotonously increasing for each account (see message.get parameters).
+//
+// NOTE: Longpoll processing is the only place where we modify last_msg_id, because we receive
+// events on both incoming and outgoing messages. Therefore, there are no races when updating
+// last_msg_id (there will be in future when we switch to asynchronous loading of message history
+// in the background).
+
+// Loads last_msg_id from settings.
+uint64 load_last_msg_id(PurpleConnection* gc);
+// Saves last_msg_id to settings.
+void save_last_msg_id(PurpleConnection* gc, uint64 last_msg_id);
+
+// Helper for start_long_poll.
+void start_long_poll_internal(PurpleConnection* gc, uint64 last_msg_id);
 
 } // End of anonymous namespace
 
 void start_long_poll(PurpleConnection* gc)
+{
+    uint64 last_msg_id = load_last_msg_id(gc);
+    start_long_poll_internal(gc, last_msg_id);
+}
+
+namespace
+{
+
+uint64 load_last_msg_id(PurpleConnection* gc)
+{
+    PurpleAccount* account = purple_connection_get_account(gc);
+    return purple_account_get_int(account, "last_msg_id", 0);
+}
+
+void save_last_msg_id(PurpleConnection* gc, uint64 last_msg_id)
+{
+    PurpleAccount* account = purple_connection_get_account(gc);
+    return purple_account_set_int(account, "last_msg_id", last_msg_id);
+}
+
+// Helper struct for request_long_poll.
+struct LastMsg
+{
+    // The last message id we've processed.
+    uint64 id;
+    // There are no guarantees, that messages ids in longpoll updates are increasing, so we cannot simply ignore
+    // all the messages with id less than LastMsg.id. On the other hand, we must ignore all the messages,
+    // processed via receive_messages_range in start_long_poll. ignored is the max message id received in
+    // receive_messages_range, all messages with ids less or equal to it must be ignored.
+    const uint64 ignored;
+};
+
+// Connects to given Long Poll server and starts reading events from it. last_msg_id is explained earlier,
+// last_msg_id_from_start is a bit more complex. There are cases when request_long_poll will receive messages,
+// which have already been processed:
+void request_long_poll(PurpleConnection* gc, const string& server, const string& key, uint64 ts, LastMsg last_msg);
+// Disconnects account on Long Poll errors as we do not have anything to do after that really.
+void long_poll_fatal(PurpleConnection* gc);
+
+void start_long_poll_internal(PurpleConnection* gc, uint64 last_msg_id)
 {
     CallParams params = { {"use_ssl", "1"} };
     vk_call_api(gc, "messages.getLongPollServer", params, [=](const picojson::value& v) {
@@ -37,23 +90,24 @@ void start_long_poll(PurpleConnection* gc)
 
         // First, we update buddy presence and receive unread messages and only then start processing
         // events. We won't miss any events because we already got starting timestamp from server.
-        // We never process one message two times, because we keep last_msg_id and ignore received
-        // message events with equal or lesser id (this can happen if user sends the message after
-        // receiving answer from getLongPollServer but before the call to receive_messages).
-        //
-        // NOTE: messages.getLongPollHistory API is usually recommended as a way of getting messages
-        // between long polls but I cannot understand, why does this API even exist apart
-        // from "deleting message" and "setting message flag" events? The "message received" events
-        // are fully covered by message.get API
-        //
-        // NOTE: Longpoll processing is the only place where we modify last_msg_id, because we receive
-        // events on both incoming and outgoing messages. Therefore, there are no races when updating
-        // last_msg_id (there will be in future when we switch to asynchronous loading of message history
-        // in the background).
         update_buddy_list(gc, [=] {
-            receive_messages(gc, [=] {
-                request_long_poll(gc, v.get("server").get<string>(), v.get("key").get<string>(),
-                                  v.get("ts").get<double>());
+            receive_messages_range(gc, last_msg_id,  [=](uint64 max_msg_id) {
+                // We've received no new messages.
+                if (max_msg_id == 0)
+                    max_msg_id = last_msg_id;
+
+                if (!field_is_present<string>(v, "server") || !field_is_present<string>(v, "key")
+                        || !field_is_present<double>(v, "ts")) {
+                    purple_debug_error("prpl-vkcom", "Wrong response from messages.getLongPollServer: %s\n",
+                                       v.serialize().data());
+                    long_poll_fatal(gc);
+                    return;
+                }
+
+                const string& server = v.get("server").get<string>();
+                const string& key = v.get("key").get<string>();
+                double ts = v.get("ts").get<double>();
+                request_long_poll(gc, server, key, ts, { max_msg_id, max_msg_id });
             });
         }, true);
     }, [=](const picojson::value&) {
@@ -61,15 +115,13 @@ void start_long_poll(PurpleConnection* gc)
     });
 }
 
-namespace
-{
-
 // Reads and processes an event from updates array.
-void process_update(PurpleConnection* gc, const picojson::value& v);
+void process_update(PurpleConnection* gc, const picojson::value& v, LastMsg& last_msg);
 
 const char* long_poll_url = "https://%s?act=a_check&key=%s&ts=%llu&wait=25";
 
-void request_long_poll(PurpleConnection* gc, const string& server, const string& key, uint64 ts)
+void request_long_poll(PurpleConnection* gc, const string& server, const string& key, uint64 ts,
+                       LastMsg last_msg)
 {
     VkConnData* conn_data = get_conn_data(gc);
 
@@ -84,7 +136,7 @@ void request_long_poll(PurpleConnection* gc, const string& server, const string&
         if (purple_http_response_get_code(response) != 200) {
             purple_debug_error("prpl-vkcom", "Error while reading response from Long Poll server: %s\n",
                                purple_http_response_get_error(response));
-            request_long_poll(gc, server, key, ts);
+            request_long_poll(gc, server, key, ts, last_msg);
             return;
         }
 
@@ -94,33 +146,35 @@ void request_long_poll(PurpleConnection* gc, const string& server, const string&
         string error = picojson::parse(root, response_text, response_text + strlen(response_text));
         if (!error.empty()) {
             purple_debug_error("prpl-vkcom", "Error parsing %s: %s\n", response_text_copy, error.data());
-            request_long_poll(gc, server, key, ts);
+            request_long_poll(gc, server, key, ts, last_msg);
             return;
         }
         if (!root.is<picojson::object>()) {
             purple_debug_error("prpl-vkcom", "Strange response from Long Poll: %s\n", response_text_copy);
-            request_long_poll(gc, server, key, ts);
+            request_long_poll(gc, server, key, ts, last_msg);
             return;
         }
 
         if (root.contains("failed")) {
             purple_debug_info("prpl-vkcom", "Long Poll got tired, re-requesting Long Poll server address\n");
-            start_long_poll(gc);
+            start_long_poll_internal(gc, last_msg.id);
             return;
         }
 
         if (!field_is_present<double>(root, "ts") || !field_is_present<picojson::array>(root, "updates")) {
             purple_debug_error("prpl-vkcom", "Strange response from Long Poll: %s\n", response_text_copy);
-            request_long_poll(gc, server, key, ts);
+            request_long_poll(gc, server, key, ts, last_msg);
             return;
         }
 
+        LastMsg next_last_msg = last_msg;
+
         const picojson::array& updates = root.get("updates").get<picojson::array>();
         for (const picojson::value& v: updates)
-            process_update(gc, v);
+            process_update(gc, v, next_last_msg);
 
         uint64 next_ts = root.get("ts").get<double>();
-        request_long_poll(gc, server, key, next_ts);
+        request_long_poll(gc, server, key, next_ts, next_last_msg);
     });
 }
 
@@ -156,13 +210,13 @@ enum MessageFlags
 };
 
 // Processes message event.
-void process_message(PurpleConnection* gc, const picojson::value& v);
+void process_message(PurpleConnection* gc, const picojson::value& v, LastMsg& last_msg);
 // Processes user online/offline event.
 void process_online(PurpleConnection* gc, const picojson::value& v, bool online);
 // Processes user typing event.
 void process_typing(PurpleConnection* gc, const picojson::value& v);
 
-void process_update(PurpleConnection* gc, const picojson::value& v)
+void process_update(PurpleConnection* gc, const picojson::value& v, LastMsg& last_msg)
 {
     if (!v.is<picojson::array>() || !v.contains(0)) {
         purple_debug_error("prpl-vkcom", "Strange response from Long Poll in updates: %s\n",
@@ -173,7 +227,7 @@ void process_update(PurpleConnection* gc, const picojson::value& v)
     int code = v.get(0).get<double>();
     switch (code) {
     case LONG_POLL_MESSAGE:
-        process_message(gc, v);
+        process_message(gc, v, last_msg);
         break;
     case LONG_POLL_ONLINE:
         process_online(gc, v, true);
@@ -189,7 +243,7 @@ void process_update(PurpleConnection* gc, const picojson::value& v)
     }
 }
 
-void process_message(PurpleConnection* gc, const picojson::value& v)
+void process_message(PurpleConnection* gc, const picojson::value& v, LastMsg& last_msg)
 {
     if (!v.contains(6) || !v.get(1).is<double>() || !v.get(2).is<double>() || !v.get(3).is<double>()
             || !v.get(4).is<double>() || !v.get(6).is<string>()) {
@@ -197,13 +251,18 @@ void process_message(PurpleConnection* gc, const picojson::value& v)
                            v.serialize().data());
         return;
     }
-    int flags = v.get(2).get<double>();
-
     uint64 mid = v.get(1).get<double>();
-    // Check if we already processed this message in receive_messages (this could happen if the message has
-    // arrived after calling getLongPollServer and before calling messages.get).
-    if (mid <= get_conn_data(gc)->last_msg_id())
+    // Check if we already processed this message in receive_messages_range.
+    if (mid <= last_msg.ignored)
         return;
+
+    if (mid > last_msg.id) {
+        last_msg.id = mid;
+        // Pidgin defaults saving to once per 5 seconds, so there is no problem with resetting this value frequently.
+        save_last_msg_id(gc, mid);
+    }
+
+    int flags = v.get(2).get<double>();
 
     uint64 uid = v.get(3).get<double>();
     uint64 timestamp = v.get(4).get<double>();
@@ -217,10 +276,8 @@ void process_message(PurpleConnection* gc, const picojson::value& v)
     string text = v.get(6).get<string>();
 
     // TODO: Process outgoing message. This message could've been sent either by us, or by another connected client.
-    if (flags & MESSAGE_FLAGS_OUTBOX) {
-        get_conn_data(gc)->set_last_msg_id(mid);
+    if (flags & MESSAGE_FLAGS_OUTBOX)
         return;
-    }
 
     // NOTE:
     //  There are two ways of processing messages with attachments:
@@ -238,7 +295,6 @@ void process_message(PurpleConnection* gc, const picojson::value& v)
         // There are no attachments. Yes, messages with attached documents are also marked as media.
         serv_got_im(gc, buddy_name_from_uid(uid).data(), text.data(), PURPLE_MESSAGE_RECV, timestamp);
         mark_message_as_read(gc, { mid });
-        get_conn_data(gc)->set_last_msg_id(mid);
     }
 }
 
