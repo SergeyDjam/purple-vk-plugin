@@ -90,7 +90,7 @@ void start_long_poll_internal(PurpleConnection* gc, uint64 last_msg_id)
 
         // First, we update buddy presence and receive unread messages and only then start processing
         // events. We won't miss any events because we already got starting timestamp from server.
-        update_buddy_list(gc, [=] {
+        update_buddy_list(gc, true, [=] {
             receive_messages_range(gc, last_msg_id,  [=](uint64 max_msg_id) {
                 // We've received no new messages.
                 if (max_msg_id == 0)
@@ -109,7 +109,7 @@ void start_long_poll_internal(PurpleConnection* gc, uint64 last_msg_id)
                 double ts = v.get("ts").get<double>();
                 request_long_poll(gc, server, key, ts, { max_msg_id, max_msg_id });
             });
-        }, true);
+        });
     }, [=](const picojson::value&) {
         long_poll_fatal(gc);
     });

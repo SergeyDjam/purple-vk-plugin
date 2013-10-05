@@ -35,6 +35,8 @@ using uint64_vec = vector<uint64>;
 
 using std::to_string;
 
+// This function type is used for signalling success if no other information must be passed.
+using SuccessCb = std::function<void()>;
 // This function type is used for returning errors via callback.
 using ErrorCb = std::function<void()>;
 

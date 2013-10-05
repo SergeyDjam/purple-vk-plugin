@@ -7,9 +7,8 @@
 #include <connection.h>
 
 // Sends IM to a buddy.
-using SendSuccessCb = std::function<void()>;
 int send_im_message(PurpleConnection* gc, uint64 uid, const char* raw_message,
-                    const SendSuccessCb& success_cb = nullptr, const ErrorCb& error_cb = nullptr);
+                    const SuccessCb& success_cb = nullptr, const ErrorCb& error_cb = nullptr);
 
 // Send attachment to a buddy. Used in vk-filexfer.cpp. Attachment must be a string, formed as required
 // by Vk.com rules.

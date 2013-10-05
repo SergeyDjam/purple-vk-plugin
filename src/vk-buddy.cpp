@@ -24,7 +24,7 @@ void clean_buddy_list(PurpleConnection* gc, const string_set& buddy_names);
 const char user_fields_param[] = "first_name,last_name,bdate,education,photo_50,photo_max_orig,"
                                  "online,contacts,can_write_private_message,activity,last_seen,domain";
 
-void update_buddy_list(PurpleConnection* gc, const BuddyUpdatedCb& on_update_cb, bool update_presence)
+void update_buddy_list(PurpleConnection* gc, bool update_presence, const SuccessCb& on_update_cb)
 {
     purple_debug_info("prpl-vkcom", "Updating full buddy list\n");
 
@@ -37,7 +37,7 @@ void update_buddy_list(PurpleConnection* gc, const BuddyUpdatedCb& on_update_cb,
     });
 }
 
-void update_buddy(PurpleConnection* gc, uint64 uid, const BuddyUpdatedCb& on_update_cb, bool update_presence)
+void update_buddy(PurpleConnection* gc, uint64 uid, const SuccessCb& on_update_cb, bool update_presence)
 {
     purple_debug_info("prpl-vkcom", "Updating information for buddy %llu\n", (unsigned long long)uid);
 

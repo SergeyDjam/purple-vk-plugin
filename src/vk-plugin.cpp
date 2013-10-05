@@ -87,9 +87,10 @@ void vk_login(PurpleAccount* acct)
         start_long_poll(gc);
 
         // Add updating buddy list every 15 minutes. If we do not update regularily, we might miss
-        // updates to buddy status text, buddy icon or other information.
+        // updates to buddy status text, buddy icon or other information. Do not update buddy presence,
+        // as it is now managed by longpoll.
         timeout_add(gc, 15 * 60 * 1000, [=] {
-            update_buddy_list(gc);
+            update_buddy_list(gc, false);
             return true;
         });
     }, nullptr);
@@ -250,7 +251,7 @@ PurplePluginProtocolInfo prpl_info = {
     nullptr, /* group_buddy */
     nullptr, /* rename_group */
     vk_buddy_free, /* buddy_free */
-    nullptr, //    waprpl_convo_closed, /* convo_closed */
+    nullptr, /* convo_closed */
     purple_normalize_nocase, /* normalize */
     nullptr, /* set_buddy_icon */
     nullptr, /* remove_group */

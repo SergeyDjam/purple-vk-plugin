@@ -32,7 +32,7 @@ struct SendMessage
     uint64 uid;
     string message;
     string attachments;
-    SendSuccessCb success_cb;
+    SuccessCb success_cb;
     ErrorCb error_cb;
 };
 
@@ -46,7 +46,7 @@ void show_error(PurpleConnection* gc, uint64 uid, const SendMessage& message);
 } // End of anonymous namespace
 
 int send_im_message(PurpleConnection* gc, uint64 uid, const char* raw_message,
-                    const SendSuccessCb& success_cb, const ErrorCb& error_cb)
+                    const SuccessCb& success_cb, const ErrorCb& error_cb)
 {
     // NOTE: We de-escape message before sending, because
     //  * Vk.com chat is plaintext anyway
