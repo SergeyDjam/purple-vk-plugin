@@ -74,6 +74,8 @@ set(SOURCES
   src/vk-message-send.cpp
   src/vk-message-send.h
   src/vk-plugin.cpp
+  src/vk-status.cpp
+  src/vk-status.h
   src/vk-upload.cpp
   src/vk-upload.h
   src/vk-utils.cpp

@@ -12,6 +12,7 @@
 #include "vk-filexfer.h"
 #include "vk-longpoll.h"
 #include "vk-message-send.h"
+#include "vk-status.h"
 
 
 const char* vk_list_icon(PurpleAccount*, PurpleBuddy*)
@@ -93,11 +94,22 @@ void vk_login(PurpleAccount* acct)
             update_buddy_list(gc, false);
             return true;
         });
+
+        // Update that we are online every 15 minutes.
+        timeout_add(gc, 15 * 60 * 1000, [=] {
+            vk_update_status(gc);
+            return true;
+        });
     }, nullptr);
 }
 
 void vk_close(PurpleConnection* gc)
 {
+    vk_set_offline(gc);
+    // Let's sleep 250 msec, so that setOffline executes successfully. Yes, it is ugly, but
+    // we cannot defer destruction of PurpleConnection and doing the "right way" is such a bother.
+    g_usleep(250000);
+
     VkConnData* data = get_conn_data(gc);
     data->set_closing();
 
@@ -158,6 +170,12 @@ void vk_get_info(PurpleConnection* gc, const char* username)
         purple_notify_user_info_add_pair_plaintext(info, "Status", data->activity.data());
 
     purple_notify_userinfo(gc, username, info, nullptr, nullptr);
+}
+
+// Called when user changes the status.
+void vk_set_status(PurpleAccount* account, PurpleStatus*)
+{
+    vk_update_status(purple_account_get_connection(account));
 }
 
 void vk_buddy_free(PurpleBuddy* buddy)
@@ -224,7 +242,7 @@ PurplePluginProtocolInfo prpl_info = {
     nullptr, /* set_info */
     vk_send_typing, /* send_typing */
     vk_get_info, /* get_info */
-    nullptr, /* set_status */
+    vk_set_status, /* set_status */
     nullptr, /* set_idle */
     nullptr, /* change_passwd */
     nullptr, /* add_buddy */

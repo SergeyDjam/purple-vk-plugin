@@ -1,3 +1,13 @@
+ * REDO contacts: store friends, store everyone who you communicated with (has
+   history on server), store multichats.
+   * Configure groups for friends, for everyone else, for multichats.
+   * If adding, show some information on how to add friend.
+   * If removing, show that we cannot remove.
+   * If changing alias, store "locally_set" in buddy list and do not attempt
+     to reset the alias.
+ * Add buddies to blist right before receiving messages from them.
+ * Do pings.
+
  * Add support for creating/joining multi-user chats.
  * Add support for loading big avatars in get_info.
  * Add support for sending already stored files (compute md5sum).
