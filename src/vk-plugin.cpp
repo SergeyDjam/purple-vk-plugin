@@ -95,6 +95,7 @@ void vk_login(PurpleAccount* acct)
             return true;
         });
 
+        vk_update_status(gc);
         // Update that we are online every 15 minutes.
         timeout_add(gc, 15 * 60 * 1000, [=] {
             vk_update_status(gc);
