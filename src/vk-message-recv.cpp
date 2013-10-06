@@ -134,7 +134,7 @@ void MessageReceiver::run(const uint64_vec& message_ids)
 
 void MessageReceiver::run_all(uint64 last_msg_id, bool outgoing)
 {
-    CallParams params = { {"out", outgoing ? "1" : "0"} };
+    CallParams params = { {"out", outgoing ? "1" : "0"}, {"count", "200"} };
     if (last_msg_id == 0) {
         // First-time login, receive only incoming unread messages.
         assert(!outgoing);

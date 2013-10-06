@@ -295,7 +295,7 @@ void get_users_from_dialogs(PurpleConnection* gc, const ReceivedUsersCb& receive
 {
     shared_ptr<uint64_set> uids{ new uint64_set };
     // preview_length minimum value is 1, zero means "full message".
-    CallParams params = { {"preview_length", "1"} };
+    CallParams params = { {"preview_length", "1"}, {"count", "200"} };
     vk_call_api_items(gc, "messages.getDialogs", params, true, [=](const picojson::value& dialog) {
         if (!field_is_present<double>(dialog, "user_id")) {
             purple_debug_error("prpl-vkcom", "Strange response from messages.getDialogs: %s\n",
