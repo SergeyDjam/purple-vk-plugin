@@ -159,7 +159,7 @@ void vk_get_info(PurpleConnection* gc, const char* username)
     }
 
     purple_notify_user_info_add_section_break(info);
-    purple_notify_user_info_add_pair_plaintext(info, "Name", purple_buddy_get_contact_alias(buddy));
+    purple_notify_user_info_add_pair_plaintext(info, "Name", data->name.data());
 
     if (!data->bdate.empty())
         purple_notify_user_info_add_pair_plaintext(info, "Birthdate", data->bdate.data());
@@ -177,6 +177,18 @@ void vk_get_info(PurpleConnection* gc, const char* username)
 void vk_set_status(PurpleAccount* account, PurpleStatus*)
 {
     vk_update_status(purple_account_get_connection(account));
+}
+
+// We do not store alias on server, but we can set the flag, so that the alias will not be overwritten
+// on next update of the buddy list.
+void vk_alias_buddy(PurpleConnection* gc, const char *who, const char*)
+{
+    PurpleAccount* account = purple_connection_get_account(gc);
+    PurpleBuddy* buddy = purple_find_buddy(account, who);
+    if (!buddy)
+        return;
+
+    purple_blist_node_set_bool(&buddy->node, "custom-alias", true);
 }
 
 void vk_buddy_free(PurpleBuddy* buddy)
@@ -266,7 +278,7 @@ PurplePluginProtocolInfo prpl_info = {
     nullptr, /* register_user */
     nullptr, /* get_cb_info */
     nullptr, /* get_cb_away */
-    nullptr, /* alias_buddy */
+    vk_alias_buddy, /* alias_buddy */
     nullptr, /* group_buddy */
     nullptr, /* rename_group */
     vk_buddy_free, /* buddy_free */

@@ -213,7 +213,7 @@ uint64 update_buddy_from_object(PurpleConnection* gc, const picojson::value& v, 
     uint64 uid = v.get("id").get<double>();
     string name = buddy_name_from_uid(uid);
     // Buddy "real" name.
-    string alias = v.get("first_name").get<string>() + " " + v.get("last_name").get<string>();
+    string real_name = v.get("first_name").get<string>() + " " + v.get("last_name").get<string>();
 
     PurpleAccount* account = purple_connection_get_account(gc);
     PurpleBuddy* buddy = purple_find_buddy(account, name.data());
@@ -223,11 +223,14 @@ uint64 update_buddy_from_object(PurpleConnection* gc, const picojson::value& v, 
         purple_blist_add_buddy(buddy, nullptr, nullptr, nullptr);
     }
 
-    // Set "server alias"
-    serv_got_alias(gc, name.data(), alias.data());
-    // Set "client alias", the one that is stored in blist on the client and can be set by the user.
-    // If we do not set it, the ugly "idXXXX" entries will appear in buddy list during connection.
-    purple_serv_got_private_alias(gc, name.data(), alias.data());
+    // Check if user did not set alias locally.
+    if (!purple_blist_node_get_bool(&buddy->node, "custom-alias")) {
+        // Set "server alias"
+        serv_got_alias(gc, name.data(), real_name.data());
+        // Set "client alias", the one that is stored in blist on the client and can be set by the user.
+        // If we do not set it, the ugly "idXXXX" entries will appear in buddy list during connection.
+        purple_serv_got_private_alias(gc, name.data(), real_name.data());
+    }
 
     // Store all data, required for get_info, tooltip_text etc.
     VkBuddyData* data = (VkBuddyData*)purple_buddy_get_protocol_data(buddy);
@@ -240,6 +243,7 @@ uint64 update_buddy_from_object(PurpleConnection* gc, const picojson::value& v, 
     if (field_is_present<string>(v, "bdate"))
         data->bdate = unescape_html(v.get("bdate").get<string>());
     data->education = unescape_html(make_education_string(v));
+    data->name = real_name;
     data->photo_max = v.get("photo_max_orig").get<string>();
     if (field_is_present<string>(v, "mobile_phone"))
         data->mobile_phone = unescape_html(v.get("mobile_phone").get<string>());

@@ -79,6 +79,9 @@ struct VkBuddyData
     string activity;
     string bdate;
     string education;
+    // name is saved, because we can set custom alias for the user, but still display original name
+    // in "Get Info" dialog
+    string name;
     string photo_max;
     string mobile_phone;
     string domain;
