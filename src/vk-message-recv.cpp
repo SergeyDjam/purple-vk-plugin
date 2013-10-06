@@ -368,7 +368,7 @@ void MessageReceiver::finish()
     });
 
     uint64_vec unread_message_ids;
-    LogCache logs(m_gc);
+    PurpleLogCache logs(m_gc);
     for (const Message& m: m_messages) {
         if (m.unread && !m.outgoing) {
             // Show message as received.

@@ -56,31 +56,46 @@ string parse_vkcom_attachments(const string& message)
     return ret;
 }
 
+namespace
+{
 
-string get_buddy_name(PurpleConnection* gc, uint64 uid)
+// Returns either PurpleBuddy or nullptr.
+PurpleBuddy* buddy_from_uid(PurpleConnection* gc, uint64 uid)
 {
     string who = buddy_name_from_uid(uid);
     PurpleAccount* account = purple_connection_get_account(gc);
-    PurpleBuddy* buddy = purple_find_buddy(account, who.data());
+    return purple_find_buddy(account, who.data());
+}
+
+} // End of anonymous namespace
+
+string get_buddy_name(PurpleConnection* gc, uint64 uid)
+{
+    PurpleBuddy* buddy = buddy_from_uid(gc, uid);
     if (buddy)
         return purple_buddy_get_alias(buddy);
     else
-        return who;
+        return buddy_name_from_uid(uid);
+}
+
+bool in_buddy_list(PurpleConnection* gc, uint64 uid)
+{
+    return buddy_from_uid(gc, uid) != nullptr;
 }
 
 
-LogCache::LogCache(PurpleConnection* gc)
+PurpleLogCache::PurpleLogCache(PurpleConnection* gc)
     : m_gc(gc)
 {
 }
 
-LogCache::~LogCache()
+PurpleLogCache::~PurpleLogCache()
 {
     for (pair<uint64, PurpleLog*> p: m_logs)
         purple_log_free(p.second);
 }
 
-PurpleLog* LogCache::for_uid(uint64 uid)
+PurpleLog* PurpleLogCache::for_uid(uint64 uid)
 {
     if (contains_key(m_logs, uid)) {
         return m_logs[uid];
@@ -91,7 +106,7 @@ PurpleLog* LogCache::for_uid(uint64 uid)
     }
 }
 
-PurpleLog* LogCache::open_for_uid(uint64 uid)
+PurpleLog* PurpleLogCache::open_for_uid(uint64 uid)
 {
     string buddy = buddy_name_from_uid(uid);
     PurpleAccount* account = purple_connection_get_account(m_gc);
