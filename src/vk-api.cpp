@@ -209,7 +209,7 @@ void vk_call_api_items_internal(PurpleConnection* gc, const char* method_name, c
         if (!pagination || items.size() == 0)
             call_finished_cb();
         else
-            vk_call_api_items_internal(gc, method_name, params, offset + items.size(), false,
+            vk_call_api_items_internal(gc, method_name, params, offset + items.size(), true,
                                        call_process_item_cb, call_finished_cb, error_cb);
     };
 
