@@ -47,7 +47,8 @@ void update_buddy_list(PurpleConnection* gc, bool update_presence, const Success
             if (!non_friend_uids.empty())
                 purple_debug_info("prpl-vkcom", "There are contacts, which are not your friends\n");
 
-            update_buddies(gc, non_friend_uids, update_presence, [=] {
+            // We always update presence of non-friend buddies, because
+            update_buddies(gc, non_friend_uids, [=] {
                 string_set buddy_names;
                 for (uint64 uid: uids)
                     buddy_names.insert(buddy_name_from_uid(uid));
@@ -62,8 +63,7 @@ void update_buddy_list(PurpleConnection* gc, bool update_presence, const Success
     });
 }
 
-void update_buddies(PurpleConnection* gc, const uint64_vec& uids, bool update_presence,
-                    const SuccessCb& on_update_cb)
+void update_buddies(PurpleConnection* gc, const uint64_vec& uids, const SuccessCb& on_update_cb)
 {
     if (uids.empty()) {
         on_update_cb();
@@ -75,7 +75,7 @@ void update_buddies(PurpleConnection* gc, const uint64_vec& uids, bool update_pr
 
     CallParams params = { {"user_ids", ids_str}, {"fields", user_fields_param} };
     vk_call_api(gc, "users.get", params, [=](const picojson::value& result) {
-        on_update_buddy_list(gc, result, false, update_presence);
+        on_update_buddy_list(gc, result, false, true);
         if (on_update_cb)
             on_update_cb();
     });

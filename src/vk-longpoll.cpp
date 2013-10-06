@@ -319,7 +319,7 @@ void process_online(PurpleConnection* gc, const picojson::value& v, bool online)
     if (!purple_find_buddy(account, name.data())) {
         purple_debug_info("prpl-vkcom", "User %s has come online, but is not present in buddy list."
                           "He has probably been added behind our backs.", name.data());
-        update_buddies(gc, { uid }, true);
+        update_buddies(gc, { uid });
         return;
     }
 
