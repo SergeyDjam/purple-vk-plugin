@@ -11,12 +11,19 @@ namespace
 {
 
 // Helper callback, used for friends.get and users.get. Updates all buddies info from the result,
-// returns names of all buddies.
+// returns uids of the buddies.
+//
 // friends_get must be true if the function is called for friends.get result, false for users.get
 // (these two methods have actually slightly different response objects).
-string_set on_update_buddy_list(PurpleConnection* gc, const picojson::value& result, bool friends_get, bool update_presence);
+// update_presence is true if presence of buddies should be updated, false otherwise.
+uint64_set on_update_buddy_list(PurpleConnection* gc, const picojson::value& result, bool friends_get,
+                                bool update_presence);
 
-// Removes all buddies, not present in string_set, from buddy list.
+// Returns a set of uids of all people, which a user had a dialog with.
+using ReceivedUsersCb = std::function<void(const uint64_set&)>;
+void get_users_from_dialogs(PurpleConnection* gc, const ReceivedUsersCb& received_users_cb);
+
+// Removes all buddies, not present in buddy_names, from buddy list.
 void clean_buddy_list(PurpleConnection* gc, const string_set& buddy_names);
 
 } // End of anonymous namespace
@@ -31,17 +38,42 @@ void update_buddy_list(PurpleConnection* gc, bool update_presence, const Success
     VkConnData* data = get_conn_data(gc);
     CallParams params = { {"user_id", to_string(data->uid())}, {"fields", user_fields_param} };
     vk_call_api(gc, "friends.get", params, [=](const picojson::value& result) {
-        clean_buddy_list(gc, on_update_buddy_list(gc, result, true, update_presence));
-        if (on_update_cb)
-            on_update_cb();
+        uint64_set uids = on_update_buddy_list(gc, result, true, update_presence);
+        get_users_from_dialogs(gc, [=](const uint64_set& dialog_uids) {
+            uint64_vec non_friend_uids;
+            for (uint64 uid: dialog_uids)
+                if (!contains_key(uids, uid))
+                    non_friend_uids.push_back(uid);
+            if (!non_friend_uids.empty())
+                purple_debug_info("prpl-vkcom", "There are contacts, which are not your friends\n");
+
+            update_buddies(gc, non_friend_uids, update_presence, [=] {
+                string_set buddy_names;
+                for (uint64 uid: uids)
+                    buddy_names.insert(buddy_name_from_uid(uid));
+                for (uint64 uid: non_friend_uids)
+                    buddy_names.insert(buddy_name_from_uid(uid));
+
+                clean_buddy_list(gc, buddy_names);
+                if (on_update_cb)
+                    on_update_cb();
+            });
+        });
     });
 }
 
-void update_buddy(PurpleConnection* gc, uint64 uid, const SuccessCb& on_update_cb, bool update_presence)
+void update_buddies(PurpleConnection* gc, const uint64_vec& uids, bool update_presence,
+                    const SuccessCb& on_update_cb)
 {
-    purple_debug_info("prpl-vkcom", "Updating information for buddy %llu\n", (unsigned long long)uid);
+    if (uids.empty()) {
+        on_update_cb();
+        return;
+    }
 
-    CallParams params = { {"user_ids", to_string(uid)}, {"fields", user_fields_param} };
+    string ids_str = str_concat_int(',', uids);
+    purple_debug_info("prpl-vkcom", "Updating information for buddies %s\n", ids_str.data());
+
+    CallParams params = { {"user_ids", ids_str}, {"fields", user_fields_param} };
     vk_call_api(gc, "users.get", params, [=](const picojson::value& result) {
         on_update_buddy_list(gc, result, false, update_presence);
         if (on_update_cb)
@@ -52,37 +84,37 @@ void update_buddy(PurpleConnection* gc, uint64 uid, const SuccessCb& on_update_c
 namespace
 {
 
-// Updates information about buddy from given object and returns buddy name.
-string update_buddy_from_object(PurpleConnection* gc, const picojson::value& v, bool update_presence);
+// Updates information about buddy from given object and returns buddy uid or zero in case of failure.
+uint64 update_buddy_from_object(PurpleConnection* gc, const picojson::value& v, bool update_presence);
 
-string_set on_update_buddy_list(PurpleConnection* gc, const picojson::value& result, bool friends_get,
+uint64_set on_update_buddy_list(PurpleConnection* gc, const picojson::value& result, bool friends_get,
                                 bool update_presence)
 {
     if (friends_get && !result.is<picojson::object>()) {
         purple_debug_error("prpl-vkcom", "Wrong type returned as friends.get call result\n");
-        return string_set();
+        return {};
     }
 
     const picojson::value& items = friends_get ? result.get("items") : result;
     if (!items.is<picojson::array>()) {
         purple_debug_error("prpl-vkcom", "Wrong type returned as friends.get or users.get call result\n");
-        return string_set();
+        return {};
     }
 
     // Adds or updates buddies in result and forms the active set of buddy ids.
-    string_set buddy_names;
+    uint64_set buddy_uids;
     for (const picojson::value& v: items.get<picojson::array>()) {
         if (!v.is<picojson::object>()) {
             purple_debug_error("prpl-vkcom", "Strange node found in friends.get or users.get result: %s\n",
                                v.serialize().data());
             continue;
         }
-        string name = update_buddy_from_object(gc, v, update_presence);
-        if (!name.empty())
-            buddy_names.insert(name);
+        uint64 uid = update_buddy_from_object(gc, v, update_presence);
+        if (uid != 0)
+            buddy_uids.insert(uid);
     }
 
-    return buddy_names;
+    return buddy_uids;
 }
 
 void clean_buddy_list(PurpleConnection* gc, const string_set& buddy_names)
@@ -155,10 +187,10 @@ void on_fetch_buddy_icon_cb(PurpleHttpConnection* http_conn, PurpleHttpResponse*
                                     icon_len, icon_url);
 }
 
-string update_buddy_from_object(PurpleConnection* gc, const picojson::value& v, bool update_presence)
+uint64 update_buddy_from_object(PurpleConnection* gc, const picojson::value& v, bool update_presence)
 {
     if (field_is_present<string>(v, "deactivated"))
-        return "";
+        return 0;
 
     if (!field_is_present<double>(v, "id")
             || !field_is_present<string>(v, "first_name")
@@ -171,11 +203,11 @@ string update_buddy_from_object(PurpleConnection* gc, const picojson::value& v, 
             || !field_is_present<double>(v, "can_write_private_message")) {
         purple_debug_error("prpl-vkcom", "Incomplete user information in friends.get or users.get: %s\n",
                            picojson::value(v).serialize().data());
-        return "";
+        return 0;
     }
 
     if (v.get("can_write_private_message").get<double>() != 1)
-        return "";
+        return 0;
 
     // All buddy names are always in the form "idXXXXX" disregarding real name or nickname.
     uint64 uid = v.get("id").get<double>();
@@ -252,7 +284,28 @@ string update_buddy_from_object(PurpleConnection* gc, const picojson::value& v, 
         }
     }
 
-    return name;
+    return uid;
+}
+
+void get_users_from_dialogs(PurpleConnection* gc, const ReceivedUsersCb& received_users_cb)
+{
+    shared_ptr<uint64_set> uids{ new uint64_set };
+    // preview_length minimum value is 1, zero means "full message".
+    CallParams params = { {"preview_length", "1"} };
+    vk_call_api_items(gc, "messages.getDialogs", params, true, [=](const picojson::value& dialog) {
+        if (!field_is_present<double>(dialog, "user_id")) {
+            purple_debug_error("prpl-vkcom", "Strange response from messages.getDialogs: %s\n",
+                               dialog.serialize().data());
+            return;
+        }
+
+        uint64 uid = dialog.get("user_id").get<double>();
+        uids->insert(uid);
+    }, [=] {
+        received_users_cb(*uids);
+    }, [=](const picojson::value&) {
+        received_users_cb({});
+    });
 }
 
 } // End anonymous namespace

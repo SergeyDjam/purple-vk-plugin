@@ -15,28 +15,6 @@
 namespace
 {
 
-// Creates string of integers, separated by sep.
-template<typename Sep, typename It>
-string str_concat_int(Sep sep, It first, It last)
-{
-    string s;
-    for (It it = first; it != last; it++) {
-        if (!s.empty())
-            s += sep;
-        char buf[128];
-        sprintf(buf, "%lld", (long long)*it);
-        s += buf;
-    }
-    return s;
-}
-
-template<typename Sep, typename C>
-string str_concat_int(Sep sep, const C& c)
-{
-    return str_concat_int(sep, c.cbegin(), c.cend());
-}
-
-
 // Three reasons for creating a separate class:
 //  a) messages.get returns answers in reverse time order, so we have to store messages and sort them later;
 //  b) messages.get paginates the answers, so that multiple calls may be required in order to retrieve all

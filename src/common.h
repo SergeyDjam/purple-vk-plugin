@@ -32,6 +32,7 @@ using uint_set = set<uint>;
 using int64 = int64_t;
 using uint64 = uint64_t;
 using uint64_vec = vector<uint64>;
+using uint64_set = set<uint64>;
 
 using std::to_string;
 
@@ -108,6 +109,28 @@ template<typename Sep, typename C>
 inline string str_concat(Sep sep, const C& c)
 {
     return str_concat(sep, c.cbegin(), c.cend());
+}
+
+// Creates string of integers, separated by sep.
+template<typename Sep, typename It>
+string str_concat_int(Sep sep, It first, It last)
+{
+    string s;
+    for (It it = first; it != last; it++) {
+        if (!s.empty())
+            s += sep;
+        char buf[128];
+        sprintf(buf, "%lld", (long long)*it);
+        s += buf;
+    }
+    return s;
+}
+
+// Version of str_concat_int, which accepts container.
+template<typename Sep, typename C>
+string str_concat_int(Sep sep, const C& c)
+{
+    return str_concat_int(sep, c.cbegin(), c.cend());
 }
 
 // Converts string to upper-case

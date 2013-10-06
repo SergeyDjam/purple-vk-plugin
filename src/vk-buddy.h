@@ -6,14 +6,20 @@
 
 #include <connection.h>
 
-// Adds, updates or removes buddies.
+// NOTE: Currently buddy list contains three types of nodes for Vk.com account:
+//  1) friends,
+//  2) non-friends that the user had chat with,
+//  3) (NOT IMPLEMENTED) multichats where the user takes part.
+
+// Adds, updates or removes buddies from the buddy list.
+//
 // If update_presence is true, presence information will be updated. update_presence should be true
-// only when called from Long Poll processing.
+// only when called before starting Long Poll processing.
 void update_buddy_list(PurpleConnection* gc, bool update_presence, const SuccessCb& on_update_cb = nullptr);
 
 // Adds or updates information on buddy with given uid. See update_buddy_list on update_presence.
-void update_buddy(PurpleConnection* gc, uint64 uid, const SuccessCb& on_update_cb = nullptr,
-                  bool update_presence = false);
+void update_buddies(PurpleConnection* gc, const uint64_vec& uids, bool update_presence,
+                    const SuccessCb& on_update_cb = nullptr);
 
 // Fetches buddy full name (First name + second name).
 using NameFetchedCb = std::function<void(const string& data)>;
