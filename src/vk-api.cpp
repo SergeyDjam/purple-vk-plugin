@@ -165,3 +165,62 @@ void repeat_vk_call(PurpleConnection* gc, PurpleHttpRequest* req, const CallSucc
 }
 
 } // End anonymous namespace
+
+
+namespace
+{
+
+// Helper function for vk_call_api_items.
+void vk_call_api_items_internal(PurpleConnection* gc, const char* method_name, const CallParams& params,
+                                int offset, bool pagination, const CallProcessItemCb& call_process_item_cb,
+                                const CallFinishedCb& call_finished_cb, const CallErrorCb& error_cb);
+
+} // End of anonymous namespace
+
+void vk_call_api_items(PurpleConnection* gc, const char* method_name, const CallParams& params, bool pagination,
+                       const CallProcessItemCb& call_process_item_cb, const CallFinishedCb& call_finished_cb,
+                       const CallErrorCb& error_cb)
+{
+    vk_call_api_items_internal(gc, method_name, params, 0, pagination, call_process_item_cb, call_finished_cb,
+                               error_cb);
+}
+
+namespace
+{
+
+void vk_call_api_items_internal(PurpleConnection* gc, const char* method_name, const CallParams& params,
+                                int offset, bool pagination, const CallProcessItemCb& call_process_item_cb,
+                                const CallFinishedCb& call_finished_cb, const CallErrorCb& error_cb)
+{
+    auto process_items_cb = [=] (const picojson::value& result) {
+        if (!field_is_present<picojson::array>(result, "items")) {
+            purple_debug_error("prpl-vkcom", "Strange response, no 'count' and/or 'items' are present: %s\n",
+                               result.serialize().data());
+            if (error_cb)
+                error_cb(picojson::value());
+            return;
+        }
+
+        const picojson::array& items = result.get("items").get<picojson::array>();
+        for (const picojson::value& v: items)
+            call_process_item_cb(v);
+
+        // Either we've received all items or method does not have pagination.
+        if (!pagination || items.size() == 0)
+            call_finished_cb();
+        else
+            vk_call_api_items_internal(gc, method_name, params, offset + items.size(), false,
+                                       call_process_item_cb, call_finished_cb, error_cb);
+    };
+
+    if (!pagination || offset == 0) {
+        vk_call_api(gc, method_name, params, process_items_cb, error_cb);
+    } else {
+        CallParams new_params = params;
+        new_params.emplace_back("offset", to_string(offset));
+
+        vk_call_api(gc, method_name, new_params, process_items_cb, error_cb);
+    }
+}
+
+} // End of anonymous namespace

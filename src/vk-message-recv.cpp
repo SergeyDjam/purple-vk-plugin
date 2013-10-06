@@ -86,9 +86,9 @@ private:
     }
 
     // Runs messages.get from given offset.
-    void run_all(int offset, uint64 last_msg_id, bool outgoing);
-    // Processes result of messages.get and messages.getById.
-    int process_result(const picojson::value& result);
+    void run_all(uint64 last_msg_id, bool outgoing);
+    // Processes one item from the result of messages.get and messages.getById.
+    void process_message(const picojson::value& message);
     // Processes attachments: appends urls to message text, adds thumbnail_urls.
     static void process_attachments(const picojson::array& items, Message& message);
     // Processes photo attachment.
@@ -131,7 +131,7 @@ MessageReceiver* MessageReceiver::create(PurpleConnection* gc, const ReceivedCb&
 
 void MessageReceiver::run_all(uint64 last_msg_id)
 {
-    run_all(0, last_msg_id, false);
+    run_all(last_msg_id, false);
 }
 
 void MessageReceiver::run(const uint64_vec& message_ids)
@@ -144,17 +144,18 @@ void MessageReceiver::run(const uint64_vec& message_ids)
 
     string ids_str = str_concat_int(',', message_ids);
     CallParams params = { {"message_ids", ids_str} };
-    vk_call_api(m_gc, "messages.getById", params, [=](const picojson::value& result) {
-        process_result(result);
+    vk_call_api_items(m_gc, "messages.getById", params, false, [=](const picojson::value& message) {
+        process_message(message);
+    }, [=] {
         download_thumbnail(0, 0);
     }, [=](const picojson::value&) {
         finish();
     });
 }
 
-void MessageReceiver::run_all(int offset, uint64 last_msg_id, bool outgoing)
+void MessageReceiver::run_all(uint64 last_msg_id, bool outgoing)
 {
-    CallParams params = { {"out", outgoing ? "1" : "0"}, {"offset", str_format("%d", offset)} };
+    CallParams params = { {"out", outgoing ? "1" : "0"} };
     if (last_msg_id == 0) {
         // First-time login, receive only incoming unread messages.
         assert(!outgoing);
@@ -168,70 +169,49 @@ void MessageReceiver::run_all(int offset, uint64 last_msg_id, bool outgoing)
         params.emplace_back("last_message_id", to_string(last_msg_id));
     }
 
-    vk_call_api(m_gc, "messages.get", params, [=](const picojson::value& result) {
-        int item_count = process_result(result);
-        if (item_count > 0)
-            purple_debug_info("prpl-vkcom", "Already processed %d %s messages\n", offset + item_count,
-                              outgoing ? "outgoing" : "incoming");
+    vk_call_api_items(m_gc, "messages.get", params, true, [=](const picojson::value& message) {
+        process_message(message);
+    }, [=] {
+        purple_debug_info("prpl-vkcom", "Finished processing %s messages\n", outgoing ? "outgoing" : "incoming");
+        if (!outgoing && last_msg_id != 0)
+            run_all(last_msg_id, true);
         else
-            purple_debug_info("prpl-vkcom", "Finished processing %s messages\n", outgoing ? "outgoing" : "incoming");
-
-        // We ignore "count" parameter in result and increase offset until it returns empty list.
-        if (item_count == 0) {
-            if (!outgoing && last_msg_id != 0)
-                // Process outgoing
-                run_all(0, last_msg_id, true);
-            else
-                // Start downloading thumbnails.
-                download_thumbnail(0, 0);
-            return;
-        }
-        run_all(offset + item_count, last_msg_id, outgoing);
+            download_thumbnail(0, 0);
     }, [=](const picojson::value&) {
         finish();
     });
 }
 
-int MessageReceiver::process_result(const picojson::value& result)
+void MessageReceiver::process_message(const picojson::value& message)
 {
-    if (!field_is_present<double>(result, "count") || !field_is_present<picojson::array>(result, "items")) {
+    if (!field_is_present<double>(message, "user_id") || !field_is_present<double>(message, "date")
+            || !field_is_present<string>(message, "body") || !field_is_present<double>(message, "id")
+            || !field_is_present<double>(message, "read_state")|| !field_is_present<double>(message, "out")) {
         purple_debug_error("prpl-vkcom", "Strange response from messages.get or messages.getById: %s\n",
-                           result.serialize().data());
-        return 0;
+                           message.serialize().data());
+        return;
     }
 
-    const picojson::array& items = result.get("items").get<picojson::array>();
-    for (const picojson::value& v: items) {
-        if (!field_is_present<double>(v, "user_id") || !field_is_present<double>(v, "date")
-                || !field_is_present<string>(v, "body") || !field_is_present<double>(v, "id")
-                || !field_is_present<double>(v, "read_state")|| !field_is_present<double>(v, "out")) {
-            purple_debug_error("prpl-vkcom", "Strange response from messages.get or messages.getById: %s\n",
-                               result.serialize().data());
-            continue;
-        }
+    uint64 uid = message.get("user_id").get<double>();
+    uint64 mid = message.get("id").get<double>();
+    time_t timestamp = message.get("date").get<double>();
+    bool unread = message.get("read_state").get<double>() == 0.0;
+    bool outgoing = message.get("out").get<double>() != 0.0;
 
-        uint64 uid = v.get("user_id").get<double>();
-        uint64 mid = v.get("id").get<double>();
-        time_t timestamp = v.get("date").get<double>();
-        bool unread = v.get("read_state").get<double>() == 0.0;
-        bool outgoing = v.get("out").get<double>() != 0.0;
+    // NOTE:
+    //  * We must escape text, otherwise we cannot receive comment, containing &amp; or <br> as libpurple
+    //    will wrongfully interpret them as markup.
+    //  * Links are returned as plaintext, linkified by Pidgin etc.
+    //  * Smileys are returned as Unicode emoji (both emoji and pseudocode smileys are accepted on message send).
+    char* escaped = purple_markup_escape_text(message.get("body").get<string>().data(), -1);
+    string text = escaped;
+    g_free(escaped);
 
-        // NOTE:
-        //  * We must escape text, otherwise we cannot receive comment, containing &amp; or <br> as libpurple
-        //    will wrongfully interpret them as markup.
-        //  * Links are returned as plaintext, linkified by Pidgin etc.
-        //  * Smileys are returned as Unicode emoji (both emoji and pseudocode smileys are accepted on message send).
-        char* escaped = purple_markup_escape_text(v.get("body").get<string>().data(), -1);
-        string text = escaped;
-        g_free(escaped);
+    m_messages.push_back({ uid, mid, text, timestamp, unread, outgoing, {} });
 
-        m_messages.push_back({ uid, mid, text, timestamp, unread, outgoing, {} });
-
-        // Process attachments: append information to text.
-        if (field_is_present<picojson::array>(v, "attachments"))
-            process_attachments(v.get("attachments").get<picojson::array>(), m_messages.back());
-    }
-    return items.size();
+    // Process attachments: append information to text.
+    if (field_is_present<picojson::array>(message, "attachments"))
+        process_attachments(message.get("attachments").get<picojson::array>(), m_messages.back());
 }
 
 void MessageReceiver::process_attachments(const picojson::array& items, Message& message)
