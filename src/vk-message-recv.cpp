@@ -362,6 +362,13 @@ void MessageReceiver::process_doc_attachment(const picojson::value& fields, Mess
     const string& title = fields.get("title").get<string>();
 
     message.text += str_format("<a href='%s'>%s</a>", url.data(), title.data());
+
+    // Check if we've got a thumbnail.
+    if (field_is_present<string>(fields, "photo_130")) {
+        const string& thumbnail = fields.get("photo_130").get<string>();
+        message.text += str_format("<br><thumbnail-placeholder-%d>", message.thumbnail_urls.size());
+        message.thumbnail_urls.push_back(thumbnail);
+    }
 }
 
 void MessageReceiver::download_thumbnail(size_t message, size_t thumbnail)
