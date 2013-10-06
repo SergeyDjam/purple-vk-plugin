@@ -10,6 +10,7 @@
 #include "vk-buddy.h"
 #include "vk-common.h"
 #include "vk-message-recv.h"
+#include "vk-utils.h"
 
 #include "vk-longpoll.h"
 
@@ -293,8 +294,15 @@ void process_message(PurpleConnection* gc, const picojson::value& v, LastMsg& la
         receive_messages(gc, { mid });
     } else {
         // There are no attachments. Yes, messages with attached documents are also marked as media.
-        serv_got_im(gc, buddy_name_from_uid(uid).data(), text.data(), PURPLE_MESSAGE_RECV, timestamp);
-        mark_message_as_read(gc, { mid });
+        if (in_buddy_list(gc, uid)) {
+            serv_got_im(gc, buddy_name_from_uid(uid).data(), text.data(), PURPLE_MESSAGE_RECV, timestamp);
+            mark_message_as_read(gc, { mid });
+        } else {
+            update_buddies(gc, { uid }, [=] {
+                serv_got_im(gc, buddy_name_from_uid(uid).data(), text.data(), PURPLE_MESSAGE_RECV, timestamp);
+                mark_message_as_read(gc, { mid });
+            });
+        }
     }
 }
 

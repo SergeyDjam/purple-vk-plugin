@@ -6,6 +6,7 @@
 #include "httputils.h"
 #include "miscutils.h"
 #include "vk-api.h"
+#include "vk-buddy.h"
 #include "vk-common.h"
 #include "vk-utils.h"
 
@@ -367,36 +368,46 @@ void MessageReceiver::finish()
         return a.mid < b.mid;
     });
 
-    uint64_vec unread_message_ids;
-    PurpleLogCache logs(m_gc);
-    for (const Message& m: m_messages) {
-        if (m.unread && !m.outgoing) {
-            // Show message as received.
-            string who = buddy_name_from_uid(m.uid);
-            serv_got_im(m_gc, who.data(), m.text.data(), PURPLE_MESSAGE_RECV, m.timestamp);
-            unread_message_ids.push_back(m.mid);
-        } else {
-            // Append message to log.
-            PurpleLog* log = logs.for_uid(m.uid);
-            if (m.outgoing) {
-                const char* who = purple_account_get_name_for_display(purple_connection_get_account(m_gc));
-                purple_log_write(log, PURPLE_MESSAGE_SEND, who, m.timestamp, m.text.data());
+    // Uids not present in buddy list. We should add them to the buddy list before we receive
+    // message, so that a proper name and avatar will be shown.
+    uint64_vec unknown_uids;
+    for (const Message& m: m_messages)
+        if (!in_buddy_list(m_gc, m.uid))
+            unknown_uids.push_back(m.uid);
+
+    // We are setting presence because this is the first time we update the buddies.
+    update_buddies(m_gc, unknown_uids, [=] {
+        uint64_vec unread_message_ids;
+        PurpleLogCache logs(m_gc);
+        for (const Message& m: m_messages) {
+            if (m.unread && !m.outgoing) {
+                // Show message as received.
+                string who = buddy_name_from_uid(m.uid);
+                serv_got_im(m_gc, who.data(), m.text.data(), PURPLE_MESSAGE_RECV, m.timestamp);
+                unread_message_ids.push_back(m.mid);
             } else {
-                string who = get_buddy_name(m_gc, m.uid);
-                purple_log_write(log, PURPLE_MESSAGE_RECV, who.data(), m.timestamp, m.text.data());
+                // Append message to log.
+                PurpleLog* log = logs.for_uid(m.uid);
+                if (m.outgoing) {
+                    const char* who = purple_account_get_name_for_display(purple_connection_get_account(m_gc));
+                    purple_log_write(log, PURPLE_MESSAGE_SEND, who, m.timestamp, m.text.data());
+                } else {
+                    string who = get_buddy_name(m_gc, m.uid);
+                    purple_log_write(log, PURPLE_MESSAGE_RECV, who.data(), m.timestamp, m.text.data());
+                }
             }
         }
-    }
-    mark_message_as_read(m_gc, unread_message_ids);
+        mark_message_as_read(m_gc, unread_message_ids);
 
-    // Sets the last message id as m_messages are sorted by mid.
-    uint64 max_msg_id = 0;
-    if (!m_messages.empty())
-        max_msg_id = m_messages.back().mid;
+        // Sets the last message id as m_messages are sorted by mid.
+        uint64 max_msg_id = 0;
+        if (!m_messages.empty())
+            max_msg_id = m_messages.back().mid;
 
-    if (m_received_cb)
-        m_received_cb(max_msg_id);
-    delete this;
+        if (m_received_cb)
+            m_received_cb(max_msg_id);
+        delete this;
+    });
 }
 
 } // End of anonymous namespace
