@@ -255,12 +255,15 @@ uint64 update_buddy_from_object(PurpleConnection* gc, const picojson::value& v, 
 
     // Update login time.
     bool user_online = v.get("online").get<double>() == 1;
+    int login_time = v.get("last_seen").get("time").get<double>();
     if (user_online) {
-        int login_time = v.get("last_seen").get("time").get<double>();
         if (login_time != 0)
             purple_prpl_got_user_login_time(account, name.data(), login_time);
         else
             purple_debug_error("prpl-vkcom", "Zero login time for %s\n", name.data());
+    } else {
+        // This is not documented, but set in libpurple, i.e. not Pidgin-specific.
+        purple_blist_node_set_int(&buddy->node, "last_seen", login_time);
     }
 
     // Update presence
