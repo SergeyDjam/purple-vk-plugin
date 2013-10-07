@@ -158,19 +158,30 @@ void vk_get_info(PurpleConnection* gc, const char* username)
         return;
     }
 
-    purple_notify_user_info_add_section_break(info);
-    purple_notify_user_info_add_pair_plaintext(info, "Name", data->name.data());
+    http_get(gc, data->photo_max.data(), [=](PurpleHttpConnection*, PurpleHttpResponse* response) {
+        if (purple_http_response_is_successful(response)) {
+            size_t size;
+            const char* data = purple_http_response_get_data(response, &size);
+            int img_id = purple_imgstore_add_with_id(g_memdup(data, size), size, nullptr);
+            if (img_id != 0) {
+                string img = str_format("<img id='%d'>", img_id);
+                purple_notify_user_info_add_pair(info, nullptr, img.data());
+            }
+        }
 
-    if (!data->bdate.empty())
-        purple_notify_user_info_add_pair_plaintext(info, "Birthdate", data->bdate.data());
-    if (!data->education.empty())
-        purple_notify_user_info_add_pair_plaintext(info, "Education", data->education.data());
-    if (!data->mobile_phone.empty())
-        purple_notify_user_info_add_pair_plaintext(info, "Mobile phone", data->mobile_phone.data());
-    if (!data->activity.empty())
-        purple_notify_user_info_add_pair_plaintext(info, "Status", data->activity.data());
+        purple_notify_user_info_add_section_break(info);
+        purple_notify_user_info_add_pair_plaintext(info, "Name", data->name.data());
 
-    purple_notify_userinfo(gc, username, info, nullptr, nullptr);
+        if (!data->bdate.empty())
+            purple_notify_user_info_add_pair_plaintext(info, "Birthdate", data->bdate.data());
+        if (!data->education.empty())
+            purple_notify_user_info_add_pair_plaintext(info, "Education", data->education.data());
+        if (!data->mobile_phone.empty())
+            purple_notify_user_info_add_pair_plaintext(info, "Mobile phone", data->mobile_phone.data());
+        if (!data->activity.empty())
+            purple_notify_user_info_add_pair_plaintext(info, "Status", data->activity.data());
+        purple_notify_userinfo(gc, username, info, nullptr, nullptr);
+    });
 }
 
 // Called when user changes the status.
