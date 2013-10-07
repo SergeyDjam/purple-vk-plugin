@@ -79,7 +79,7 @@ void vk_login(PurpleAccount* acct)
         PurpleAccount* account = purple_connection_get_account(gc);
         const char* alias = purple_account_get_alias(account);
         if (!alias || !alias[0]) {
-            get_buddy_full_name(gc, data->uid(), [=](const string& full_name) {
+            get_user_full_name(gc, data->uid(), [=](const string& full_name) {
                 purple_account_set_alias(account, full_name.data());
             });
         }
@@ -179,6 +179,26 @@ void vk_set_status(PurpleAccount* account, PurpleStatus*)
     vk_update_status(purple_account_get_connection(account));
 }
 
+namespace
+{
+
+// A helper function, which adds (or updates) buddy with uid and adds him to group_name. Used in vk_remove_buddy
+// and vk_add_buddy_with_invite.
+void add_buddy_to_group(PurpleConnection* gc, uint64 uid, const string& group_name)
+{
+    // We update presence as we are not sure if buddy is a friend or not.
+    update_buddies(gc, { uid }, [=] {
+        string who = buddy_name_from_uid(uid);
+        PurpleBuddy* new_buddy = purple_find_buddy(purple_connection_get_account(gc), who.data());
+        PurpleGroup* new_group = purple_group_new(group_name.data());
+        // That's definitely the strange way to change groups...
+        purple_blist_add_buddy(new_buddy, nullptr, new_group, nullptr);
+    });
+}
+
+} // End of anonymous namespace
+
+
 // We do not remove buddies from contact lists anyway, because there is no proper way to do this.
 void vk_remove_buddy(PurpleConnection* gc, PurpleBuddy* buddy, PurpleGroup* group)
 {
@@ -195,14 +215,7 @@ void vk_remove_buddy(PurpleConnection* gc, PurpleBuddy* buddy, PurpleGroup* grou
 
     string group_name = purple_group_get_name(group);
     timeout_add(gc, 1, [=] {
-        // We update presence as we are not sure if buddy is a friend or not.
-        update_buddies(gc, { uid }, [=] {
-            string who = buddy_name_from_uid(uid);
-            PurpleBuddy* new_buddy = purple_find_buddy(purple_connection_get_account(gc), who.data());
-            PurpleGroup* new_group = purple_group_new(group_name.data());
-            // That's definitely the strange way to change groups...
-            purple_blist_add_buddy(new_buddy, nullptr, new_group, nullptr);
-        });
+        add_buddy_to_group(gc, uid, group_name);
         return false;
     });
 }
@@ -260,6 +273,33 @@ GHashTable* vk_get_account_text_table(PurpleAccount*)
     GHashTable* table = g_hash_table_new(g_str_hash, g_str_equal);
     g_hash_table_insert(table, g_strdup("login_label"), g_strdup("E-mail or telephone"));
     return table;
+}
+
+// We either "properly" re-add buddy if name was something like "idXXXXX" or try to find the uid
+// with given nick.
+void vk_add_buddy_with_invite(PurpleConnection* gc, PurpleBuddy* buddy, PurpleGroup *group, const char*)
+{
+    string name = purple_buddy_get_name(buddy);
+    string group_name = purple_group_get_name(group);
+
+    uint64 uid = uid_from_buddy_name(name.data());
+    purple_blist_remove_buddy(buddy);
+
+    if (uid == 0) {
+        // We assume that name is a "screen name" e.g. nickname
+        find_user_by_screenname(gc, name, [=](uint64 uid) {
+            if (uid == 0) {
+                string title = str_format("Unable to find user %s", name.data());
+                const char* message = "User name should be either idXXXXXX or nickname"
+                        " (i.e. the last part of http://vk.com/nickname)";
+                purple_notify_error(gc, title.data(), title.data(), message);
+                return;
+            }
+            add_buddy_to_group(gc, uid, group_name);
+        });
+    } else {
+        add_buddy_to_group(gc, uid, group_name);
+    }
 }
 
 PurplePluginProtocolInfo prpl_info = {
@@ -343,7 +383,7 @@ PurplePluginProtocolInfo prpl_info = {
     nullptr, /* get_moods */
     nullptr, /* set_public_alias */
     nullptr, /* get_public_alias */
-    nullptr, /* add_buddy_with_invite */
+    vk_add_buddy_with_invite, /* add_buddy_with_invite */
     nullptr /* add_buddies_with_invite */
 };
 

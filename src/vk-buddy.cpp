@@ -316,7 +316,7 @@ void get_users_from_dialogs(PurpleConnection* gc, const ReceivedUsersCb& receive
 } // End anonymous namespace
 
 
-void get_buddy_full_name(PurpleConnection* gc, uint64 uid, const NameFetchedCb& fetch_cb)
+void get_user_full_name(PurpleConnection* gc, uint64 uid, const NameFetchedCb& fetch_cb)
 {
     purple_debug_info("prpl-vkcom", "Getting full name for %llu\n", (unsigned long long)uid);
 
@@ -344,5 +344,32 @@ void get_buddy_full_name(PurpleConnection* gc, uint64 uid, const NameFetchedCb& 
         string last_name = users[0].get("last_name").get<string>();
 
         fetch_cb(first_name + " " + last_name);
+    });
+}
+
+
+void find_user_by_screenname(PurpleConnection* gc, const string& screen_name, const UidFetchedCb& fetch_cb)
+{
+    purple_debug_info("prpl-vkcom", "Finding user id for %s\n", screen_name.data());
+
+    CallParams params = { {"screen_name", screen_name} };
+    vk_call_api(gc, "utils.resolveScreenName", params, [=](const picojson::value& result) {
+        if (!field_is_present<string>(result, "type") || !field_is_present<double>(result, "object_id")) {
+            purple_debug_error("prpl-vkcom", "Unable to find user matching %s\n", screen_name.data());
+            fetch_cb(0);
+            return;
+        }
+
+        if (result.get("type").get<string>() != "user") {
+            purple_debug_error("prpl-vkcom", "Type of %s is %s\n", screen_name.data(),
+                               result.get("type").get<string>().data());
+            fetch_cb(0);
+            return;
+        }
+
+        uint64 uid = result.get("object_id").get<double>();
+        fetch_cb(uid);
+    }, [=](const picojson::value&) {
+        fetch_cb(0);
     });
 }

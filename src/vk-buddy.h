@@ -24,4 +24,8 @@ void update_buddies(PurpleConnection* gc, const uint64_vec& uids, const SuccessC
 
 // Fetches buddy full name (First name + second name).
 using NameFetchedCb = std::function<void(const string& data)>;
-void get_buddy_full_name(PurpleConnection* gc, uint64 uid, const NameFetchedCb& fetch_cb);
+void get_user_full_name(PurpleConnection* gc, uint64 uid, const NameFetchedCb& fetch_cb);
+
+// Finds user by "screen name" i.e. nickname.
+using UidFetchedCb = std::function<void(uint64 uid)>;
+void find_user_by_screenname(PurpleConnection* gc, const string& screen_name, const UidFetchedCb& fetch_cb);
