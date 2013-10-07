@@ -48,6 +48,9 @@ void show_error(PurpleConnection* gc, uint64 uid, const SendMessage& message);
 int send_im_message(PurpleConnection* gc, uint64 uid, const char* raw_message,
                     const SuccessCb& success_cb, const ErrorCb& error_cb)
 {
+    if (uid == 0)
+        return 0;
+
     // NOTE: We de-escape message before sending, because
     //  * Vk.com chat is plaintext anyway
     //  * Vk.com accepts '\n' in place of <br>
@@ -287,6 +290,9 @@ void show_error(PurpleConnection* gc, uint64 uid, const SendMessage& message)
 
 unsigned send_typing_notification(PurpleConnection* gc, uint64 uid)
 {
+    if (uid == 0)
+        return 0;
+
     CallParams params = { {"user_id", to_string(uid)}, {"type", "typing"} };
     vk_call_api(gc, "messages.setActivity", params);
 

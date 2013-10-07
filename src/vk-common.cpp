@@ -41,6 +41,7 @@ string buddy_name_from_uid(uint64 uid)
 
 uint64 uid_from_buddy_name(const char* name)
 {
-    assert(name[0] == 'i' && name[1] == 'd');
+    if (name[0] != 'i' || name[1] != 'd')
+        return 0;
     return atoll(name + 2);
 }

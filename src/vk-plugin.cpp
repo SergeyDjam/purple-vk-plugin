@@ -190,6 +190,9 @@ void vk_remove_buddy(PurpleConnection* gc, PurpleBuddy* buddy, PurpleGroup* grou
     // Re-add buddy back to the same group. We need to call timeout after we get out of "remove buddies"
     // function.
     uint64 uid = uid_from_buddy_name(purple_buddy_get_name(buddy));
+    if (uid == 0)
+        return;
+
     string group_name = purple_group_get_name(group);
     timeout_add(gc, 1, [=] {
         // We update presence as we are not sure if buddy is a friend or not.
