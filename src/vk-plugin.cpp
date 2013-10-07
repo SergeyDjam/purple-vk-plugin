@@ -410,7 +410,7 @@ PurplePluginInfo info = {
     PURPLE_PRIORITY_DEFAULT, /* priority */
     (char*)"prpl-vkcom", /* id */
     (char*)"Vk.com", /* name */
-    (char*)"0.3", /* version */
+    (char*)"0.5", /* version */
     (char*)"Vk.com chat protocol", /* summary */
     (char*)"Vk.com chat protocol", /* description */
     (char*)"Oleg Andreev (olegoandreev@yandex.ru)", /* author */
