@@ -179,9 +179,34 @@ void vk_set_status(PurpleAccount* account, PurpleStatus*)
     vk_update_status(purple_account_get_connection(account));
 }
 
+// We do not remove buddies from contact lists anyway, because there is no proper way to do this.
+void vk_remove_buddy(PurpleConnection* gc, PurpleBuddy* buddy, PurpleGroup* group)
+{
+    const char* title = "Removing buddies is not supported";
+    const char* message = "In order to remove buddy from buddy list please unfriend him and clear all "
+                          "messaging history with him.";
+    purple_notify_error(gc, title, title, message);
+
+    // Re-add buddy back to the same group. We need to call timeout after we get out of "remove buddies"
+    // function.
+    uint64 uid = uid_from_buddy_name(purple_buddy_get_name(buddy));
+    string group_name = purple_group_get_name(group);
+    timeout_add(gc, 1, [=] {
+        // We update presence as we are not sure if buddy is a friend or not.
+        update_buddies(gc, { uid }, [=] {
+            string who = buddy_name_from_uid(uid);
+            PurpleBuddy* new_buddy = purple_find_buddy(purple_connection_get_account(gc), who.data());
+            PurpleGroup* new_group = purple_group_new(group_name.data());
+            // That's definitely the strange way to change groups...
+            purple_blist_add_buddy(new_buddy, nullptr, new_group, nullptr);
+        });
+        return false;
+    });
+}
+
 // We do not store alias on server, but we can set the flag, so that the alias will not be overwritten
 // on next update of the buddy list.
-void vk_alias_buddy(PurpleConnection* gc, const char *who, const char*)
+void vk_alias_buddy(PurpleConnection* gc, const char* who, const char*)
 {
     PurpleAccount* account = purple_connection_get_account(gc);
     PurpleBuddy* buddy = purple_find_buddy(account, who);
@@ -260,7 +285,7 @@ PurplePluginProtocolInfo prpl_info = {
     nullptr, /* change_passwd */
     nullptr, /* add_buddy */
     nullptr, /* add_buddies */
-    nullptr, /* remove_buddy */
+    vk_remove_buddy, /* remove_buddy */
     nullptr, /* remove_buddies */
     nullptr, /* add_permit */
     nullptr, /* add_deny */
