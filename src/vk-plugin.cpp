@@ -216,6 +216,12 @@ void vk_alias_buddy(PurpleConnection* gc, const char* who, const char*)
     purple_blist_node_set_bool(&buddy->node, "custom-alias", true);
 }
 
+// A dummy "rename group" is required so that libpurple client does not remove and re-add all buddies
+// in the process of mere renaming of a group.
+void vk_rename_group(PurpleConnection*, const char*,  PurpleGroup*, GList*)
+{
+}
+
 void vk_buddy_free(PurpleBuddy* buddy)
 {
     VkBuddyData* data = (VkBuddyData*)purple_buddy_get_protocol_data(buddy);
@@ -305,7 +311,7 @@ PurplePluginProtocolInfo prpl_info = {
     nullptr, /* get_cb_away */
     vk_alias_buddy, /* alias_buddy */
     nullptr, /* group_buddy */
-    nullptr, /* rename_group */
+    vk_rename_group, /* rename_group */
     vk_buddy_free, /* buddy_free */
     nullptr, /* convo_closed */
     purple_normalize_nocase, /* normalize */
