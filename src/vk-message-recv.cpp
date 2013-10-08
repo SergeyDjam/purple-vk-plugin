@@ -185,6 +185,7 @@ void MessageReceiver::process_message(const picojson::value& message)
     char* escaped = purple_markup_escape_text(message.get("body").get<string>().data(), -1);
     string text = escaped;
     g_free(escaped);
+    replace_emoji_with_text(text);
 
     m_messages.push_back({ uid, mid, text, timestamp, unread, outgoing, {} });
 

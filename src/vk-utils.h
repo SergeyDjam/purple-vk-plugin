@@ -33,3 +33,7 @@ private:
     // Opens PurpleLog for given uid.
     PurpleLog* open_for_uid(uint64 uid);
 };
+
+// Replaces most common emoji with smileys: :), :(, :'( etc. Custom smileys are left intact
+// (as Unicode symbols).
+void replace_emoji_with_text(string& message);

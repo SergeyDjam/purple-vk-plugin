@@ -293,6 +293,7 @@ void process_message(PurpleConnection* gc, const picojson::value& v, LastMsg& la
     if (flags & MESSAGE_FLAG_MEDIA) {
         receive_messages(gc, { mid });
     } else {
+        replace_emoji_with_text(text);
         // There are no attachments. Yes, messages with attached documents are also marked as media.
         if (in_buddy_list(gc, uid)) {
             serv_got_im(gc, buddy_name_from_uid(uid).data(), text.data(), PURPLE_MESSAGE_RECV, timestamp);

@@ -113,3 +113,58 @@ PurpleLog* PurpleLogCache::open_for_uid(uint64 uid)
     PurpleConversation* conv = purple_find_conversation_with_account(PURPLE_CONV_TYPE_IM, buddy.data(), account);
     return purple_log_new(PURPLE_LOG_IM, buddy.data(), account, conv, time(nullptr), nullptr);
 }
+
+
+// List of emoji-common (yes, common for the sample of one) smiley pairs:
+//   UTF-16   (UTF-8)                 Text smiley
+//   D83DDE0A (0xF0 0x9F 0x98 0x8A)   :-)
+//   D83DDE03 (0xF0 0x9F 0x98 0x83)   :-D
+//   D83DDE09 (0xF0 0x9F 0x98 0x89)   ;-)
+//   D83DDE0B (0xF0 0x9F 0x98 0x8B)   :-P
+//   D83DDE12 (0xF0 0x9F 0x98 0x92)   :-(
+//   D83DDE22 (0xF0 0x9F 0x98 0xA2)   :'(
+//   D83DDE29 (0xF0 0x9F 0x98 0xA9)   :((
+//   2764     (0xE2 0x9D 0xA4)        <3
+//   D83DDE1A (0xF0 0x9F 0x98 0x9A)   :-*
+// All other emoji are left intact => will be displayed as Unicode symbols. We need to download all emoji
+// and provide proper custom smiley, but I generally hate graphical smileys, so am waiting for anyone
+// willing to do this.
+void replace_emoji_with_text(string& message)
+{
+    str_replace(message, "\xE2\x9D\xA4", "&lt;3");
+
+    // All other emoji conveniently start with same prefix
+    size_t pos = 0;
+    while ((pos = message.find("\xF0\x9F\x98", pos)) != string::npos) {
+        const char* smiley = nullptr;
+        switch ((unsigned char)message[pos + 3]) {
+        case 0x8A:
+            smiley = ":-)";
+            break;
+        case 0x83:
+            smiley = ":-D";
+            break;
+        case 0x89:
+            smiley = ";-)";
+            break;
+        case 0x8B:
+            smiley = ":-P";
+            break;
+        case 0x92:
+            smiley = ":-(";
+            break;
+        case 0xA2:
+            smiley = ":'(";
+            break;
+        case 0xA9:
+            smiley = ":((";
+            break;
+        case 0x9A:
+            smiley = ":-*";
+            break;
+        }
+        if (smiley)
+            message.replace(pos, 4, smiley);
+        pos += 3;
+    }
+}
