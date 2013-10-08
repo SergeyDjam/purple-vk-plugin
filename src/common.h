@@ -79,10 +79,11 @@ inline string str_format(const char* fmt, ...)
 inline void str_replace(string& s, const char* from, const char* to)
 {
     size_t from_len = strlen(from);
+    size_t to_len = strlen(to);
     size_t pos = 0;
     while ((pos = s.find(from, pos)) != std::string::npos) {
         s.replace(pos, from_len, to);
-        pos += from_len;
+        pos += to_len;
     }
 }
 
