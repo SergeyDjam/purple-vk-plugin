@@ -1,5 +1,9 @@
 #include "httputils.h"
 
+using std::bind;
+using std::move;
+using namespace std::placeholders;
+
 namespace
 {
 
@@ -21,10 +25,10 @@ void destroy_keepalive_pool()
         purple_http_keepalive_pool_unref(keepalive_pool);
 }
 
-PurpleHttpConnection* http_get(PurpleConnection* gc, const string& url, const HttpCallback& callback)
+PurpleHttpConnection* http_get(PurpleConnection* gc, const string& url, HttpCallback callback)
 {
     PurpleHttpRequest* request = purple_http_request_new(url.data());
-    PurpleHttpConnection* hc = http_request(gc, request, callback);
+    PurpleHttpConnection* hc = http_request(gc, request, move(callback));
     purple_http_request_unref(request);
     return hc;
 }
@@ -42,10 +46,10 @@ void http_cb(PurpleHttpConnection* http_conn, PurpleHttpResponse* response, void
 
 } // End anonymous namespace
 
-PurpleHttpConnection* http_request(PurpleConnection* gc, PurpleHttpRequest* request, const HttpCallback& callback)
+PurpleHttpConnection* http_request(PurpleConnection* gc, PurpleHttpRequest* request, HttpCallback callback)
 {
     purple_http_request_set_keepalive_pool(request, get_global_keepalive_pool());
-    HttpCallback* user_data = new HttpCallback(callback);
+    HttpCallback* user_data = new HttpCallback(move(callback));
     PurpleHttpConnection* hc = purple_http_request(gc, request, http_cb, user_data);
     return hc;
 }
@@ -61,9 +65,7 @@ void http_request_redirect_cb(PurpleHttpConnection* http_conn, PurpleHttpRespons
         PurpleHttpRequest* request = purple_http_conn_get_request(http_conn);
         const char* new_url = purple_http_response_get_header(response, "Location");
         purple_http_request_set_url(request, new_url);
-        http_request(gc, request, [=](PurpleHttpConnection* new_conn, PurpleHttpResponse* new_response) {
-            http_request_redirect_cb(new_conn, new_response, callback);
-        });
+        http_request(gc, request, bind(http_request_redirect_cb, _1, _2, move(callback)));
     } else {
         callback(http_conn, response);
     }
@@ -72,13 +74,11 @@ void http_request_redirect_cb(PurpleHttpConnection* http_conn, PurpleHttpRespons
 } // End anonymous namespace
 
 PurpleHttpConnection* http_request_update_on_redirect(PurpleConnection* gc, PurpleHttpRequest* request,
-                                                      const HttpCallback& callback)
+                                                      HttpCallback callback)
 {
     purple_http_request_set_max_redirects(request, 0);
 
-    return http_request(gc, request, [=](PurpleHttpConnection* http_conn, PurpleHttpResponse* response) {
-        http_request_redirect_cb(http_conn, response, callback);
-    });
+    return http_request(gc, request, bind(http_request_redirect_cb, _1, _2, move(callback)));
 }
 
 
