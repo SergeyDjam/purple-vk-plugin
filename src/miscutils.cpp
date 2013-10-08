@@ -133,7 +133,10 @@ void timeout_add(PurpleConnection* gc, unsigned milliseconds, const TimeoutCb& c
 
 void timeout_remove_all(PurpleConnection* gc)
 {
-    for (uint id: get_conn_data(gc)->timeout_ids())
+    // g_source_remove calls timeout_destroy_cb, which modifies timeout_ids, so we make a copy before
+    // calling g_source_remove. Damned mutability.
+    uint_set timeout_ids = get_conn_data(gc)->timeout_ids();
+    for (uint id: timeout_ids)
         g_source_remove(id);
 }
 
