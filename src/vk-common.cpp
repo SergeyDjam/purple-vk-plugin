@@ -21,10 +21,14 @@ void VkConnData::authenticate(const SuccessCb& success_cb, const ErrorCb& error_
             m_access_token = access_token;
             try {
                 m_uid = stoi(uid);
+#if defined(__GNUC__) && !defined(__clang__)
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-fpermissive" // catch (...) makes GCC 4.7.2 return strange error, fixed in later GCCs
+#endif
             } catch (...) {
+#if defined(__GNUC__) && !defined(__clang__)
 #pragma GCC diagnostic pop
+#endif
                 purple_debug_error("prpl-vkcom", "Error converting uid %s to integer\n", uid.data());
                 if (error_cb)
                     error_cb();

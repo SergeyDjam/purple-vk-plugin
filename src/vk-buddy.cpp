@@ -133,10 +133,6 @@ void clean_buddy_list(PurpleConnection* gc, const string_set& buddy_names)
     g_slist_free(buddies_list);
 }
 
-// Converts a few html entities back into plaintext: &amp; &gt; &lt; &apos; &quot; &ndash; &mdash;
-// Hilariously ugly, todo is using re2c or other finite automata generator.
-string replace_html_entities(const string& s);
-
 // Creates single string from multiple fields in user_fields, describing education.
 string make_education_string(const picojson::value& v);
 
