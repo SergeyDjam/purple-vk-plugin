@@ -117,7 +117,9 @@ void timeout_destroy_cb(void* user_data)
 
 } // End of anonymous namespace
 
-void timeout_add(PurpleConnection* gc, unsigned milliseconds, const TimeoutCb& callback)
+using std::move;
+
+void timeout_add(PurpleConnection* gc, unsigned milliseconds, TimeoutCb callback)
 {
     VkConnData* conn_data = get_conn_data(gc);
     if (conn_data->is_closing()) {
@@ -125,7 +127,7 @@ void timeout_add(PurpleConnection* gc, unsigned milliseconds, const TimeoutCb& c
         return;
     }
 
-    TimeoutCbData* data = new TimeoutCbData{ callback, conn_data->timeout_ids(), 0};
+    TimeoutCbData* data = new TimeoutCbData{ move(callback), conn_data->timeout_ids(), 0};
     data->id = g_timeout_add_full(G_PRIORITY_DEFAULT, milliseconds, timeout_cb, data,
                                   timeout_destroy_cb);
     conn_data->timeout_ids().insert(data->id);

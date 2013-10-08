@@ -46,7 +46,7 @@ class OnExit
 {
 public:
     OnExit(std::function<void()> deleter)
-        : m_deleter(deleter)
+        : m_deleter(move(deleter))
     {
     }
 
