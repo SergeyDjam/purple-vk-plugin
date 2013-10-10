@@ -39,6 +39,8 @@ void update_buddy_list(PurpleConnection* gc, bool update_presence, const Success
     CallParams params = { {"user_id", to_string(data->uid())}, {"fields", user_fields_param} };
     vk_call_api(gc, "friends.get", params, [=](const picojson::value& result) {
         uint64_set uids = on_update_buddy_list(gc, result, true, update_presence);
+        data->friends_uids = uids;
+
         get_users_from_dialogs(gc, [=](const uint64_set& dialog_uids) {
             uint64_vec non_friend_uids;
             for (uint64 uid: dialog_uids)

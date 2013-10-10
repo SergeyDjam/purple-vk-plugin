@@ -37,6 +37,10 @@ public:
         return m_uid;
     }
 
+    // Set of uids of friends. Updated upon login and on timer by update_buddy_list. We generally do
+    // not care if this is a bit outdated.
+    uint64_set friends_uids;
+
     // If true, connection is in "closing" state. This is set in vk_close and is used in longpoll
     // callback to differentiate the case of network timeout/silent connection dropping and connection
     // cancellation.
@@ -52,10 +56,7 @@ public:
 
     // We need to remove all timed events added by timeout_add upon closing connection or the crash
     // is possible otherwise. This set stores all ids of the events.
-    uint_set& timeout_ids()
-    {
-        return m_timeout_ids;
-    }
+    uint_set timeout_ids;
 
 private:
     string m_email;
@@ -63,9 +64,9 @@ private:
     string m_access_token;
     uint64 m_uid;
 
+
     PurpleConnection* m_gc;
     bool m_closing;
-    uint_set m_timeout_ids;
 };
 
 inline VkConnData* get_conn_data(PurpleConnection* gc)
@@ -73,7 +74,8 @@ inline VkConnData* get_conn_data(PurpleConnection* gc)
     return (VkConnData*)purple_connection_get_protocol_data(gc);
 }
 
-// Data, associated with one buddy. See vk.com for documentation on each field.
+// Data, associated with one PurpleBuddy. Used mostly for "Get Info", showing buddy list tooltip etc.
+// See vk.com for documentation on each field.
 struct VkBuddyData
 {
     string activity;

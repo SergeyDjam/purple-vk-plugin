@@ -127,17 +127,17 @@ void timeout_add(PurpleConnection* gc, unsigned milliseconds, TimeoutCb callback
         return;
     }
 
-    TimeoutCbData* data = new TimeoutCbData{ move(callback), conn_data->timeout_ids(), 0};
+    TimeoutCbData* data = new TimeoutCbData{ move(callback), conn_data->timeout_ids, 0};
     data->id = g_timeout_add_full(G_PRIORITY_DEFAULT, milliseconds, timeout_cb, data,
                                   timeout_destroy_cb);
-    conn_data->timeout_ids().insert(data->id);
+    conn_data->timeout_ids.insert(data->id);
 }
 
 void timeout_remove_all(PurpleConnection* gc)
 {
     // g_source_remove calls timeout_destroy_cb, which modifies timeout_ids, so we make a copy before
     // calling g_source_remove. Damned mutability.
-    uint_set timeout_ids = get_conn_data(gc)->timeout_ids();
+    uint_set timeout_ids = get_conn_data(gc)->timeout_ids;
     for (uint id: timeout_ids)
         g_source_remove(id);
 }
