@@ -444,6 +444,10 @@ void vkcom_prpl_init(PurplePlugin*)
     // We destroy a bunch of HTTP connections on exit, so we have to add dependency on ssl, otherwise ssl_close
     // will throw sigsegv.
     info.dependencies = g_list_append(info.dependencies, g_strdup("core-ssl"));
+
+    // Options, listed on "Advanced" page when creating or modifying account.
+    option = purple_account_option_string_new("Group for buddies", "blist_default_group", "");
+    prpl_info.protocol_options = g_list_append(prpl_info.protocol_options, option);
 }
 
 extern "C"

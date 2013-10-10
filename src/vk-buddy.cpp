@@ -136,12 +136,6 @@ void clean_buddy_list(PurpleConnection* gc, const string_set& buddy_names)
 }
 
 // Creates single string from multiple fields in user_fields, describing education.
-string make_education_string(const picojson::value& v);
-
-// Sets buddy icon.
-void on_fetch_buddy_icon_cb(PurpleHttpConnection* http_conn, PurpleHttpResponse* response, PurpleAccount* account,
-                            const string& name);
-
 string make_education_string(const picojson::value& v)
 {
     string ret;
@@ -169,6 +163,7 @@ string make_education_string(const picojson::value& v)
     return ret;
 }
 
+// Sets buddy icon.
 void on_fetch_buddy_icon_cb(PurpleHttpConnection* http_conn, PurpleHttpResponse* response, PurpleAccount* account,
                             const string& name)
 {
@@ -183,6 +178,17 @@ void on_fetch_buddy_icon_cb(PurpleHttpConnection* http_conn, PurpleHttpResponse*
     const char* icon_url = purple_http_request_get_url(purple_http_conn_get_request(http_conn));
     purple_buddy_icons_set_for_user(account, name.data(), g_memdup(icon_data, icon_len),
                                     icon_len, icon_url);
+}
+
+// Returns default group to add buddies to.
+PurpleGroup* get_default_group(PurpleConnection* gc)
+{
+    const char* group_name = purple_account_get_string(purple_connection_get_account(gc),
+                                                       "blist_default_group", "");
+    if (group_name && group_name[0] != '\0')
+        return purple_group_new(group_name);
+    else
+        return nullptr;
 }
 
 uint64 update_buddy_from_object(PurpleConnection* gc, const picojson::value& v, bool update_presence)
@@ -218,7 +224,9 @@ uint64 update_buddy_from_object(PurpleConnection* gc, const picojson::value& v, 
     if (!buddy) {
         purple_debug_info("prpl-vkcom", "Adding %s to buddy list\n", name.data());
         buddy = purple_buddy_new(account, name.data(), nullptr);
-        purple_blist_add_buddy(buddy, nullptr, nullptr, nullptr);
+
+        PurpleGroup* group = get_default_group(gc);
+        purple_blist_add_buddy(buddy, nullptr, group, nullptr);
     }
 
     // Check if user did not set alias locally.
