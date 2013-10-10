@@ -96,6 +96,8 @@ void start_long_poll_internal(PurpleConnection* gc, uint64 last_msg_id)
                 // We've received no new messages.
                 if (max_msg_id == 0)
                     max_msg_id = last_msg_id;
+                else
+                    save_last_msg_id(gc, max_msg_id);
 
                 if (!field_is_present<string>(v, "server") || !field_is_present<string>(v, "key")
                         || !field_is_present<double>(v, "ts")) {
