@@ -446,6 +446,7 @@ void vkcom_prpl_init(PurplePlugin*)
     info.dependencies = g_list_append(info.dependencies, g_strdup("core-ssl"));
 
     // Options, listed on "Advanced" page when creating or modifying account.
+    PurpleAccountOption *option;
     option = purple_account_option_string_new("Group for buddies", "blist_default_group", "");
     prpl_info.protocol_options = g_list_append(prpl_info.protocol_options, option);
 }
