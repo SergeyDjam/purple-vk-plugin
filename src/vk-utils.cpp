@@ -83,6 +83,35 @@ bool in_buddy_list(PurpleConnection* gc, uint64 uid)
     return buddy_from_uid(gc, uid) != nullptr;
 }
 
+bool have_conversation_with(PurpleConnection* gc, uint64 uid)
+{
+    string who = buddy_name_from_uid(uid);
+    return purple_find_conversation_with_account(PURPLE_CONV_TYPE_IM, who.data(),
+                                                 purple_connection_get_account(gc)) != nullptr;
+
+}
+
+
+VkUserInfo* get_user_info_for_buddy(PurpleBuddy* buddy)
+{
+    PurpleConnection* gc = purple_account_get_connection(purple_buddy_get_account(buddy));
+    VkConnData* conn_data = get_conn_data(gc);
+    uint64 uid = uid_from_buddy_name(purple_buddy_get_name(buddy));
+    if (!contains_key(conn_data->user_infos, uid))
+        return nullptr;
+    return &conn_data->user_infos[uid];
+}
+
+// Returns VkUserInfo, corresponding to buddy.
+VkUserInfo* get_user_info_for_buddy(PurpleConnection* gc, const char* name)
+{
+    VkConnData* conn_data = get_conn_data(gc);
+    uint64 uid = uid_from_buddy_name(name);
+    if (!contains_key(conn_data->user_infos, uid))
+        return nullptr;
+    return &conn_data->user_infos[uid];
+}
+
 
 PurpleLogCache::PurpleLogCache(PurpleConnection* gc)
     : m_gc(gc)

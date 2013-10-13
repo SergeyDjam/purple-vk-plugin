@@ -6,21 +6,39 @@
 
 #include <connection.h>
 
-// NOTE: Currently buddy list contains three types of nodes for Vk.com account:
+// NOTE: Buddy list management.
+// Currently buddy list contains three types of nodes for Vk.com account:
 //  1) friends,
 //  2) non-friends that the user had chat with,
-//  3) (NOT IMPLEMENTED) multichats where the user takes part.
-
-// Adds, updates or removes buddies from the buddy list.
+//  3) (NOT IMPLEMENTED) multiuser chats where the user takes part.
 //
-// If update_presence is true, presence information will be updated. update_presence should be true
-// only when called before starting Long Poll processing.
-void update_buddy_list(PurpleConnection* gc, bool update_presence, const SuccessCb& on_update_cb = nullptr);
+// 1) Friends are always added to buddy list.
+// 2) Non-friends are added either if user has "Show only friends in buddy list" account option
+//    unset or if the user has IM conversation open with them. The latter is required so that
+//    Pidgin shows proper user name, status and avatar. If user has "Show only friends in buddy list"
+//    enabled and conversation closes, non-friend buddy is removed from blist.
+// 3) Multiuser chats... TODO (same as non-friends, non-friend participants in multiuser chats are never
+//    added to buddy list).
 
-// Adds or updates information on buddy with given uid. We always update presence of buddies, because
-// this function is used only for buddies not in the friend list and longpoll does not receive online/offline
-// status changes for these buddies.
-void update_buddies(PurpleConnection* gc, const uint64_vec& uids, const SuccessCb& on_update_cb = nullptr);
+// Updates VkConnData::friend_uids and ::user_infos, updates buddy list.
+//
+// If update_presence is false, does not set presence statuses.
+void update_buddies(PurpleConnection* gc, bool update_presence, const SuccessCb& on_update_cb = nullptr);
+
+// Updates VkConnData::user_infos and buddy list with users with given uids.
+//
+// Always updates presence of buddies, because this function is used only for buddies not in the buddy
+// list and longpoll does not receive online/offline status changes for these buddies.
+//
+// Unaffected by "Show only friends in buddy list" and "Show chats in buddy list" account options.
+void add_to_buddy_list(PurpleConnection* gc, const uint64_vec& uids, const SuccessCb& on_update_cb = nullptr);
+
+// Checks whether buddy should be present in buddy list and removes if buddy is not needed (e.g. is not a friend
+// and "no friends in buddy list has been selected).
+//
+// If convo_closed is true, this function is called from convo_closed handler and conversation, while still
+// open, will be closed in a moment.
+void remove_from_buddy_list_if_not_needed(PurpleConnection* gc, const uint64_vec& uids, bool convo_closed);
 
 // Fetches buddy full name (First name + second name).
 using NameFetchedCb = std::function<void(const string& data)>;

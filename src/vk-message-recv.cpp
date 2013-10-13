@@ -370,14 +370,14 @@ void MessageReceiver::finish()
     });
 
     // Uids not present in buddy list. We should add them to the buddy list before we receive
-    // message, so that a proper name and avatar will be shown.
+    // message, so that a proper name and avatar will be shown or loggedk.
     uint64_vec unknown_uids;
     for (const Message& m: m_messages)
         if (!in_buddy_list(m_gc, m.uid))
             unknown_uids.push_back(m.uid);
 
     // We are setting presence because this is the first time we update the buddies.
-    update_buddies(m_gc, unknown_uids, [=] {
+    add_to_buddy_list(m_gc, unknown_uids, [=] {
         uint64_vec unread_message_ids;
         PurpleLogCache logs(m_gc);
         for (const Message& m: m_messages) {
@@ -404,6 +404,9 @@ void MessageReceiver::finish()
         uint64 max_msg_id = 0;
         if (!m_messages.empty())
             max_msg_id = m_messages.back().mid;
+
+        // Remove all uids that have gone straight to logs (i.e. without opening new conversations).
+        remove_from_buddy_list_if_not_needed(m_gc, unknown_uids, false);
 
         if (m_received_cb)
             m_received_cb(max_msg_id);

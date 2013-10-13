@@ -18,6 +18,26 @@ enum VkErrorCodes {
     VK_CAPTCHA_NEEDED = 14
 };
 
+// Information about one user. Used mostly for "Get Info", showing buddy list tooltip etc.
+// Gets periodically updated. See vk.com for documentation on each field.
+struct VkUserInfo
+{
+    // name is saved, because we can set custom alias for the user, but still display original name
+    // in "Get Info" dialog
+    string name;
+    string photo_min;
+
+    string activity;
+    string bdate;
+    string education;
+    string photo_max;
+    string mobile_phone;
+    string domain;
+    bool online;
+    bool is_mobile;
+    time_t last_seen;
+};
+
 // Data, associated with account. It contains all information, required for connecting and executing
 // API calls.
 class VkConnData
@@ -37,9 +57,14 @@ public:
         return m_uid;
     }
 
-    // Set of uids of friends. Updated upon login and on timer by update_buddy_list. We generally do
+    // Set of uids of friends. Updated upon login and on timer by update_users. We generally do
     // not care if this is a bit outdated.
-    uint64_set friends_uids;
+    uint64_set friend_uids;
+
+    // Map from user identifier to user information. Contains uids both for friends and non-friends
+    // regardless of whether only friends are shown in buddy list (see vk-buddy.cpp for more details).
+    // Gets periodically updated.
+    map<uint64, VkUserInfo> user_infos;
 
     // If true, connection is in "closing" state. This is set in vk_close and is used in longpoll
     // callback to differentiate the case of network timeout/silent connection dropping and connection
@@ -74,23 +99,6 @@ inline VkConnData* get_conn_data(PurpleConnection* gc)
     return (VkConnData*)purple_connection_get_protocol_data(gc);
 }
 
-// Data, associated with one PurpleBuddy. Used mostly for "Get Info", showing buddy list tooltip etc.
-// See vk.com for documentation on each field.
-struct VkBuddyData
-{
-    string activity;
-    string bdate;
-    string education;
-    // name is saved, because we can set custom alias for the user, but still display original name
-    // in "Get Info" dialog
-    string name;
-    string photo_max;
-    string mobile_phone;
-    string domain;
-    bool is_mobile;
-};
-
 // Functions for converting buddy name to/from uid.
 string buddy_name_from_uid(uint64 uid);
-
 uint64 uid_from_buddy_name(const char* name);

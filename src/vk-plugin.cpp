@@ -13,6 +13,7 @@
 #include "vk-longpoll.h"
 #include "vk-message-send.h"
 #include "vk-status.h"
+#include "vk-utils.h"
 
 
 const char* vk_list_icon(PurpleAccount*, PurpleBuddy*)
@@ -34,17 +35,22 @@ GList* vk_status_types(PurpleAccount*)
     return g_list_reverse(types);
 }
 
+namespace
+{
+
+} // End of anonymous namespace
+
 // Returns text, which is shown under each buddy list item.
 char* vk_status_text(PurpleBuddy* buddy)
 {
     PurplePresence* presence = purple_buddy_get_presence(buddy);
     if (purple_presence_is_online(presence)) {
-        VkBuddyData* data = (VkBuddyData*)purple_buddy_get_protocol_data(buddy);
-        if (!data)
+        VkUserInfo* user_info = get_user_info_for_buddy(buddy);
+        if (!user_info)
             return nullptr;
-        if (data->activity.empty())
+        if (user_info->activity.empty())
             return nullptr;
-        return g_markup_escape_text(data->activity.data(), -1);
+        return g_markup_escape_text(user_info->activity.data(), -1);
     } else {
         return nullptr;
     }
@@ -53,13 +59,13 @@ char* vk_status_text(PurpleBuddy* buddy)
 // Returns text, which is shown when mouse hovers over list.
 void vk_tooltip_text(PurpleBuddy* buddy, PurpleNotifyUserInfo* info, gboolean)
 {
-    VkBuddyData* data = (VkBuddyData*)purple_buddy_get_protocol_data(buddy);
-    if (!data)
+    VkUserInfo* user_info = get_user_info_for_buddy(buddy);
+    if (!user_info)
         return;
 
-    if (!data->activity.empty())
-        purple_notify_user_info_add_pair_plaintext(info, "Status", data->activity.data());
-    if (data->is_mobile)
+    if (!user_info->activity.empty())
+        purple_notify_user_info_add_pair_plaintext(info, "Status", user_info->activity.data());
+    if (user_info->is_mobile)
         purple_notify_user_info_add_pair_plaintext(info, "Uses mobile client", nullptr);
 }
 
@@ -91,7 +97,7 @@ void vk_login(PurpleAccount* acct)
         // updates to buddy status text, buddy icon or other information. Do not update buddy presence,
         // as it is now managed by longpoll.
         timeout_add(gc, 15 * 60 * 1000, [=] {
-            update_buddy_list(gc, false);
+            update_buddies(gc, false);
             return true;
         });
 
@@ -135,30 +141,28 @@ unsigned int vk_send_typing(PurpleConnection* gc, const char* name, PurpleTyping
 }
 
 // Returns link to vk.com user page
-string get_user_page(PurpleBuddy* buddy, const VkBuddyData* data)
+string get_user_page(const char* name, const VkUserInfo* info)
 {
-    if (data && !data->domain.empty())
-        return str_format("http://vk.com/%s", data->domain.data());
+    if (info && !info->domain.empty())
+        return str_format("http://vk.com/%s", info->domain.data());
     else
-        return str_format("http://vk.com/%s", purple_buddy_get_name(buddy));
+        return str_format("http://vk.com/%s", name);
 }
 
 // Called when user chooses "Get Info".
 void vk_get_info(PurpleConnection* gc, const char* username)
 {
-    PurpleAccount* account = purple_connection_get_account(gc);
-    PurpleBuddy* buddy = purple_find_buddy(account, username);
-    VkBuddyData* data = (VkBuddyData*)purple_buddy_get_protocol_data(buddy);
+    VkUserInfo* user_info = get_user_info_for_buddy(gc, username);
 
     PurpleNotifyUserInfo* info = purple_notify_user_info_new();
-    purple_notify_user_info_add_pair(info, "Page", get_user_page(buddy, data).data());
+    purple_notify_user_info_add_pair(info, "Page", get_user_page(username, user_info).data());
 
-    if (!data) {
+    if (!user_info) {
         purple_notify_userinfo(gc, username, info, nullptr, nullptr);
         return;
     }
 
-    http_get(gc, data->photo_max.data(), [=](PurpleHttpConnection*, PurpleHttpResponse* response) {
+    http_get(gc, user_info->photo_max.data(), [=](PurpleHttpConnection*, PurpleHttpResponse* response) {
         if (purple_http_response_is_successful(response)) {
             size_t size;
             const char* data = purple_http_response_get_data(response, &size);
@@ -170,16 +174,16 @@ void vk_get_info(PurpleConnection* gc, const char* username)
         }
 
         purple_notify_user_info_add_section_break(info);
-        purple_notify_user_info_add_pair_plaintext(info, "Name", data->name.data());
+        purple_notify_user_info_add_pair_plaintext(info, "Name", user_info->name.data());
 
-        if (!data->bdate.empty())
-            purple_notify_user_info_add_pair_plaintext(info, "Birthdate", data->bdate.data());
-        if (!data->education.empty())
-            purple_notify_user_info_add_pair_plaintext(info, "Education", data->education.data());
-        if (!data->mobile_phone.empty())
-            purple_notify_user_info_add_pair_plaintext(info, "Mobile phone", data->mobile_phone.data());
-        if (!data->activity.empty())
-            purple_notify_user_info_add_pair_plaintext(info, "Status", data->activity.data());
+        if (!user_info->bdate.empty())
+            purple_notify_user_info_add_pair_plaintext(info, "Birthdate", user_info->bdate.data());
+        if (!user_info->education.empty())
+            purple_notify_user_info_add_pair_plaintext(info, "Education", user_info->education.data());
+        if (!user_info->mobile_phone.empty())
+            purple_notify_user_info_add_pair_plaintext(info, "Mobile phone", user_info->mobile_phone.data());
+        if (!user_info->activity.empty())
+            purple_notify_user_info_add_pair_plaintext(info, "Status", user_info->activity.data());
         purple_notify_userinfo(gc, username, info, nullptr, nullptr);
     });
 }
@@ -198,7 +202,7 @@ namespace
 void add_buddy_to_group(PurpleConnection* gc, uint64 uid, const string& group_name)
 {
     // We update presence as we are not sure if buddy is a friend or not.
-    update_buddies(gc, { uid }, [=] {
+    add_to_buddy_list(gc, { uid }, [=] {
         string who = buddy_name_from_uid(uid);
         PurpleBuddy* new_buddy = purple_find_buddy(purple_connection_get_account(gc), who.data());
         PurpleGroup* new_group = purple_group_new(group_name.data());
@@ -249,10 +253,11 @@ void vk_rename_group(PurpleConnection*, const char*,  PurpleGroup*, GList*)
 {
 }
 
-void vk_buddy_free(PurpleBuddy* buddy)
+// Conversation is closed, we may want to remove buddy from buddy list if it has been added there temporarily.
+void vk_convo_closed(PurpleConnection* gc, const char* who)
 {
-    VkBuddyData* data = (VkBuddyData*)purple_buddy_get_protocol_data(buddy);
-    delete data;
+    uint64 uid = uid_from_buddy_name(who);
+    remove_from_buddy_list_if_not_needed(gc, { uid }, true);
 }
 
 gboolean vk_can_receive_file(PurpleConnection*, const char*)
@@ -366,8 +371,8 @@ PurplePluginProtocolInfo prpl_info = {
     vk_alias_buddy, /* alias_buddy */
     nullptr, /* group_buddy */
     vk_rename_group, /* rename_group */
-    vk_buddy_free, /* buddy_free */
-    nullptr, /* convo_closed */
+    nullptr, /* buddy_free */
+    vk_convo_closed, /* convo_closed */
     purple_normalize_nocase, /* normalize */
     nullptr, /* set_buddy_icon */
     nullptr, /* remove_group */
@@ -447,6 +452,12 @@ void vkcom_prpl_init(PurplePlugin*)
 
     // Options, listed on "Advanced" page when creating or modifying account.
     PurpleAccountOption *option;
+    option = purple_account_option_bool_new("Show only friends in buddy list", "only_friends_in_blist", false);
+    prpl_info.protocol_options = g_list_append(prpl_info.protocol_options, option);
+
+    option = purple_account_option_bool_new("Show chats in buddy list", "chats_in_blist", true);
+    prpl_info.protocol_options = g_list_append(prpl_info.protocol_options, option);
+
     option = purple_account_option_string_new("Group for buddies", "blist_default_group", "");
     prpl_info.protocol_options = g_list_append(prpl_info.protocol_options, option);
 }

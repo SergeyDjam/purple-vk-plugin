@@ -91,7 +91,7 @@ void start_long_poll_internal(PurpleConnection* gc, uint64 last_msg_id)
 
         // First, we update buddy presence and receive unread messages and only then start processing
         // events. We won't miss any events because we already got starting timestamp from server.
-        update_buddy_list(gc, true, [=] {
+        update_buddies(gc, true, [=] {
             receive_messages_range(gc, last_msg_id,  [=](uint64 max_msg_id) {
                 // We've received no new messages.
                 if (max_msg_id == 0)
@@ -297,13 +297,16 @@ void process_message(PurpleConnection* gc, const picojson::value& v, LastMsg& la
     } else {
         replace_emoji_with_text(text);
         // There are no attachments. Yes, messages with attached documents are also marked as media.
-        if (in_buddy_list(gc, uid)) {
+
+        auto add_message = [=] {
             serv_got_im(gc, buddy_name_from_uid(uid).data(), text.data(), PURPLE_MESSAGE_RECV, timestamp);
             mark_message_as_read(gc, { mid });
+        };
+        if (in_buddy_list(gc, uid)) {
+            add_message();
         } else {
-            update_buddies(gc, { uid }, [=] {
-                serv_got_im(gc, buddy_name_from_uid(uid).data(), text.data(), PURPLE_MESSAGE_RECV, timestamp);
-                mark_message_as_read(gc, { mid });
+            add_to_buddy_list(gc, { uid }, [=] {
+                add_message();
             });
         }
     }
@@ -326,14 +329,14 @@ void process_online(PurpleConnection* gc, const picojson::value& v, bool online)
 
     purple_debug_info("prpl-vkcom", "User %s changed online to %d\n", name.data(), online);
 
-    PurpleAccount* account = purple_connection_get_account(gc);
-    if (!purple_find_buddy(account, name.data())) {
+    if (!in_buddy_list(gc, uid)) {
         purple_debug_info("prpl-vkcom", "User %s has come online, but is not present in buddy list."
                           "He has probably been added behind our backs.", name.data());
-        update_buddies(gc, { uid });
+        add_to_buddy_list(gc, { uid });
         return;
     }
 
+    PurpleAccount* account = purple_connection_get_account(gc);
     if (online) {
         purple_prpl_got_user_status(account, name.data(), "online", nullptr);
         purple_prpl_got_user_login_time(account, name.data(), time(nullptr));

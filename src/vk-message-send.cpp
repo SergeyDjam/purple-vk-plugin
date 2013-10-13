@@ -6,6 +6,7 @@
 #include "httputils.h"
 #include "miscutils.h"
 #include "vk-api.h"
+#include "vk-buddy.h"
 #include "vk-captcha.h"
 #include "vk-common.h"
 #include "vk-upload.h"
@@ -75,6 +76,10 @@ int send_im_message(PurpleConnection* gc, uint64 uid, const char* raw_message,
     }, [=] {
         show_error(gc, uid, { uid, message, {}, success_cb, error_cb });
     });
+
+    if (!in_buddy_list(gc, uid))
+        add_to_buddy_list(gc, { uid });
+
     return 1;
 }
 
@@ -222,7 +227,6 @@ void send_im_message_internal(PurpleConnection* gc, const SendMessage& message, 
             message.error_cb();
             return;
         }
-//        uint64 mid = uint64(v.get<double>());
         // NOTE: We do not set last_msg_id here, because it is done when corresponding notification is received
         // in longpoll.
 
@@ -295,6 +299,9 @@ unsigned send_typing_notification(PurpleConnection* gc, uint64 uid)
 
     CallParams params = { {"user_id", to_string(uid)}, {"type", "typing"} };
     vk_call_api(gc, "messages.setActivity", params);
+
+    if (!in_buddy_list(gc, uid))
+        add_to_buddy_list(gc, { uid });
 
     // Resend typing notification in 5 seconds
     return 5;
