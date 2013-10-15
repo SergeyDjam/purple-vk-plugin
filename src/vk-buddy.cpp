@@ -13,9 +13,6 @@ namespace
 
 using std::move;
 
-// Update user infos for listed uids. If uids is empty, calls on_update_cb immediately.
-void update_user_infos(PurpleConnection* gc, const uint64_vec& uids, const SuccessCb& on_update_cb);
-
 // Helper callback, used for friends.get and users.get. Adds and/or updates all buddies info in
 // VkConnData->user_infos from the result. Returns list of uids.
 //
@@ -57,7 +54,7 @@ void update_buddies(PurpleConnection* gc, bool update_presence, const SuccessCb&
                         non_friend_uids.push_back(uid);
             }
 
-            update_user_infos(gc, non_friend_uids, [=] {
+            add_or_update_user_infos(gc, non_friend_uids, [=] {
                 update_buddy_list(gc, update_presence);
                 if (on_update_cb)
                     on_update_cb();
@@ -66,25 +63,7 @@ void update_buddies(PurpleConnection* gc, bool update_presence, const SuccessCb&
     });
 }
 
-void add_to_buddy_list(PurpleConnection* gc, const uint64_vec& uids, const SuccessCb& on_update_cb)
-{
-    if (uids.empty()) {
-        if (on_update_cb)
-            on_update_cb();
-        return;
-    }
-
-    update_user_infos(gc, uids, [=] {
-        update_buddy_list_for(gc, uids, true);
-        if (on_update_cb)
-            on_update_cb();
-    });
-}
-
-namespace
-{
-
-void update_user_infos(PurpleConnection* gc, const uint64_vec& uids, const SuccessCb& on_update_cb)
+void add_or_update_user_infos(PurpleConnection* gc, const uint64_vec& uids, const SuccessCb& on_update_cb)
 {
     if (uids.empty()) {
         on_update_cb();
@@ -101,6 +80,24 @@ void update_user_infos(PurpleConnection* gc, const uint64_vec& uids, const Succe
             on_update_cb();
     });
 }
+
+void add_to_buddy_list(PurpleConnection* gc, const uint64_vec& uids, const SuccessCb& on_update_cb)
+{
+    if (uids.empty()) {
+        if (on_update_cb)
+            on_update_cb();
+        return;
+    }
+
+    add_or_update_user_infos(gc, uids, [=] {
+        update_buddy_list_for(gc, uids, true);
+        if (on_update_cb)
+            on_update_cb();
+    });
+}
+
+namespace
+{
 
 // Updates user info about buddy and returns buddy uid or zero in case of failure.
 uint64 on_update_user_info(PurpleConnection* gc, const picojson::value& fields);
@@ -402,6 +399,7 @@ void remove_from_buddy_list_if_not_needed(PurpleConnection* gc, const uint64_vec
         purple_blist_remove_buddy(buddy);
     }
 }
+
 
 void get_user_full_name(PurpleConnection* gc, uint64 uid, const NameFetchedCb& fetch_cb)
 {
