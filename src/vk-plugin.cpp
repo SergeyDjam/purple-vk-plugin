@@ -235,6 +235,11 @@ void vk_set_status(PurpleAccount* account, PurpleStatus*)
 //    });
 //}
 
+int vk_chat_send(PurpleConnection* gc, int id, const char* message, PurpleMessageFlags)
+{
+    return send_chat_message(gc, id, message);
+}
+
 // We do not store alias on server, but we can set the flag, so that the alias will not be overwritten
 // on next update of the buddy list.
 void vk_alias_buddy(PurpleConnection* gc, const char* who, const char*)
@@ -363,7 +368,7 @@ PurplePluginProtocolInfo prpl_info = {
     nullptr, //    waprpl_chat_invite, /* chat_invite */
     nullptr, /* chat_leave */
     nullptr, /* chat_whisper */
-    nullptr, //    waprpl_send_chat, /* chat_send */
+    vk_chat_send, /* chat_send */
     nullptr, /* keepalive */
     nullptr, /* register_user */
     nullptr, /* get_cb_info */

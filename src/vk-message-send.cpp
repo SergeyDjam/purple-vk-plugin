@@ -18,6 +18,10 @@
 namespace
 {
 
+// Common function for send_im_message and send_chat_message.
+int send_message(PurpleConnection* gc, uint64 uid, uint64 chat_id, const char* raw_message,
+                 const SuccessCb& success_cb, const ErrorCb& error_cb);
+
 // Parses and removes <img id="X"> out of message and returns cleaned message (without <img> tags)
 // and list of img ids.
 pair<string, int_vec> remove_img_tags(const char* message);
@@ -30,7 +34,9 @@ void upload_imgstore_images(PurpleConnection* gc, const int_vec& img_ids, const 
 // Helper struct used to reduce length of function signatures.
 struct SendMessage
 {
+    // One and only one of uid or chat_id should be non-zero.
     uint64 uid;
+    uint64 chat_id;
     string message;
     string attachments;
     SuccessCb success_cb;
@@ -38,11 +44,11 @@ struct SendMessage
 };
 
 // Helper function, used in send_im_message and request_captcha.
-void send_im_message_internal(PurpleConnection* gc, const SendMessage& message, const string& captcha_sid = "",
+void send_message_internal(PurpleConnection* gc, const SendMessage& message, const string& captcha_sid = "",
                               const string& captcha_key = "");
 
 // Add error message to debug log, message window and call error_cb
-void show_error(PurpleConnection* gc, uint64 uid, const SendMessage& message);
+void show_error(PurpleConnection* gc, const SendMessage& message);
 
 } // End of anonymous namespace
 
@@ -51,7 +57,28 @@ int send_im_message(PurpleConnection* gc, uint64 uid, const char* raw_message,
 {
     if (uid == 0)
         return 0;
+    return send_message(gc, uid, 0, raw_message, success_cb, error_cb);
+}
 
+int send_chat_message(PurpleConnection* gc, uint64 chat_id, const char* raw_message,
+                      const SuccessCb& success_cb, const ErrorCb& error_cb)
+{
+    if (chat_id == 0)
+        return 0;
+    return send_message(gc, 0, chat_id, raw_message, success_cb, error_cb);
+}
+
+void send_im_attachment(PurpleConnection* gc, uint64 uid, const string& attachment)
+{
+    send_message_internal(gc, { uid, 0, "", attachment, nullptr, nullptr });
+}
+
+namespace
+{
+
+int send_message(PurpleConnection* gc, uint64 uid, uint64 chat_id, const char* raw_message,
+                 const SuccessCb& success_cb, const ErrorCb& error_cb)
+{
     // NOTE: We de-escape message before sending, because
     //  * Vk.com chat is plaintext anyway
     //  * Vk.com accepts '\n' in place of <br>
@@ -71,25 +98,18 @@ int send_im_message(PurpleConnection* gc, uint64 uid, const char* raw_message,
             if (!attachments.empty())
                 attachments += ',';
             attachments += img_attachments;
-         }
-        send_im_message_internal(gc, { uid, message, attachments, success_cb, error_cb });
+        }
+        send_message_internal(gc, { uid, chat_id, message, attachments, success_cb, error_cb });
     }, [=] {
-        show_error(gc, uid, { uid, message, {}, success_cb, error_cb });
+        show_error(gc, { uid, chat_id, message, {}, success_cb, error_cb });
     });
 
     if (!in_buddy_list(gc, uid))
         add_to_buddy_list(gc, { uid });
 
     return 1;
-}
 
-void send_im_attachment(PurpleConnection* gc, uint64 uid, const string& attachment)
-{
-    send_im_message_internal(gc, { uid, "", attachment, nullptr, nullptr });
 }
-
-namespace
-{
 
 pair<string, int_vec> remove_img_tags(const char* message)
 {
@@ -212,11 +232,14 @@ void upload_imgstore_images_internal(PurpleConnection* gc, const UploadImgstoreI
 // processed is CAPTCHA request.
 void process_im_error(const picojson::value& error, PurpleConnection* gc, const SendMessage& message);
 
-void send_im_message_internal(PurpleConnection* gc, const SendMessage& message, const string& captcha_sid,
+void send_message_internal(PurpleConnection* gc, const SendMessage& message, const string& captcha_sid,
                               const string& captcha_key)
 {
-    CallParams params = { {"user_id", to_string(message.uid)}, {"message", message.message},
-                          {"attachment", message.attachments }, {"type", "1"} };
+    CallParams params = { {"message", message.message}, {"attachment", message.attachments }, {"type", "1"} };
+    if (message.uid > 0)
+        params.emplace_back("user_id", to_string(message.uid));
+    else
+        params.emplace_back("chat_id", to_string(message.chat_id));
     if (!captcha_sid.empty())
         params.emplace_back("captcha_sid", captcha_sid);
     if (!captcha_key.empty())
@@ -237,27 +260,31 @@ void send_im_message_internal(PurpleConnection* gc, const SendMessage& message, 
     });
 }
 
-PurpleConversation* find_conv_for_uid(PurpleConnection* gc, uint64 uid)
+PurpleConversation* find_conv_for_id(PurpleConnection* gc, uint64 uid, uint64 chat_id)
 {
-    return purple_find_conversation_with_account(PURPLE_CONV_TYPE_IM, buddy_name_from_uid(uid).data(),
-                                                 purple_connection_get_account(gc));
+    if (uid > 0)
+        return purple_find_conversation_with_account(PURPLE_CONV_TYPE_IM, buddy_name_from_uid(uid).data(),
+                                                     purple_connection_get_account(gc));
+    else
+        return purple_find_conversation_with_account(PURPLE_CONV_TYPE_CHAT, to_string(chat_id).data(),
+                                                     purple_connection_get_account(gc));
 }
 
 void process_im_error(const picojson::value& error, PurpleConnection* gc, const SendMessage& message)
 {
     if (!error.is<picojson::object>() || !field_is_present<double>(error, "error_code")) {
         // Most probably, network timeout.
-        show_error(gc, message.uid, message);
+        show_error(gc, message);
         return;
     }
     int error_code = error.get("error_code").get<double>();
     if (error_code != VK_CAPTCHA_NEEDED) {
-        show_error(gc, message.uid, message);
+        show_error(gc, message);
         return;
     }
     if (!field_is_present<string>(error, "captcha_sid") || !field_is_present<string>(error, "captcha_img")) {
         purple_debug_error("prpl-vkcom", "Captcha request does not contain captcha_sid or captcha_img");
-        show_error(gc, message.uid, message);
+        show_error(gc, message);
         return;
     }
 
@@ -266,17 +293,18 @@ void process_im_error(const picojson::value& error, PurpleConnection* gc, const 
     purple_debug_info("prpl-vkcom", "Received CAPTCHA %s\n", captcha_img.data());
 
     request_captcha(gc, captcha_img, [=](const string& captcha_key) {
-        send_im_message_internal(gc, message, captcha_sid, captcha_key);
+        send_message_internal(gc, message, captcha_sid, captcha_key);
     }, [=] {
-        show_error(gc, message.uid, message);
+        show_error(gc, message);
     });
 }
 
-void show_error(PurpleConnection* gc, uint64 uid, const SendMessage& message)
+void show_error(PurpleConnection* gc, const SendMessage& message)
 {
-    purple_debug_error("prpl-vkcom", "Error sending message to %llu\n", (unsigned long long)message.uid);
+    purple_debug_error("prpl-vkcom", "Error sending message to %llu/%llu\n",
+                       (unsigned long long)message.uid, (unsigned long long)message.chat_id);
 
-    PurpleConversation* conv = find_conv_for_uid(gc, uid);
+    PurpleConversation* conv = find_conv_for_id(gc, message.uid, message.chat_id);
     if (conv) {
         char* escaped_message = g_markup_escape_text(message.message.data(), -1);
         string error_msg = str_format("Error sending message '%s'", escaped_message);
