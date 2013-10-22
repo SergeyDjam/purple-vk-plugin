@@ -38,8 +38,9 @@ public:
 private:
     struct Message
     {
-        uint64 uid;
         uint64 mid;
+        uint64 uid;
+        uint64 chat_id; // If chat_id is 0, this is a regular IM message.
         string text;
         time_t timestamp;
         bool unread;
@@ -187,7 +188,11 @@ void MessageReceiver::process_message(const picojson::value& message)
     g_free(escaped);
     replace_emoji_with_text(text);
 
-    m_messages.push_back({ uid, mid, text, timestamp, unread, outgoing, {} });
+    uint64 chat_id = 0;
+    if (field_is_present<double>(message, "chat_id"))
+        chat_id = message.get("chat_id").get<double>();
+
+    m_messages.push_back({ mid, uid, chat_id, text, timestamp, unread, outgoing, {} });
 
     // Process attachments: append information to text.
     if (field_is_present<picojson::array>(message, "attachments"))
@@ -369,48 +374,67 @@ void MessageReceiver::finish()
         return a.mid < b.mid;
     });
 
-    // Uids not present in buddy list. We should add them to the buddy list before we receive
-    // message, so that a proper name and avatar will be shown or loggedk.
-    uint64_vec unknown_uids;
+    uint64_vec uids_to_user_info; // Users to get information about.
     for (const Message& m: m_messages)
-        if (!in_buddy_list(m_gc, m.uid))
-            unknown_uids.push_back(m.uid);
+        // For other unknown uids we only need to know names.
+        if (!m.outgoing && is_unknown_uid(m_gc, m.uid))
+            uids_to_user_info.push_back(m.uid);
 
-    // We are setting presence because this is the first time we update the buddies.
-    add_to_buddy_list(m_gc, unknown_uids, [=] {
-        uint64_vec unread_message_ids;
-        PurpleLogCache logs(m_gc);
-        for (const Message& m: m_messages) {
-            if (m.unread && !m.outgoing) {
-                // Show message as received.
-                string who = buddy_name_from_uid(m.uid);
-                serv_got_im(m_gc, who.data(), m.text.data(), PURPLE_MESSAGE_RECV, m.timestamp);
-                unread_message_ids.push_back(m.mid);
-            } else {
-                // Append message to log.
-                PurpleLog* log = logs.for_uid(m.uid);
-                if (m.outgoing) {
-                    const char* who = purple_account_get_name_for_display(purple_connection_get_account(m_gc));
-                    purple_log_write(log, PURPLE_MESSAGE_SEND, who, m.timestamp, m.text.data());
+    add_or_update_user_infos(m_gc, uids_to_user_info, [=] {
+        uint64_vec uids_to_buddy_list; // Users to be added to buddy list.
+        for (const Message& m: m_messages)
+            // We want to add buddies to buddy list for unread personal messages because we will open conversations
+            // with them.
+            if (!m.outgoing && m.unread && m.chat_id == 0 && !in_buddy_list(m_gc, m.uid))
+                uids_to_buddy_list.push_back(m.uid);
+
+        // We are setting presence because this is the first time we update the buddies.
+        add_to_buddy_list(m_gc, uids_to_buddy_list, [=] {
+            PurpleLogCache logs(m_gc);
+            for (const Message& m: m_messages) {
+                if (!m.outgoing && m.unread) {
+                    // Open new conversation for received message.
+                    if (m.chat_id == 0) {
+                        serv_got_im(m_gc, buddy_name_from_uid(m.uid).data(), m.text.data(), PURPLE_MESSAGE_RECV,
+                                    m.timestamp);
+                    } else {
+//                        TODO: open chat
+//                        serv_got_chat_in(m_gc, m.chat_id, get_buddy_name(m_gc, m.uid).data(),
+//                                         PURPLE_MESSAGE_RECV, m.text.data(), m.timestamp);
+                    }
                 } else {
-                    string who = get_buddy_name(m_gc, m.uid);
-                    purple_log_write(log, PURPLE_MESSAGE_RECV, who.data(), m.timestamp, m.text.data());
+                    // Append message to log.
+                    PurpleLog* log;
+                    if (m.chat_id == 0)
+                        log = logs.for_uid(m.uid);
+                    else
+                        log = logs.for_chat(m.chat_id);
+                    string from;
+                    if (m.outgoing)
+                        from = purple_account_get_name_for_display(purple_connection_get_account(m_gc));
+                    else
+                        from = get_buddy_name(m_gc, m.uid);
+                    purple_log_write(log, PURPLE_MESSAGE_SEND, from.data(), m.timestamp, m.text.data());
                 }
             }
-        }
-        mark_message_as_read(m_gc, unread_message_ids);
 
-        // Sets the last message id as m_messages are sorted by mid.
-        uint64 max_msg_id = 0;
-        if (!m_messages.empty())
-            max_msg_id = m_messages.back().mid;
+            // Mark incoming messages as read.
+            uint64_vec unread_message_ids;
+            for (const Message& m: m_messages) {
+                if (m.unread && !m.outgoing)
+                    unread_message_ids.push_back(m.mid);
+            }
+            mark_message_as_read(m_gc, unread_message_ids);
 
-        // Remove all uids that have gone straight to logs (i.e. without opening new conversations).
-        remove_from_buddy_list_if_not_needed(m_gc, unknown_uids, false);
+            // Sets the last message id as m_messages are sorted by mid.
+            uint64 max_msg_id = 0;
+            if (!m_messages.empty())
+                max_msg_id = m_messages.back().mid;
 
-        if (m_received_cb)
-            m_received_cb(max_msg_id);
-        delete this;
+            if (m_received_cb)
+                m_received_cb(max_msg_id);
+            delete this;
+        });
     });
 }
 

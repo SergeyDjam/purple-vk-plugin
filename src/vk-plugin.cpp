@@ -235,6 +235,13 @@ void vk_set_status(PurpleAccount* account, PurpleStatus*)
 //    });
 //}
 
+
+char* vk_get_chat_name(GHashTable* data)
+{
+    return g_strdup((const char*)g_hash_table_lookup(data, "title"));
+}
+
+
 int vk_chat_send(PurpleConnection* gc, int id, const char* message, PurpleMessageFlags)
 {
     return send_chat_message(gc, id, message);
@@ -364,7 +371,7 @@ PurplePluginProtocolInfo prpl_info = {
     nullptr, /* set_permit_deny */
     nullptr, //    waprpl_chat_join, /* join_chat */
     nullptr, /* reject_chat */
-    nullptr, //    waprpl_get_chat_name, /* get_chat_name */
+    vk_get_chat_name, /* get_chat_name */
     nullptr, //    waprpl_chat_invite, /* chat_invite */
     nullptr, /* chat_leave */
     nullptr, /* chat_whisper */

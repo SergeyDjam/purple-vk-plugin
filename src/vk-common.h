@@ -61,9 +61,9 @@ public:
     // not care if this is a bit outdated.
     uint64_set friend_uids;
 
-    // Map from user identifier to user information. Contains uids both for friends and non-friends
-    // regardless of whether only friends are shown in buddy list (see vk-buddy.cpp for more details).
-    // Gets periodically updated.
+    // Map from user identifier to user information. All users from buddy list must be present
+    // in this map.
+    // Gets updated periodically (once in 15 minutes).
     map<uint64, VkUserInfo> user_infos;
 
     // If true, connection is in "closing" state. This is set in vk_close and is used in longpoll
@@ -89,7 +89,6 @@ private:
     string m_access_token;
     uint64 m_uid;
 
-
     PurpleConnection* m_gc;
     bool m_closing;
 };
@@ -102,3 +101,7 @@ inline VkConnData* get_conn_data(PurpleConnection* gc)
 // Functions for converting buddy name to/from uid.
 string buddy_name_from_uid(uint64 uid);
 uint64 uid_from_buddy_name(const char* name);
+
+// Functions for converting chat name to/from chat id.
+string chat_name_from_id(uint64 uid);
+uint64 chat_id_from_name(const char* name);

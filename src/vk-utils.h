@@ -18,6 +18,9 @@ string get_buddy_name(PurpleConnection* gc, uint64 uid);
 // Returns true if uid is present in buddy list.
 bool in_buddy_list(PurpleConnection* gc, uint64 uid);
 
+// Returns true if uid is not present even in buddy list.
+bool is_unknown_uid(PurpleConnection* gc, uint64 uid);
+
 // Returns true if we are currently having an open IM conversation with (chats ignored).
 bool have_conversation_with(PurpleConnection* gc, uint64 uid);
 
@@ -33,14 +36,18 @@ public:
     PurpleLogCache(PurpleConnection* gc);
     ~PurpleLogCache();
 
+    // Opens PurpleLog for given uid or returns an already open one.
     PurpleLog* for_uid(uint64 uid);
+    // Opens PurpleLog for given chat id or returns an already open one.
+    PurpleLog* for_chat(uint64 chat_id);
 
 private:
     PurpleConnection* m_gc;
     map<uint64, PurpleLog*> m_logs;
+    map<uint64, PurpleLog*> m_chat_logs;
 
-    // Opens PurpleLog for given uid.
     PurpleLog* open_for_uid(uint64 uid);
+    PurpleLog* open_for_chat_id(uint64 chat_id);
 };
 
 // Replaces most common emoji with smileys: :), :(, :'( etc. Custom smileys are left intact

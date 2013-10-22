@@ -52,8 +52,11 @@ namespace
 string urldecode(const char* s, int len)
 {
     char buf[1024];
-    for (int i = 0; i < len; i++)
-        buf[i] = s[i];
+    if (len >= (int)sizeof(buf)) {
+        assert(false);
+        return "";
+    }
+    memcpy(buf, s, len);
     buf[len] = 0;
     return purple_url_decode(buf);
 }

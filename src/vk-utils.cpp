@@ -71,9 +71,12 @@ PurpleBuddy* buddy_from_uid(PurpleConnection* gc, uint64 uid)
 
 string get_buddy_name(PurpleConnection* gc, uint64 uid)
 {
+    VkConnData* conn_data = get_conn_data(gc);
     PurpleBuddy* buddy = buddy_from_uid(gc, uid);
     if (buddy)
         return purple_buddy_get_alias(buddy);
+    else if (contains_key(conn_data->user_infos, uid))
+        return conn_data->user_infos[uid].name;
     else
         return buddy_name_from_uid(uid);
 }
@@ -81,6 +84,12 @@ string get_buddy_name(PurpleConnection* gc, uint64 uid)
 bool in_buddy_list(PurpleConnection* gc, uint64 uid)
 {
     return buddy_from_uid(gc, uid) != nullptr;
+}
+
+bool is_unknown_uid(PurpleConnection* gc, uint64 uid)
+{
+    VkConnData* conn_data = get_conn_data(gc);
+    return !contains_key(conn_data->user_infos, uid);
 }
 
 bool have_conversation_with(PurpleConnection* gc, uint64 uid)
@@ -135,12 +144,31 @@ PurpleLog* PurpleLogCache::for_uid(uint64 uid)
     }
 }
 
+PurpleLog*PurpleLogCache::for_chat(uint64 chat_id)
+{
+    if (contains_key(m_chat_logs, chat_id)) {
+        return m_chat_logs[chat_id];
+    } else {
+        PurpleLog* log = open_for_chat_id(chat_id);
+        m_chat_logs[chat_id] = log;
+        return log;
+    }
+}
+
 PurpleLog* PurpleLogCache::open_for_uid(uint64 uid)
 {
     string buddy = buddy_name_from_uid(uid);
     PurpleAccount* account = purple_connection_get_account(m_gc);
     PurpleConversation* conv = purple_find_conversation_with_account(PURPLE_CONV_TYPE_IM, buddy.data(), account);
     return purple_log_new(PURPLE_LOG_IM, buddy.data(), account, conv, time(nullptr), nullptr);
+}
+
+PurpleLog* PurpleLogCache::open_for_chat_id(uint64 chat_id)
+{
+    string name = chat_name_from_id(chat_id);
+    PurpleAccount* account = purple_connection_get_account(m_gc);
+    PurpleConversation* conv = purple_find_conversation_with_account(PURPLE_CONV_TYPE_CHAT, name.data(), account);
+    return purple_log_new(PURPLE_LOG_CHAT, name.data(), account, conv, time(nullptr), nullptr);
 }
 
 

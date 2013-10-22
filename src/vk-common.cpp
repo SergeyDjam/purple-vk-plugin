@@ -45,7 +45,19 @@ string buddy_name_from_uid(uint64 uid)
 
 uint64 uid_from_buddy_name(const char* name)
 {
-    if (name[0] != 'i' || name[1] != 'd')
+    if (strncmp(name, "id", 2) != 0)
         return 0;
     return atoll(name + 2);
+}
+
+string chat_name_from_id(uint64 chat_id)
+{
+    return str_format("chat%llu", (unsigned long long)chat_id);
+}
+
+uint64 chat_id_from_name(const char* name)
+{
+    if (strncmp(name, "chat", 4) != 0)
+        return 0;
+    return atoll(name + 4);
 }

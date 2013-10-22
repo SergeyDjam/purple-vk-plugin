@@ -89,7 +89,12 @@ void add_to_buddy_list(PurpleConnection* gc, const uint64_vec& uids, const Succe
         return;
     }
 
-    add_or_update_user_infos(gc, uids, [=] {
+    uint64_vec unknown_uids;
+    for (uint64 uid: uids)
+        if (is_unknown_uid(gc, uid))
+            unknown_uids.push_back(uid);
+
+    add_or_update_user_infos(gc, unknown_uids, [=] {
         update_buddy_list_for(gc, uids, true);
         if (on_update_cb)
             on_update_cb();

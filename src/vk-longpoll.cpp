@@ -63,7 +63,7 @@ struct LastMsg
 {
     // The last message id we've processed.
     uint64 id;
-    // There are no guarantees, that messages ids in longpoll updates are increasing, so we cannot simply ignore
+    // There are no guarantees that messages ids in longpoll updates are increasing, so we cannot simply ignore
     // all the messages with id less than LastMsg.id. On the other hand, we must ignore all the messages,
     // processed via receive_messages_range in start_long_poll. ignored is the max message id received in
     // receive_messages_range, all messages with ids less or equal to it must be ignored.
@@ -246,6 +246,9 @@ void process_update(PurpleConnection* gc, const picojson::value& v, LastMsg& las
     }
 }
 
+// Checks if uid is present in buddy list and adds if not present.
+void ensure_in_buddy_list(PurpleConnection* gc, uint64 uid, const SuccessCb& success_cb);
+
 void process_message(PurpleConnection* gc, const picojson::value& v, LastMsg& last_msg)
 {
     if (!v.contains(6) || !v.get(1).is<double>() || !v.get(2).is<double>() || !v.get(3).is<double>()
@@ -282,6 +285,10 @@ void process_message(PurpleConnection* gc, const picojson::value& v, LastMsg& la
     if (flags & MESSAGE_FLAGS_OUTBOX)
         return;
 
+    // NOTE: Chat messages are sent with chat_id + CHAT_UID_OFFSET as user id. Unfortunately, we cannot get
+    // uid from longpoll updates, so we have to process via receive_messages.
+    const uint64 CHAT_ID_OFFSET = 2000000000LL;
+
     // NOTE:
     //  There are two ways of processing messages with attachments:
     //   a) either we can get attachement ids (photo ids, audio ids etc.) from Long Poll event and get information
@@ -292,23 +299,15 @@ void process_message(PurpleConnection* gc, const picojson::value& v, LastMsg& la
     //     is prohibited and we can only show links to the corresponding page;
     //   * there is no video.getById so we can show no information on video;
     //   * it takes at least one additional call per message (receive_messages takes exactly one call).
-    if (flags & MESSAGE_FLAG_MEDIA) {
+    if (uid > CHAT_ID_OFFSET || flags & MESSAGE_FLAG_MEDIA) {
         receive_messages(gc, { mid });
     } else {
         replace_emoji_with_text(text);
-        // There are no attachments. Yes, messages with attached documents are also marked as media.
 
-        auto add_message = [=] {
+        ensure_in_buddy_list(gc, uid, [=] {
             serv_got_im(gc, buddy_name_from_uid(uid).data(), text.data(), PURPLE_MESSAGE_RECV, timestamp);
             mark_message_as_read(gc, { mid });
-        };
-        if (in_buddy_list(gc, uid)) {
-            add_message();
-        } else {
-            add_to_buddy_list(gc, { uid }, [=] {
-                add_message();
-            });
-        }
+        });
     }
 }
 
@@ -334,14 +333,14 @@ void process_online(PurpleConnection* gc, const picojson::value& v, bool online)
                           "He has probably been added behind our backs.", name.data());
         add_to_buddy_list(gc, { uid });
         return;
-    }
-
-    PurpleAccount* account = purple_connection_get_account(gc);
-    if (online) {
-        purple_prpl_got_user_status(account, name.data(), "online", nullptr);
-        purple_prpl_got_user_login_time(account, name.data(), time(nullptr));
     } else {
-        purple_prpl_got_user_status(account, name.data(), "offline", nullptr);
+        PurpleAccount* account = purple_connection_get_account(gc);
+        if (online) {
+            purple_prpl_got_user_status(account, name.data(), "online", nullptr);
+            purple_prpl_got_user_login_time(account, name.data(), time(nullptr));
+        } else {
+            purple_prpl_got_user_status(account, name.data(), "offline", nullptr);
+        }
     }
 }
 
@@ -354,7 +353,18 @@ void process_typing(PurpleConnection* gc, const picojson::value& v)
     }
     uint64 uid = v.get(1).get<double>();
 
-    serv_got_typing(gc, buddy_name_from_uid(uid).data(), 6000, PURPLE_TYPING);
+    ensure_in_buddy_list(gc, uid, [=] {
+        serv_got_typing(gc, buddy_name_from_uid(uid).data(), 6000, PURPLE_TYPING);
+    });
+}
+
+void ensure_in_buddy_list(PurpleConnection* gc, uint64 uid, const SuccessCb& success_cb)
+{
+    if (in_buddy_list(gc, uid)) {
+        success_cb();
+    } else {
+        add_to_buddy_list(gc, { uid }, success_cb);
+    }
 }
 
 void long_poll_fatal(PurpleConnection* gc)
