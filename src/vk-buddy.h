@@ -40,8 +40,9 @@ void add_to_buddy_list(PurpleConnection* gc, const uint64_vec& uids, const Succe
 // open, will be closed in a moment.
 void remove_from_buddy_list_if_not_needed(PurpleConnection* gc, const uint64_vec& uids, bool convo_closed);
 
-// Adds or updated information on buddies in VkConnData::user_info
-void add_or_update_user_infos(PurpleConnection* gc, const uint64_vec& uids, const SuccessCb& on_update_cb = nullptr);
+// Adds or updated information on buddies in VkConnData::user_infos
+void add_or_update_user_infos(PurpleConnection* gc, const uint64_vec& uids,
+                              const SuccessCb& on_update_cb = nullptr);
 
 // Fetches buddy full name (First name + second name).
 using NameFetchedCb = std::function<void(const string& data)>;

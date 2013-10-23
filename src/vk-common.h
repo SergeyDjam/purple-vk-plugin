@@ -25,17 +25,19 @@ struct VkUserInfo
     // name is saved, because we can set custom alias for the user, but still display original name
     // in "Get Info" dialog
     string name;
-    string photo_min;
+    // True if we can write a message to the user.
+    bool can_write;
 
     string activity;
     string bdate;
-    string education;
-    string photo_max;
-    string mobile_phone;
     string domain;
-    bool online;
+    string education;
     bool is_mobile;
     time_t last_seen;
+    string mobile_phone;
+    bool online;
+    string photo_min;
+    string photo_max;
 };
 
 // Data, associated with account. It contains all information, required for connecting and executing

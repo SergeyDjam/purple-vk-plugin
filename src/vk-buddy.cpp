@@ -166,53 +166,66 @@ string make_education_string(const picojson::value& v)
 
 uint64 on_update_user_info(PurpleConnection* gc, const picojson::value& fields)
 {
-    // User has been deleted or smth.
-    if (field_is_present<string>(fields, "deactivated"))
-        return 0;
-
     if (!field_is_present<double>(fields, "id")
             || !field_is_present<string>(fields, "first_name")
-            || !field_is_present<string>(fields, "last_name")
-            || !field_is_present<double>(fields, "online")
-            || !field_is_present<string>(fields, "photo_50")
-            || !field_is_present<string>(fields, "photo_max_orig")
-            || !field_is_present<picojson::object>(fields, "last_seen")
-            || !field_is_present<string>(fields, "activity")
-            || !field_is_present<double>(fields, "can_write_private_message")) {
+            || !field_is_present<string>(fields, "last_name")) {
         purple_debug_error("prpl-vkcom", "Incomplete user information in friends.get or users.get: %s\n",
                            picojson::value(fields).serialize().data());
         return 0;
     }
-
-    // We cannot write private messages, we have zero interest in user.
-    if (fields.get("can_write_private_message").get<double>() != 1)
-        return 0;
-
     uint64 uid = fields.get("id").get<double>();
 
     VkConnData* conn_data = get_conn_data(gc);
     VkUserInfo& info = conn_data->user_infos[uid];
-
     info.name = fields.get("first_name").get<string>() + " " + fields.get("last_name").get<string>();
-    info.photo_min = fields.get("photo_50").get<string>();
-    static const char empty_photo_a[] = "http://vkontakte.ru/images/camera_ab.gif";
-    static const char empty_photo_b[] = "http://vkontakte.ru/images/camera_b.gif";
-    if (info.photo_min == empty_photo_a || info.photo_min == empty_photo_b)
-        info.photo_min.clear();
 
-    info.activity = unescape_html(fields.get("activity").get<string>());
+    // We cannot write private messages, we have zero interest in user.
+    if (field_is_present<string>(fields, "deactivated")
+            || fields.get("can_write_private_message").get<double>() != 1) {
+        info.can_write = false;
+        return 0;
+    }
+
+    if (field_is_present<string>(fields, "photo_50")) {
+        info.photo_min = fields.get("photo_50").get<string>();
+        static const char empty_photo_a[] = "http://vkontakte.ru/images/camera_a.gif";
+        static const char empty_photo_b[] = "http://vkontakte.ru/images/camera_b.gif";
+        if (info.photo_min == empty_photo_a || info.photo_min == empty_photo_b)
+            info.photo_min.clear();
+    }
+
+    if (field_is_present<string>(fields, "activity"))
+        info.activity = unescape_html(fields.get("activity").get<string>());
+    else
+        info.activity.clear();
+
     if (field_is_present<string>(fields, "bdate"))
         info.bdate = unescape_html(fields.get("bdate").get<string>());
     else
         info.bdate.clear();
+
     info.education = unescape_html(make_education_string(fields));
-    info.photo_max = fields.get("photo_max_orig").get<string>();
+
+    if (field_is_present<string>(fields, "photo_max_orig"))
+        info.photo_max = fields.get("photo_max_orig").get<string>();
+    else
+        info.photo_max.clear();
+
     if (field_is_present<string>(fields, "mobile_phone"))
         info.mobile_phone = unescape_html(fields.get("mobile_phone").get<string>());
     else
         info.mobile_phone.clear();
-    info.domain = fields.get("domain").get<string>();
-    info.online = fields.get("online").get<double>() == 1;
+
+    if (field_is_present<string>(fields, "domain"))
+        info.domain = fields.get("domain").get<string>();
+    else
+        info.domain.clear();
+
+    if (field_is_present<double>(fields, "domain"))
+        info.online = fields.get("online").get<double>() == 1;
+    else
+        info.online = false;
+
     info.is_mobile = field_is_present<double>(fields, "online_mobile");
     info.last_seen = fields.get("last_seen").get("time").get<double>();
 
