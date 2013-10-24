@@ -221,7 +221,7 @@ uint64 on_update_user_info(PurpleConnection* gc, const picojson::value& fields)
     else
         info.domain.clear();
 
-    if (field_is_present<double>(fields, "domain"))
+    if (field_is_present<double>(fields, "online"))
         info.online = fields.get("online").get<double>() == 1;
     else
         info.online = false;
