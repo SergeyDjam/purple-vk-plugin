@@ -227,7 +227,8 @@ uint64 on_update_user_info(PurpleConnection* gc, const picojson::value& fields)
         info.online = false;
 
     info.is_mobile = field_is_present<double>(fields, "online_mobile");
-    info.last_seen = fields.get("last_seen").get("time").get<double>();
+    if (field_is_present<picojson::object>(fields, "last_seen"))
+        info.last_seen = fields.get("last_seen").get("time").get<double>();
 
     return uid;
 }
