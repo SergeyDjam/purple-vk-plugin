@@ -328,11 +328,15 @@ void update_buddy_in_blist(PurpleConnection* gc, uint64 uid, const VkUserInfo& i
 
     // Check if user did not set alias locally.
     if (!purple_blist_node_get_bool(&buddy->node, "custom-alias")) {
-        // Set "server alias"
-        serv_got_alias(gc, buddy_name.data(), info.name.data());
-        // Set "client alias", the one that is stored in blist on the client and can be set by the user.
-        // If we do not set it, the ugly "idXXXX" entries will appear in buddy list during connection.
-        purple_serv_got_private_alias(gc, buddy_name.data(), info.name.data());
+        // Check if name has already been set, so that we do not get spurious "idXXXX is now known as ..."
+        if (info.name != purple_buddy_get_alias(buddy))
+        {
+            // Set "server alias"
+            serv_got_alias(gc, buddy_name.data(), info.name.data());
+            // Set "client alias", the one that is stored in blist on the client and can be set by the user.
+            // If we do not set it, the ugly "idXXXX" entries will appear in buddy list during connection.
+            purple_serv_got_private_alias(gc, buddy_name.data(), info.name.data());
+        }
     }
 
     // Update presence
