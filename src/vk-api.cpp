@@ -1,4 +1,5 @@
 #include <debug.h>
+#include <request.h>
 
 #include "contrib/purple/http.h"
 
@@ -141,6 +142,20 @@ void process_error(PurpleHttpConnection* http_conn, const picojson::value& error
         return;
     } else if (error_code == VK_FLOOD_CONTROL) {
         return; // Simply ignore the error.
+    } else if (error_code != VK_VALIDATION_REQUIRED) {
+        // As far as I could understand, once you complete validation, all future requests/login attempts will work
+        // correctly, so there is no need to do anything apart from showing the link to the user and asking them
+        // to re-login.
+        string message_text;
+        if (!field_is_present<string>(error, "redirect_uri"))
+            message_text = "Please open http://vk.com in your browser and validate yourself";
+        else
+            message_text = str_format("Please open the following link in your browser:\n%s",
+                                      error.get("redirect_uri").get<string>().data());
+        purple_request_action(nullptr, "Please validate yourself", "Please validate yourself", message_text.data(),
+                              0, nullptr, nullptr, nullptr, nullptr, 1, "OK", nullptr);
+        if (error_cb)
+            error_cb(error);
     }
 
     // We do not process captcha requests on API level, but we do not consider them errors

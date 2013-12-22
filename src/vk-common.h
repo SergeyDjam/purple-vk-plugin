@@ -16,7 +16,9 @@ enum VkErrorCodes {
     // Flood control: message with same guid already sent.
     VK_FLOOD_CONTROL = 9,
     // Captcha needed: user sent too many requests and is required to confirm he is alive
-    VK_CAPTCHA_NEEDED = 14
+    VK_CAPTCHA_NEEDED = 14,
+    // Validation required: currently this is used when the user logins from some unusual place (e.g. another country)
+    VK_VALIDATION_REQUIRED = 17
 };
 
 // Information about one user. Used mostly for "Get Info", showing buddy list tooltip etc.
