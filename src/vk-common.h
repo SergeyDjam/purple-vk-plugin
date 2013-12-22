@@ -2,9 +2,10 @@
 
 #pragma once
 
-#include "common.h"
-
 #include <connection.h>
+
+#include "common.h"
+#include "contrib/purple/http.h"
 
 // Several useful error codes
 enum VkErrorCodes {
@@ -84,6 +85,10 @@ public:
     // We need to remove all timed events added by timeout_add upon closing connection or the crash
     // is possible otherwise. This set stores all ids of the events.
     uint_set timeout_ids;
+
+    // Per-connection HTTP keepalive pool, initialized upon first HTTP connection and destroy
+    // upon closing the connection.
+    PurpleHttpKeepalivePool* keepalive_pool = nullptr;
 
 private:
     string m_email;

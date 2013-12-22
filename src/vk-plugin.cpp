@@ -123,6 +123,7 @@ void vk_close(PurpleConnection* gc)
     timeout_remove_all(gc);
     purple_request_close_with_handle(gc);
     purple_http_conn_cancel_all(gc);
+    destroy_keepalive_pool(gc);
 
     purple_connection_set_protocol_data(gc, nullptr);
     delete data;
@@ -423,7 +424,6 @@ gboolean load_plugin(PurplePlugin*)
 
 gboolean unload_plugin(PurplePlugin*)
 {
-    destroy_keepalive_pool();
     return true;
 }
 
@@ -458,10 +458,6 @@ PurplePluginInfo info = {
 
 void vkcom_prpl_init(PurplePlugin*)
 {
-    // We destroy a bunch of HTTP connections on exit, so we have to add dependency on ssl, otherwise ssl_close
-    // will throw sigsegv.
-    info.dependencies = g_list_append(info.dependencies, g_strdup("core-ssl"));
-
     // Options, listed on "Advanced" page when creating or modifying account.
     PurpleAccountOption *option;
     option = purple_account_option_bool_new("Show only friends in buddy list", "only_friends_in_blist", false);

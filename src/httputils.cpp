@@ -1,3 +1,5 @@
+#include "vk-common.h"
+
 #include "httputils.h"
 
 using std::bind;
@@ -7,22 +9,22 @@ using namespace std::placeholders;
 namespace
 {
 
-PurpleHttpKeepalivePool* keepalive_pool = nullptr;
-
-// Returns global keep-alive pool for all connection in the plugin.
-PurpleHttpKeepalivePool* get_global_keepalive_pool()
+// Returns keepalive pool for all the HTTP connections in PurpleConnection.
+PurpleHttpKeepalivePool* get_keepalive_pool(PurpleConnection* gc)
 {
-    if (!keepalive_pool)
-        keepalive_pool = purple_http_keepalive_pool_new();
-    return keepalive_pool;
+    VkConnData* data = get_conn_data(gc);
+    if (!data->keepalive_pool)
+        data->keepalive_pool = purple_http_keepalive_pool_new();
+    return data->keepalive_pool;
 }
 
 } // End of anonymous namespace
 
-void destroy_keepalive_pool()
+void destroy_keepalive_pool(PurpleConnection* gc)
 {
-    if (keepalive_pool)
-        purple_http_keepalive_pool_unref(keepalive_pool);
+    VkConnData* data = get_conn_data(gc);
+    if (data->keepalive_pool)
+        purple_http_keepalive_pool_unref(data->keepalive_pool);
 }
 
 PurpleHttpConnection* http_get(PurpleConnection* gc, const string& url, HttpCallback callback)
@@ -48,7 +50,7 @@ void http_cb(PurpleHttpConnection* http_conn, PurpleHttpResponse* response, void
 
 PurpleHttpConnection* http_request(PurpleConnection* gc, PurpleHttpRequest* request, HttpCallback callback)
 {
-    purple_http_request_set_keepalive_pool(request, get_global_keepalive_pool());
+    purple_http_request_set_keepalive_pool(request, get_keepalive_pool(gc));
     HttpCallback* user_data = new HttpCallback(move(callback));
     PurpleHttpConnection* hc = purple_http_request(gc, request, http_cb, user_data);
     return hc;
