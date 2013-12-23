@@ -331,11 +331,17 @@ void update_buddy_in_blist(PurpleConnection* gc, uint64 uid, const VkUserInfo& i
         // Check if name has already been set, so that we do not get spurious "idXXXX is now known as ..."
         if (info.name != purple_buddy_get_alias(buddy))
         {
-            // Set "server alias"
-            serv_got_alias(gc, buddy_name.data(), info.name.data());
-            // Set "client alias", the one that is stored in blist on the client and can be set by the user.
-            // If we do not set it, the ugly "idXXXX" entries will appear in buddy list during connection.
+            // Pidgin supports two types of aliases for buddies: "local"/"private" and "server". The local alias
+            // is permanently stored in the buddy list and can be modified by the user (when the user modifies
+            // some buddy alias, we set "custom-alias" for that node). The server alias is ephemeral and must be
+            // set upon each login. Local status is considered dominant to server status. The only reason
+            // why we call serv_got_alias is because that function conveniently writes "idXXXX is now known as YYY"
+            // if conversation with that buddy is open. Otherwise, server alias is completely ignored.
+            // 
+            // TODO: we could use server status to remove "custom-alias" tag from node if local alias is set to 
+            // server alias.
             purple_serv_got_private_alias(gc, buddy_name.data(), info.name.data());
+            serv_got_alias(gc, buddy_name.data(), info.name.data());
         }
     }
 
