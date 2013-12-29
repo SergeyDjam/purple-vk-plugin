@@ -138,7 +138,7 @@ private:
     // Second part of auth process: retrieves "confirm access" page and submits form. This part may be skipped.
     void on_fetch_vk_confirmation_form(PurpleHttpConnection* http_conn, PurpleHttpResponse* response);
     // Last part of auth process: retrieves access token. We either arrive here upon success from confirmation
-    // page or upon error (when url starts with "http://oauth.vk.com/blank.html").
+    // page or upon error (when url starts with "https://oauth.vk.com/blank.html").
     void on_fetch_vk_access_token(PurpleHttpConnection* http_conn, PurpleHttpResponse*);
 };
 
@@ -149,7 +149,7 @@ void VkAuthenticator::run()
     purple_connection_update_progress(m_gc, "Connecting", 0, 4);
     purple_debug_info("prpl-vkcom", "Starting authentication\n");
 
-    string url = str_format("http://oauth.vk.com/oauth/authorize?redirect_uri=http://oauth.vk.com/blank.html"
+    string url = str_format("https://oauth.vk.com/oauth/authorize?redirect_uri=https://oauth.vk.com/blank.html"
                             "&response_type=token&client_id=%s&scope=%s&display=page", m_client_id.data(),
                             m_scope.data());
     http_get(m_gc, url, [this](PurpleHttpConnection* http_conn, PurpleHttpResponse* response) {
@@ -226,10 +226,10 @@ void VkAuthenticator::on_fetch_vk_confirmation_form(PurpleHttpConnection* http_c
 {
     purple_connection_update_progress(m_gc, "Connecting", 2, 4);
 
-    // Check if url contains "http://oauth.vk.com/blank.html"
+    // Check if url contains "https://oauth.vk.com/blank.html"
     const char* url = purple_http_request_get_url(purple_http_conn_get_request(http_conn));
     // Check if we must skip the confirmation form and get access token straight.
-    if (g_str_has_prefix(url, "http://oauth.vk.com/blank.html")) {
+    if (g_str_has_prefix(url, "https://oauth.vk.com/blank.html")) {
         on_fetch_vk_access_token(http_conn, response);
         return;
     }
@@ -268,15 +268,15 @@ void VkAuthenticator::on_fetch_vk_confirmation_form(PurpleHttpConnection* http_c
 }
 
 // Last part of auth process: retrieves access token. We either arrive here upon success from confirmation
-// page or upon error (when url starts with "http://oauth.vk.com/blank.html").
+// page or upon error (when url starts with "https://oauth.vk.com/blank.html").
 void VkAuthenticator::on_fetch_vk_access_token(PurpleHttpConnection* http_conn, PurpleHttpResponse*)
 {
     purple_connection_update_progress(m_gc, "Connecting", 3, 4);
     purple_debug_info("prpl-vkcom", "Fetched access token URL\n");
 
-    // Check if url contains "http://oauth.vk.com/blank.html"
+    // Check if url contains "https://oauth.vk.com/blank.html"
     const char* url = purple_http_request_get_url(purple_http_conn_get_request(http_conn));
-    if (!g_str_has_prefix(url, "http://oauth.vk.com/blank.html")) {
+    if (!g_str_has_prefix(url, "https://oauth.vk.com/blank.html")) {
         purple_debug_info("prpl-vkcom", "Error while getting access token: ended up with url %s\n", url);
         on_error(PURPLE_CONNECTION_ERROR_AUTHENTICATION_FAILED, "Wrong username or password");
         return;
