@@ -64,7 +64,7 @@ private:
 // Creates a new string, analogous to sprintf
 inline string str_format(const char* fmt, ...)
 {
-    char tmp[8192];
+    char tmp[3072];
 
     va_list arg;
     va_start(arg, fmt);
