@@ -260,6 +260,26 @@ void vk_alias_buddy(PurpleConnection* gc, const char* who, const char*)
     purple_blist_node_set_bool(&buddy->node, "custom-alias", true);
 }
 
+void vk_group_buddy(PurpleConnection* gc, const char* who, const char*, const char* new_group)
+{
+    PurpleAccount* account = purple_connection_get_account(gc);
+    PurpleBuddy* buddy = purple_find_buddy(account, who);
+    if (!buddy)
+        return;
+
+    const char* default_group = purple_account_get_string(purple_connection_get_account(gc),
+                                                          "blist_default_group", "");
+    if (!g_str_equal(new_group, default_group)) {
+        purple_blist_node_set_bool(&buddy->node, "custom-group", true);
+    } else {
+        // Set "custom-group" only if it has been set before. This happens when
+        // the user changes default group and all buddies from the old default group are
+        // moved to new one.
+        if (purple_blist_node_get_bool(&buddy->node, "custom-group"))
+            purple_blist_node_set_bool(&buddy->node, "custom-group", false);
+    }
+}
+
 // A dummy "rename group" is required so that libpurple client does not remove and re-add all buddies
 // in the process of mere renaming of a group.
 void vk_rename_group(PurpleConnection*, const char*,  PurpleGroup*, GList*)
@@ -382,7 +402,7 @@ PurplePluginProtocolInfo prpl_info = {
     nullptr, /* get_cb_info */
     nullptr, /* get_cb_away */
     vk_alias_buddy, /* alias_buddy */
-    nullptr, /* group_buddy */
+    vk_group_buddy, /* group_buddy */
     vk_rename_group, /* rename_group */
     nullptr, /* buddy_free */
     vk_convo_closed, /* convo_closed */

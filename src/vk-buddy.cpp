@@ -318,15 +318,27 @@ void update_buddy_in_blist(PurpleConnection* gc, uint64 uid, const VkUserInfo& i
 
     string buddy_name = buddy_name_from_uid(uid);
     PurpleBuddy* buddy = purple_find_buddy(account, buddy_name.data());
+    PurpleGroup* group = get_default_group(gc);
     if (!buddy) {
         purple_debug_info("prpl-vkcom", "Adding %s to buddy list\n", buddy_name.data());
         buddy = purple_buddy_new(account, buddy_name.data(), nullptr);
 
-        PurpleGroup* group = get_default_group(gc);
         purple_blist_add_buddy(buddy, nullptr, group, nullptr);
+    } else if (group) {
+        // User set Group for Buddies. Check user has not set custom group for this particular buddy
+        // and buddy is in the Group for Buddies.
+        PurpleGroup* old_group = purple_buddy_get_group(buddy);
+        if (!g_str_equal(group->name, old_group->name)
+                && !purple_blist_node_get_bool(&buddy->node, "custom-group"))
+        {
+            purple_debug_info("prpl-vkcom", "Moving %s from %s to %s\n", buddy_name.data(),
+                              old_group->name, group->name);
+            // add_buddy moves existing buddies from group to group.
+            purple_blist_add_buddy(buddy, nullptr, group, nullptr);
+        }
     }
 
-    // Check if user did not set alias locally.
+    // Check if user did not set alias for this particular buddy locally.
     if (!purple_blist_node_get_bool(&buddy->node, "custom-alias")) {
         // Check if name has already been set, so that we do not get spurious "idXXXX is now known as ..."
         if (info.name != purple_buddy_get_alias(buddy))
