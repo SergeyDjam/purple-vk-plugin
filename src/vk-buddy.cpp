@@ -381,7 +381,10 @@ void update_buddy_in_blist(PurpleConnection* gc, uint64 uid, const VkUserInfo& i
         purple_buddy_icons_set_for_user(account, buddy_name.data(), nullptr, 0, nullptr);
     } else {
         const char* checksum = purple_buddy_icons_get_checksum_for_user(buddy);
-        if (!checksum || checksum != info.photo_min)
+        // Icon url is a rather unstable checksum due to load balancing (the first part of the URL
+        // can randomly change from one call to another, so we use only the last part, the filename,
+        // which seems random enough to ignore potential collisions).
+        if (!checksum || checksum != str_rsplit(info.photo_min, '/'))
             fetch_buddy_icon(gc, buddy_name, info.photo_min);
     }
 }
@@ -409,8 +412,10 @@ void fetch_buddy_icon(PurpleConnection* gc, const string& buddy_name, const stri
         size_t icon_len;
         const void* icon_data = purple_http_response_get_data(response, &icon_len);
         const char* icon_url = purple_http_request_get_url(purple_http_conn_get_request(http_conn));
+        // This should be synchronized with code in update_buddy_in_blist.
+        string checksum = str_rsplit(icon_url, '/');
         purple_buddy_icons_set_for_user(purple_connection_get_account(gc), buddy_name.data(),
-                                        g_memdup(icon_data, icon_len), icon_len, icon_url);
+                                        g_memdup(icon_data, icon_len), icon_len, checksum.data());
     });
 }
 

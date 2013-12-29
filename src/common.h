@@ -140,6 +140,24 @@ inline void to_upper(string& s)
     std::transform(s.begin(), s.end(), s.begin(), toupper);
 }
 
+// Returns the portion of the string after the rightmost sep.
+inline string str_rsplit(const string& s, char sep)
+{
+    string::size_type last = s.find_last_of(sep);
+    if (last != string::npos)
+        return s.substr(last + 1);
+    else
+        return s;
+}
+
+inline string str_rsplit(const char* s, char sep)
+{
+    const char* last = strrchr(s, sep);
+    if (last)
+        return string(last + 1);
+    else
+        return string(s);
+}
 
 // Miscellaneous container functions
 
