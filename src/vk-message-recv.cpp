@@ -40,6 +40,12 @@ public:
     void run(const uint64_vec& message_ids);
 
 private:
+    enum MessageStatus {
+        MESSAGE_INCOMING_READ,
+        MESSAGE_INCOMING_UNREAD,
+        MESSAGE_OUTGOING
+    };
+
     struct Message
     {
         uint64 mid;
@@ -47,11 +53,10 @@ private:
         uint64 chat_id; // If chat_id is 0, this is a regular IM message.
         string text;
         time_t timestamp;
-        bool unread;
-        bool outgoing;
+        MessageStatus status;
 
         // A list of thumbnail URLs to download and append to message. Set in process_attachments,
-        // used in download_thumbnails.
+        // replaced in download_thumbnails.
         vector<string> thumbnail_urls;
     };
     vector<Message> m_messages;
@@ -89,6 +94,11 @@ private:
     static void process_wall_attachment(const picojson::value& fields, Message& message);
     // Processes link attachment.
     static void process_link_attachment(const picojson::value& fields, Message& message);
+
+    // Appends specific thumbnail placeholder to the end of message text. Thumbnail will be replaced
+    // by actual image later.
+    static void append_thumbnail_placeholder(const string& thumbnail_url, Message& message);
+
     // Downloads the given thumbnail for given message, modifies corresponding message text
     // and calls either next download_thumbnail() or finish(). message is index into m_messages,
     // thumbnail is index into thumbnail_urls.
@@ -205,19 +215,23 @@ void MessageReceiver::process_message(const picojson::value& message)
         return;
     }
 
-    uint64 uid = message.get("user_id").get<double>();
     uint64 mid = message.get("id").get<double>();
-    time_t timestamp = message.get("date").get<double>();
-    bool unread = message.get("read_state").get<double>() == 0.0;
-    bool outgoing = message.get("out").get<double>() != 0.0;
-
-    string text = cleanup_message_body(message.get("body").get<string>());
-
+    uint64 uid = message.get("user_id").get<double>();
     uint64 chat_id = 0;
     if (field_is_present<double>(message, "chat_id"))
         chat_id = message.get("chat_id").get<double>();
 
-    m_messages.push_back({ mid, uid, chat_id, text, timestamp, unread, outgoing, {} });
+    string text = cleanup_message_body(message.get("body").get<string>());
+    time_t timestamp = message.get("date").get<double>();
+    MessageStatus status;
+    if (message.get("out").get<double>() != 0.0)
+        status = MESSAGE_OUTGOING;
+    else if (message.get("read_state").get<double>() == 0.0)
+        status = MESSAGE_INCOMING_UNREAD;
+    else
+        status = MESSAGE_INCOMING_READ;
+
+    m_messages.push_back({ mid, uid, chat_id, text, timestamp, status, {}, {}, {} });
 
     // Process attachments: append information to text.
     if (field_is_present<picojson::array>(message, "attachments"))
@@ -330,12 +344,7 @@ void MessageReceiver::process_photo_attachment(const picojson::value& fields, Me
         message.text += str_format("<a href='%s'>%s</a>", url.data(), photo_text.data());
     else
         message.text += str_format("<a href='%s'>%s</a>", url.data(), url.data());
-    if (message.unread) {
-        // We append placeholder text, so that we can replace it later in download_thumbnail.
-        // There is no need to show images for already read messages (and it can take quite a while too!)
-        message.text += str_format("<br><thumbnail-placeholder-%d>", message.thumbnail_urls.size());
-        message.thumbnail_urls.push_back(thumbnail);
-    }
+    append_thumbnail_placeholder(thumbnail, message);
 }
 
 void MessageReceiver::process_video_attachment(const picojson::value& fields, Message& message)
@@ -353,11 +362,8 @@ void MessageReceiver::process_video_attachment(const picojson::value& fields, Me
 
     message.text += str_format("<a href='http://vk.com/video%lld_%llu'>%s</a>", (long long)owner_id,
                                (unsigned long long)id, title.data());
-    if (message.unread) {
-        // See above comment in process_photo_attachment.
-        message.text += str_format("<br><thumbnail-placeholder-%d>", message.thumbnail_urls.size());
-        message.thumbnail_urls.push_back(thumbnail);
-    }
+
+    append_thumbnail_placeholder(thumbnail, message);
 }
 
 void MessageReceiver::process_audio_attachment(const picojson::value& fields, Message& message)
@@ -390,8 +396,7 @@ void MessageReceiver::process_doc_attachment(const picojson::value& fields, Mess
     // Check if we've got a thumbnail.
     if (field_is_present<string>(fields, "photo_130")) {
         const string& thumbnail = fields.get("photo_130").get<string>();
-        message.text += str_format("<br><thumbnail-placeholder-%d>", message.thumbnail_urls.size());
-        message.thumbnail_urls.push_back(thumbnail);
+        append_thumbnail_placeholder(thumbnail, message);
     }
 }
 
@@ -472,14 +477,17 @@ void MessageReceiver::process_link_attachment(const picojson::value& fields, Mes
         message.text += description;
     }
 
-    if (!image_src.empty() && message.unread) {
-        // We append placeholder text, so that we can replace it later in download_thumbnail.
-        // There is no need to show images for already read messages (and it can take quite a while too!)
-        message.text += str_format("<br><thumbnail-placeholder-%d>", message.thumbnail_urls.size());
-        message.thumbnail_urls.push_back(image_src);
-    }
+    if (!image_src.empty())
+        append_thumbnail_placeholder(image_src, message);
 }
 
+void MessageReceiver::append_thumbnail_placeholder(const string& thumbnail_url, MessageReceiver::Message& message)
+{
+    if (message.status == MESSAGE_INCOMING_UNREAD) {
+        message.text += str_format("<br><thumbnail-placeholder-%d>", message.thumbnail_urls.size());
+        message.thumbnail_urls.push_back(thumbnail_url);
+    }
+}
 
 void MessageReceiver::download_thumbnail(size_t message, size_t thumbnail)
 {
@@ -521,8 +529,7 @@ void MessageReceiver::finish()
 
     uint64_vec uids_to_user_info; // Users to get information about.
     for (const Message& m: m_messages)
-        // For other unknown uids we only need to know names.
-        if (!m.outgoing && is_unknown_uid(m_gc, m.uid))
+        if (m.status != MESSAGE_OUTGOING && is_unknown_uid(m_gc, m.uid))
             uids_to_user_info.push_back(m.uid);
 
     add_or_update_user_infos(m_gc, uids_to_user_info, [=] {
@@ -530,14 +537,14 @@ void MessageReceiver::finish()
         for (const Message& m: m_messages)
             // We want to add buddies to buddy list for unread personal messages because we will open conversations
             // with them.
-            if (!m.outgoing && m.unread && m.chat_id == 0 && !in_buddy_list(m_gc, m.uid))
+            if (m.status == MESSAGE_INCOMING_UNREAD && m.chat_id == 0 && !in_buddy_list(m_gc, m.uid))
                 uids_to_buddy_list.push_back(m.uid);
 
         // We are setting presence because this is the first time we update the buddies.
         add_to_buddy_list(m_gc, uids_to_buddy_list, [=] {
             PurpleLogCache logs(m_gc);
             for (const Message& m: m_messages) {
-                if (!m.outgoing && m.unread) {
+                if (m.status == MESSAGE_INCOMING_UNREAD) {
                     // Open new conversation for received message.
                     if (m.chat_id == 0) {
                         serv_got_im(m_gc, buddy_name_from_uid(m.uid).data(), m.text.data(), PURPLE_MESSAGE_RECV,
@@ -555,7 +562,7 @@ void MessageReceiver::finish()
                     else
                         log = logs.for_chat(m.chat_id);
                     string from;
-                    if (m.outgoing)
+                    if (m.status == MESSAGE_OUTGOING)
                         from = purple_account_get_name_for_display(purple_connection_get_account(m_gc));
                     else
                         from = get_buddy_name(m_gc, m.uid);
@@ -565,10 +572,9 @@ void MessageReceiver::finish()
 
             // Mark incoming messages as read.
             uint64_vec unread_message_ids;
-            for (const Message& m: m_messages) {
-                if (m.unread && !m.outgoing)
+            for (const Message& m: m_messages)
+                if (m.status == MESSAGE_INCOMING_UNREAD)
                     unread_message_ids.push_back(m.mid);
-            }
             mark_message_as_read(m_gc, unread_message_ids);
 
             // Sets the last message id as m_messages are sorted by mid.
