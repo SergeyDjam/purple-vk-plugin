@@ -1,3 +1,7 @@
+#define __STDC_FORMAT_MACROS
+#include <inttypes.h>
+#include <time.h>
+
 #include <debug.h>
 #include <imgstore.h>
 #include <server.h>
@@ -79,6 +83,10 @@ private:
     static void process_audio_attachment(const picojson::value& fields, Message& message);
     // Processes doc attachment.
     static void process_doc_attachment(const picojson::value& fields, Message& message);
+    // Processes wall post attachment.
+    static void process_wall_attachment(const picojson::value& fields, Message& message);
+    // Processes link attachment.
+    static void process_link_attachment(const picojson::value& fields, Message& message);
     // Downloads the given thumbnail for given message, modifies corresponding message text
     // and calls either next download_thumbnail() or finish(). message is index into m_messages,
     // thumbnail is index into thumbnail_urls.
@@ -226,6 +234,10 @@ void MessageReceiver::process_attachments(const picojson::array& items, Message&
             process_audio_attachment(fields, message);
         } else if (type == "doc") {
             process_doc_attachment(fields, message);
+        } else if (type == "wall") {
+            process_wall_attachment(fields, message);
+        } else if (type == "link") {
+            process_link_attachment(fields, message);
         } else {
             purple_debug_error("prpl-vkcom", "Strange attachment in response from messages.get "
                                "or messages.getById: type %s, %s\n", type.data(), fields.serialize().data());
@@ -335,6 +347,94 @@ void MessageReceiver::process_doc_attachment(const picojson::value& fields, Mess
         message.thumbnail_urls.push_back(thumbnail);
     }
 }
+
+void MessageReceiver::process_wall_attachment(const picojson::value& fields, Message& message)
+{
+    if (!field_is_present<double>(fields, "id")
+            || (!field_is_present<double>(fields, "to_id") && !field_is_present<double>(fields, "from_id"))
+            || !field_is_present<double>(fields, "date")
+            || !field_is_present<string>(fields, "text")) {
+        purple_debug_error("prpl-vkcom", "Strange attachment in response from messages.get "
+                           "or messages.getById: %s\n", fields.serialize().data());
+        return;
+    }
+
+    uint64 id = fields.get("id").get<double>();
+    // This happens in case of reposts, where only "from_id" is specified.
+    uint64 to_id;
+    if (field_is_present<double>(fields, "to_id"))
+        to_id = fields.get("to_id").get<double>();
+    else
+        to_id = fields.get("from_id").get<double>();
+
+    // This text will get linkified automatically by pidgin (or libpurple?).
+    message.text += str_format("http://vk.com/wall%" PRIu64 "_%" PRIu64, to_id, id);
+
+    time_t date = fields.get("date").get<double>();
+    struct tm date_tm;
+    localtime_r(&date, &date_tm);
+    if (fields.contains("copy_text") || fields.contains("copy_history"))
+        message.text += str_format(" reposted on %s<br>", purple_date_format_long(&date_tm));
+    else
+        message.text += str_format(" posted on %s<br>", purple_date_format_long(&date_tm));
+
+    if (field_is_present<string>(fields, "copy_text")) {
+        message.text += fields.get("copy_text").get<string>();
+        message.text += "<br>";
+    }
+    message.text += fields.get("text").get<string>();
+
+    if (field_is_present<picojson::array>(fields, "attachments"))
+        process_attachments(fields.get("attachments").get<picojson::array>(), message);
+
+    if (field_is_present<picojson::array>(fields, "copy_history")) {
+        const picojson::array& a = fields.get("copy_history").get<picojson::array>();
+
+        for (const picojson::value& v: a)
+            process_wall_attachment(v, message);
+    }
+}
+
+void MessageReceiver::process_link_attachment(const picojson::value& fields, Message& message)
+{
+    if (!field_is_present<string>(fields, "url")) {
+        purple_debug_error("prpl-vkcom", "Strange attachment in response from messages.get "
+                           "or messages.getById: %s\n", fields.serialize().data());
+        return;
+    }
+    const string& url = fields.get("url").get<string>();
+
+    // link attachment is not described anywhere in Vk.com documentation, so we cannot be sure,
+    // which fields are required and which are optional. Let's treat all of them apart from url
+    // as optional.
+    string title;
+    if (field_is_present<string>(fields, "title"))
+        title = fields.get("title").get<string>();
+    string description;
+    if (field_is_present<string>(fields, "description"))
+        description = fields.get("description").get<string>();
+    string image_src;
+    if (field_is_present<string>(fields, "image_src"))
+        image_src = fields.get("image_src").get<string>();
+
+    if (!title.empty())
+        message.text += str_format("<a href='%s'>%s</a>", url.data(), title.data());
+    else
+        message.text += url.data();
+
+    if (!description.empty()) {
+        message.text += "<br>";
+        message.text += description;
+    }
+
+    if (!image_src.empty() && message.unread) {
+        // We append placeholder text, so that we can replace it later in download_thumbnail.
+        // There is no need to show images for already read messages (and it can take quite a while too!)
+        message.text += str_format("<br><thumbnail-placeholder-%d>", message.thumbnail_urls.size());
+        message.thumbnail_urls.push_back(image_src);
+    }
+}
+
 
 void MessageReceiver::download_thumbnail(size_t message, size_t thumbnail)
 {
