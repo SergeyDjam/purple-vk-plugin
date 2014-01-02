@@ -354,7 +354,9 @@ void process_typing(PurpleConnection* gc, const picojson::value& v)
     uint64 uid = v.get(1).get<double>();
 
     ensure_in_buddy_list(gc, uid, [=] {
-        serv_got_typing(gc, buddy_name_from_uid(uid).data(), 6000, PURPLE_TYPING);
+        // Vk.com documentation states, that "user is typing" messages are sent with ~5 second
+        // interval between them. Let's make it 6, just to be sure.
+        serv_got_typing(gc, buddy_name_from_uid(uid).data(), 6, PURPLE_TYPING);
     });
 }
 
