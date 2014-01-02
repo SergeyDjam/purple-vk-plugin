@@ -142,7 +142,7 @@ void process_error(PurpleHttpConnection* http_conn, const picojson::value& error
         return;
     } else if (error_code == VK_FLOOD_CONTROL) {
         return; // Simply ignore the error.
-    } else if (error_code != VK_VALIDATION_REQUIRED) {
+    } else if (error_code == VK_VALIDATION_REQUIRED) {
         // As far as I could understand, once you complete validation, all future requests/login attempts will work
         // correctly, so there is no need to do anything apart from showing the link to the user and asking them
         // to re-login.
