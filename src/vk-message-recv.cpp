@@ -75,6 +75,8 @@ private:
     void process_message(const picojson::value& message);
     // Processes attachments: appends urls to message text, adds thumbnail_urls.
     static void process_attachments(const picojson::array& items, Message& message);
+    // Processes forwarded messages: appends message text and processes attachments.
+    static void process_fwd_message(const picojson::value& fields, Message& message);
     // Processes photo attachment.
     static void process_photo_attachment(const picojson::value& items, Message& message);
     // Processes video attachment.
@@ -170,6 +172,29 @@ void MessageReceiver::run_all(uint64 last_msg_id, bool outgoing)
     });
 }
 
+
+// NOTE:
+//  * We must escape text, otherwise we cannot receive comment, containing &amp; or <br> as libpurple
+//    will wrongfully interpret them as markup.
+//  * Links are returned as plaintext, linkified by Pidgin etc.
+//  * Smileys are returned as Unicode emoji (both emoji and pseudocode smileys are accepted on message send).
+string cleanup_message_body(const string& body)
+{
+    char* escaped = purple_markup_escape_text(body.data(), -1);
+    string text = escaped;
+    g_free(escaped);
+    replace_emoji_with_text(text);
+    return text;
+}
+
+// Converts timestamp, received from server, to string in local time.
+string timestamp_to_long_format(time_t timestamp)
+{
+    struct tm tm;
+    localtime_r(&timestamp, &tm);
+    return purple_date_format_long(&tm);
+}
+
 void MessageReceiver::process_message(const picojson::value& message)
 {
     if (!field_is_present<double>(message, "user_id") || !field_is_present<double>(message, "date")
@@ -186,15 +211,7 @@ void MessageReceiver::process_message(const picojson::value& message)
     bool unread = message.get("read_state").get<double>() == 0.0;
     bool outgoing = message.get("out").get<double>() != 0.0;
 
-    // NOTE:
-    //  * We must escape text, otherwise we cannot receive comment, containing &amp; or <br> as libpurple
-    //    will wrongfully interpret them as markup.
-    //  * Links are returned as plaintext, linkified by Pidgin etc.
-    //  * Smileys are returned as Unicode emoji (both emoji and pseudocode smileys are accepted on message send).
-    char* escaped = purple_markup_escape_text(message.get("body").get<string>().data(), -1);
-    string text = escaped;
-    g_free(escaped);
-    replace_emoji_with_text(text);
+    string text = cleanup_message_body(message.get("body").get<string>());
 
     uint64 chat_id = 0;
     if (field_is_present<double>(message, "chat_id"))
@@ -205,6 +222,13 @@ void MessageReceiver::process_message(const picojson::value& message)
     // Process attachments: append information to text.
     if (field_is_present<picojson::array>(message, "attachments"))
         process_attachments(message.get("attachments").get<picojson::array>(), m_messages.back());
+
+    // Process forwarded messages.
+    if (field_is_present<picojson::array>(message, "fwd_messages")) {
+        const picojson::array& fwd_messages = message.get("fwd_messages").get<picojson::array>();
+        for (const picojson::value& m: fwd_messages)
+            process_fwd_message(m, m_messages.back());
+    }
 }
 
 void MessageReceiver::process_attachments(const picojson::array& items, Message& message)
@@ -246,6 +270,29 @@ void MessageReceiver::process_attachments(const picojson::array& items, Message&
             continue;
         }
     }
+}
+
+void MessageReceiver::process_fwd_message(const picojson::value& fields, Message& message)
+{
+    if (!field_is_present<double>(fields, "user_id") || !field_is_present<double>(fields, "date")
+            || !field_is_present<string>(fields, "body")) {
+        purple_debug_error("prpl-vkcom", "Strange response from messages.get or messages.getById: %s\n",
+                           fields.serialize().data());
+        return;
+    }
+
+    string date = timestamp_to_long_format(fields.get("date").get<double>());
+    string text = str_format("Forwarded message (sent on %s):\n", date.data());
+    text += cleanup_message_body(fields.get("body").get<string>());
+    // Prepend quotation marks to all forwared message lines.
+    str_replace(text, "\n", "\n    > ");
+
+    if (!message.text.empty())
+        message.text += "<br>";
+    message.text += text;
+
+    if (field_is_present<picojson::array>(fields, "attachments"))
+        process_attachments(fields.get("attachments").get<picojson::array>(), message);
 }
 
 void MessageReceiver::process_photo_attachment(const picojson::value& fields, Message& message)
@@ -370,13 +417,11 @@ void MessageReceiver::process_wall_attachment(const picojson::value& fields, Mes
     // This text will get linkified automatically by pidgin (or libpurple?).
     message.text += str_format("http://vk.com/wall%" PRIu64 "_%" PRIu64, to_id, id);
 
-    time_t date = fields.get("date").get<double>();
-    struct tm date_tm;
-    localtime_r(&date, &date_tm);
+    string date = timestamp_to_long_format(fields.get("date").get<double>());
     if (fields.contains("copy_text") || fields.contains("copy_history"))
-        message.text += str_format(" reposted on %s<br>", purple_date_format_long(&date_tm));
+        message.text += str_format(" reposted on %s<br>", date.data());
     else
-        message.text += str_format(" posted on %s<br>", purple_date_format_long(&date_tm));
+        message.text += str_format(" posted on %s<br>", date.data());
 
     if (field_is_present<string>(fields, "copy_text")) {
         message.text += fields.get("copy_text").get<string>();
