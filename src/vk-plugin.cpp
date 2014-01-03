@@ -85,8 +85,8 @@ void vk_login(PurpleAccount* acct)
         PurpleAccount* account = purple_connection_get_account(gc);
         const char* alias = purple_account_get_alias(account);
         if (!alias || !alias[0]) {
-            get_user_full_name(gc, data->uid(), [=](const string& full_name) {
-                purple_account_set_alias(account, full_name.data());
+            get_user_full_name(gc, data->uid(), [=](const string& name) {
+                purple_account_set_alias(account, name.data());
             });
         }
 

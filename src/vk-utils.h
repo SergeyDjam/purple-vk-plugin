@@ -18,7 +18,10 @@ string get_buddy_name(PurpleConnection* gc, uint64 uid);
 // Returns true if uid is present in buddy list.
 bool in_buddy_list(PurpleConnection* gc, uint64 uid);
 
-// Returns true if uid is not present even in buddy list.
+// Returns true if uid is a friend.
+bool is_friend(PurpleConnection* gc, uint64 uid);
+
+// Returns true if uid is not present even in user infos.
 bool is_unknown_uid(PurpleConnection* gc, uint64 uid);
 
 // Returns true if we are currently having an open IM conversation with (chats ignored).
@@ -27,6 +30,7 @@ bool have_conversation_with(PurpleConnection* gc, uint64 uid);
 // Returns VkUserInfo, corresponding to buddy.
 VkUserInfo* get_user_info_for_buddy(PurpleBuddy* buddy);
 VkUserInfo* get_user_info_for_buddy(PurpleConnection* gc, const char* name);
+VkUserInfo* get_user_info_for_buddy(PurpleConnection* gc, uint64 user_id);
 
 // Map of several PurpleLogs (one for each user), so that they are not created for each received message.
 // Used in vk-message-recv.cpp
@@ -53,3 +57,20 @@ private:
 // Replaces most common emoji with smileys: :), :(, :'( etc. Custom smileys are left intact
 // (as Unicode symbols).
 void replace_emoji_with_text(string& message);
+
+// Returns some information about group, used when receiving reposts of group messages.
+struct VkGroupInfo
+{
+    string name;
+    string type;
+    string screen_name;
+};
+
+using GroupInfoFetchedCb = std::function<void(const map<uint64, VkGroupInfo>& infos)>;
+void get_groups_info(PurpleConnection* gc, uint64_vec group_ids, const GroupInfoFetchedCb& fetched_cb);
+
+// Gets href, which points to the user page.
+string get_user_href(uint64 user_id, const VkUserInfo& info);
+
+// Gets href, which points to the group page.
+string get_group_href(uint64 group_id, const VkGroupInfo& info);

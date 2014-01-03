@@ -58,6 +58,10 @@ private:
         // A list of thumbnail URLs to download and append to message. Set in process_attachments,
         // replaced in download_thumbnails.
         vector<string> thumbnail_urls;
+        // A list of user and group ids, present in message. Set in process_attachments
+        // and process_fwd_message, replaced in replace_user_ids and replace_group_ids.
+        vector<uint64> user_ids;
+        vector<uint64> group_ids;
     };
     vector<Message> m_messages;
 
@@ -77,11 +81,11 @@ private:
     // Runs messages.get from given offset.
     void run_all(uint64 last_msg_id, bool outgoing);
     // Processes one item from the result of messages.get and messages.getById.
-    void process_message(const picojson::value& message);
+    void process_message(const picojson::value& fields);
     // Processes attachments: appends urls to message text, adds thumbnail_urls.
-    static void process_attachments(const picojson::array& items, Message& message);
+    static void process_attachments(PurpleConnection* gc, const picojson::array& items, Message& message);
     // Processes forwarded messages: appends message text and processes attachments.
-    static void process_fwd_message(const picojson::value& fields, Message& message);
+    static void process_fwd_message(PurpleConnection* gc, const picojson::value& fields, Message& message);
     // Processes photo attachment.
     static void process_photo_attachment(const picojson::value& items, Message& message);
     // Processes video attachment.
@@ -91,18 +95,27 @@ private:
     // Processes doc attachment.
     static void process_doc_attachment(const picojson::value& fields, Message& message);
     // Processes wall post attachment.
-    static void process_wall_attachment(const picojson::value& fields, Message& message);
+    static void process_wall_attachment(PurpleConnection* gc, const picojson::value& fields, Message& message);
     // Processes link attachment.
     static void process_link_attachment(const picojson::value& fields, Message& message);
 
-    // Appends specific thumbnail placeholder to the end of message text. Thumbnail will be replaced
-    // by actual image later.
+    // Appends specific thumbnail placeholder to the end of message text. Placeholder will be replaced
+    // by actual image later in download_thumbnail().
     static void append_thumbnail_placeholder(const string& thumbnail_url, Message& message);
+    // Returns user/group placeholder, which should be appended to the message text. It will
+    // be replaced with actual user/group name and link to the page later in replace_user/group_ids().
+    static string get_user_placeholder(PurpleConnection* gc, uint64 user_id, Message& message);
+    static string get_group_placeholder(uint64 group_id, Message& message);
 
     // Downloads the given thumbnail for given message, modifies corresponding message text
     // and calls either next download_thumbnail() or finish(). message is index into m_messages,
     // thumbnail is index into thumbnail_urls.
     void download_thumbnail(size_t message, size_t thumbnail);
+    // Replaces all placeholder texts for user/group ids in messages with user/group names
+    // and hrefs. Gets information on users, which are not present in user_infos, and groups
+    // from vk.com
+    void replace_user_ids();
+    void replace_group_ids();
     // Sorts received messages, sends them to libpurple client and destroys this.
     void finish();
 };
@@ -205,47 +218,46 @@ string timestamp_to_long_format(time_t timestamp)
     return purple_date_format_long(&tm);
 }
 
-void MessageReceiver::process_message(const picojson::value& message)
+void MessageReceiver::process_message(const picojson::value& fields)
 {
-    if (!field_is_present<double>(message, "user_id") || !field_is_present<double>(message, "date")
-            || !field_is_present<string>(message, "body") || !field_is_present<double>(message, "id")
-            || !field_is_present<double>(message, "read_state")|| !field_is_present<double>(message, "out")) {
+    if (!field_is_present<double>(fields, "user_id") || !field_is_present<double>(fields, "date")
+            || !field_is_present<string>(fields, "body") || !field_is_present<double>(fields, "id")
+            || !field_is_present<double>(fields, "read_state")|| !field_is_present<double>(fields, "out")) {
         purple_debug_error("prpl-vkcom", "Strange response from messages.get or messages.getById: %s\n",
-                           message.serialize().data());
+                           fields.serialize().data());
         return;
     }
 
-    uint64 mid = message.get("id").get<double>();
-    uint64 uid = message.get("user_id").get<double>();
-    uint64 chat_id = 0;
-    if (field_is_present<double>(message, "chat_id"))
-        chat_id = message.get("chat_id").get<double>();
+    m_messages.push_back({});
+    Message& message = m_messages.back();
+    message.mid = fields.get("id").get<double>();
+    message.uid = fields.get("user_id").get<double>();
+    message.chat_id = 0;
+    if (field_is_present<double>(fields, "chat_id"))
+        message.chat_id = fields.get("chat_id").get<double>();
 
-    string text = cleanup_message_body(message.get("body").get<string>());
-    time_t timestamp = message.get("date").get<double>();
-    MessageStatus status;
-    if (message.get("out").get<double>() != 0.0)
-        status = MESSAGE_OUTGOING;
-    else if (message.get("read_state").get<double>() == 0.0)
-        status = MESSAGE_INCOMING_UNREAD;
+    message.text = cleanup_message_body(fields.get("body").get<string>());
+    message.timestamp = fields.get("date").get<double>();
+    if (fields.get("out").get<double>() != 0.0)
+        message.status = MESSAGE_OUTGOING;
+    else if (fields.get("read_state").get<double>() == 0.0)
+        message.status = MESSAGE_INCOMING_UNREAD;
     else
-        status = MESSAGE_INCOMING_READ;
-
-    m_messages.push_back({ mid, uid, chat_id, text, timestamp, status, {}, {}, {} });
+        message.status = MESSAGE_INCOMING_READ;
 
     // Process attachments: append information to text.
-    if (field_is_present<picojson::array>(message, "attachments"))
-        process_attachments(message.get("attachments").get<picojson::array>(), m_messages.back());
+    if (field_is_present<picojson::array>(fields, "attachments"))
+        process_attachments(m_gc, fields.get("attachments").get<picojson::array>(), message);
 
     // Process forwarded messages.
-    if (field_is_present<picojson::array>(message, "fwd_messages")) {
-        const picojson::array& fwd_messages = message.get("fwd_messages").get<picojson::array>();
+    if (field_is_present<picojson::array>(fields, "fwd_messages")) {
+        const picojson::array& fwd_messages = fields.get("fwd_messages").get<picojson::array>();
         for (const picojson::value& m: fwd_messages)
-            process_fwd_message(m, m_messages.back());
+            process_fwd_message(m_gc, m, message);
     }
 }
 
-void MessageReceiver::process_attachments(const picojson::array& items, Message& message)
+void MessageReceiver::process_attachments(PurpleConnection* gc, const picojson::array& items, Message& message)
 {
     for (const picojson::value& v: items) {
         if (!field_is_present<string>(v, "type")) {
@@ -273,7 +285,7 @@ void MessageReceiver::process_attachments(const picojson::array& items, Message&
         } else if (type == "doc") {
             process_doc_attachment(fields, message);
         } else if (type == "wall") {
-            process_wall_attachment(fields, message);
+            process_wall_attachment(gc, fields, message);
         } else if (type == "link") {
             process_link_attachment(fields, message);
         } else {
@@ -286,7 +298,7 @@ void MessageReceiver::process_attachments(const picojson::array& items, Message&
     }
 }
 
-void MessageReceiver::process_fwd_message(const picojson::value& fields, Message& message)
+void MessageReceiver::process_fwd_message(PurpleConnection* gc, const picojson::value& fields, Message& message)
 {
     if (!field_is_present<double>(fields, "user_id") || !field_is_present<double>(fields, "date")
             || !field_is_present<string>(fields, "body")) {
@@ -295,18 +307,23 @@ void MessageReceiver::process_fwd_message(const picojson::value& fields, Message
         return;
     }
 
+    message.text += "<br>";
+
+    uint64 user_id = fields.get("user_id").get<double>();
     string date = timestamp_to_long_format(fields.get("date").get<double>());
-    string text = str_format("Forwarded message (sent on %s):\n", date.data());
+    // Placeholder will be replaced with proper name and href in replace_ids().
+    string text = str_format("Forwarded message (from %s on %s):\n",
+                             get_user_placeholder(gc, user_id, message).data(), date.data());
     text += cleanup_message_body(fields.get("body").get<string>());
     // Prepend quotation marks to all forwared message lines.
     str_replace(text, "\n", "\n    > ");
 
-    if (!message.text.empty())
-        message.text += "<br>";
     message.text += text;
 
+    message.user_ids.push_back(user_id);
+
     if (field_is_present<picojson::array>(fields, "attachments"))
-        process_attachments(fields.get("attachments").get<picojson::array>(), message);
+        process_attachments(gc, fields.get("attachments").get<picojson::array>(), message);
 }
 
 void MessageReceiver::process_photo_attachment(const picojson::value& fields, Message& message)
@@ -400,7 +417,7 @@ void MessageReceiver::process_doc_attachment(const picojson::value& fields, Mess
     }
 }
 
-void MessageReceiver::process_wall_attachment(const picojson::value& fields, Message& message)
+void MessageReceiver::process_wall_attachment(PurpleConnection* gc, const picojson::value& fields, Message& message)
 {
     if (!field_is_present<double>(fields, "id")
             || (!field_is_present<double>(fields, "to_id") && !field_is_present<double>(fields, "from_id"))
@@ -411,22 +428,28 @@ void MessageReceiver::process_wall_attachment(const picojson::value& fields, Mes
         return;
     }
 
+    message.text += "<br>";
+
     uint64 id = fields.get("id").get<double>();
     // This happens in case of reposts, where only "from_id" is specified.
-    uint64 to_id;
+    int64 to_id;
     if (field_is_present<double>(fields, "to_id"))
         to_id = fields.get("to_id").get<double>();
     else
         to_id = fields.get("from_id").get<double>();
 
-    // This text will get linkified automatically by pidgin (or libpurple?).
-    message.text += str_format("http://vk.com/wall%" PRIu64 "_%" PRIu64, to_id, id);
+    if (to_id > 0) {
+        message.text += get_user_placeholder(gc, to_id, message);
+    } else {
+        message.text += get_group_placeholder(-to_id, message);
+    }
 
+    string wall_url = str_format("http://vk.com/wall%" PRIi64 "_%" PRIu64, to_id, id);
+    const char* verb = (fields.contains("copy_text") || fields.contains("copy_history"))
+                        ? "reposted" : "posted";
     string date = timestamp_to_long_format(fields.get("date").get<double>());
-    if (fields.contains("copy_text") || fields.contains("copy_history"))
-        message.text += str_format(" reposted on %s<br>", date.data());
-    else
-        message.text += str_format(" posted on %s<br>", date.data());
+
+    message.text += str_format(" <a href='%s'>%s</a> on %s<br>", wall_url.data(), verb, date.data());
 
     if (field_is_present<string>(fields, "copy_text")) {
         message.text += fields.get("copy_text").get<string>();
@@ -435,13 +458,12 @@ void MessageReceiver::process_wall_attachment(const picojson::value& fields, Mes
     message.text += fields.get("text").get<string>();
 
     if (field_is_present<picojson::array>(fields, "attachments"))
-        process_attachments(fields.get("attachments").get<picojson::array>(), message);
+        process_attachments(gc, fields.get("attachments").get<picojson::array>(), message);
 
     if (field_is_present<picojson::array>(fields, "copy_history")) {
         const picojson::array& a = fields.get("copy_history").get<picojson::array>();
-
         for (const picojson::value& v: a)
-            process_wall_attachment(v, message);
+            process_wall_attachment(gc, v, message);
     }
 }
 
@@ -481,7 +503,7 @@ void MessageReceiver::process_link_attachment(const picojson::value& fields, Mes
         append_thumbnail_placeholder(image_src, message);
 }
 
-void MessageReceiver::append_thumbnail_placeholder(const string& thumbnail_url, MessageReceiver::Message& message)
+void MessageReceiver::append_thumbnail_placeholder(const string& thumbnail_url, Message& message)
 {
     if (message.status == MESSAGE_INCOMING_UNREAD) {
         message.text += str_format("<br><thumbnail-placeholder-%d>", message.thumbnail_urls.size());
@@ -489,10 +511,28 @@ void MessageReceiver::append_thumbnail_placeholder(const string& thumbnail_url, 
     }
 }
 
+string MessageReceiver::get_user_placeholder(PurpleConnection* gc, uint64 user_id, Message& message)
+{
+    VkUserInfo* info = get_user_info_for_buddy(gc, user_id);
+    if (info)
+        return get_user_href(user_id, *info);
+
+    string text = str_format("<user-placeholder-%d>", message.user_ids.size());
+    message.user_ids.push_back(user_id);
+    return text;
+}
+
+string MessageReceiver::get_group_placeholder(uint64 group_id, Message& message)
+{
+    string text = str_format("<group-placeholder-%d>", message.group_ids.size());
+    message.group_ids.push_back(group_id);
+    return text;
+}
+
 void MessageReceiver::download_thumbnail(size_t message, size_t thumbnail)
 {
     if (message >= m_messages.size()) {
-        finish();
+        replace_user_ids();
         return;
     }
     if (thumbnail >= m_messages[message].thumbnail_urls.size()) {
@@ -520,6 +560,51 @@ void MessageReceiver::download_thumbnail(size_t message, size_t thumbnail)
         download_thumbnail(message, thumbnail + 1);
     });
 }
+
+void MessageReceiver::replace_user_ids()
+{
+    // Get all uids, which are not present in user_infos.
+    uint64_vec unknown_uids;
+    for (const Message& m: m_messages)
+        for (uint64 id: m.user_ids)
+            unknown_uids.push_back(id);
+
+    add_or_update_user_infos(m_gc, unknown_uids, [=] {
+        for (Message& m: m_messages) {
+            for (unsigned i = 0; i < m.user_ids.size(); i++) {
+                uint64 id = m.user_ids[i];
+                string placeholder = str_format("<user-placeholder-%d>", i);
+                VkUserInfo* info = get_user_info_for_buddy(m_gc, id);
+                string href = get_user_href(id, *info);
+                str_replace(m.text, placeholder, href);
+            }
+        }
+
+        replace_group_ids();
+    });
+}
+
+void MessageReceiver::replace_group_ids()
+{
+    uint64_vec group_ids;
+    for (const Message& m: m_messages)
+        for (uint64 id: m.group_ids)
+            group_ids.push_back(id);
+
+    get_groups_info(m_gc, group_ids, [=](const map<uint64, VkGroupInfo>& infos) {
+        for (Message& m: m_messages) {
+            for (unsigned i = 0; i < m.group_ids.size(); i++) {
+                uint64 group_id = m.group_ids[i];
+                string placeholder = str_format("<group-placeholder-%d>", i);
+                string href = get_group_href(group_id, infos.at(group_id));
+                str_replace(m.text, placeholder, href);
+            }
+        }
+
+        finish();
+    });
+}
+
 
 void MessageReceiver::finish()
 {
@@ -556,11 +641,7 @@ void MessageReceiver::finish()
                     }
                 } else {
                     // Append message to log.
-                    PurpleLog* log;
-                    if (m.chat_id == 0)
-                        log = logs.for_uid(m.uid);
-                    else
-                        log = logs.for_chat(m.chat_id);
+                    PurpleLog* log = (m.chat_id == 0) ? logs.for_uid(m.uid) : logs.for_chat(m.chat_id);
                     string from;
                     if (m.status == MESSAGE_OUTGOING)
                         from = purple_account_get_name_for_display(purple_connection_get_account(m_gc));

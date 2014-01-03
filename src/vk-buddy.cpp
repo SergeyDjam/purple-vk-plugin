@@ -50,7 +50,7 @@ void update_buddies(PurpleConnection* gc, bool update_presence, const SuccessCb&
             PurpleAccount* account = purple_connection_get_account(gc);
             if (!purple_account_get_bool(account, "only_friends_in_blist", false)) {
                 for (uint64 uid: dialog_uids)
-                    if (!contains_key(conn_data->friend_uids, uid))
+                    if (!is_friend(gc, uid))
                         non_friend_uids.push_back(uid);
             }
 
@@ -423,7 +423,6 @@ void fetch_buddy_icon(PurpleConnection* gc, const string& buddy_name, const stri
 
 void remove_from_buddy_list_if_not_needed(PurpleConnection* gc, const uint64_vec& uids, bool convo_closed)
 {
-    VkConnData* conn_data = get_conn_data(gc);
     PurpleAccount* account = purple_connection_get_account(gc);
     bool friends_only = purple_account_get_bool(account, "only_friends_in_blist", false);
 
@@ -431,8 +430,7 @@ void remove_from_buddy_list_if_not_needed(PurpleConnection* gc, const uint64_vec
         return;
 
     for (uint64 uid: uids) {
-        if (friends_only && (contains_key(conn_data->friend_uids, uid)
-                             || (!convo_closed && have_conversation_with(gc, uid))))
+        if (friends_only && (is_friend(gc, uid) || (!convo_closed && have_conversation_with(gc, uid))))
             continue;
 
         string buddy_name = buddy_name_from_uid(uid);

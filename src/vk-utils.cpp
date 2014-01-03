@@ -1,6 +1,8 @@
 #include <debug.h>
 
 #include "httputils.h"
+#include "miscutils.h"
+#include "vk-api.h"
 #include "vk-common.h"
 
 #include "vk-utils.h"
@@ -86,6 +88,12 @@ bool in_buddy_list(PurpleConnection* gc, uint64 uid)
     return buddy_from_uid(gc, uid) != nullptr;
 }
 
+bool is_friend(PurpleConnection* gc, uint64 uid)
+{
+    VkConnData* conn_data = get_conn_data(gc);
+    return contains_key(conn_data->friend_uids, uid);
+}
+
 bool is_unknown_uid(PurpleConnection* gc, uint64 uid)
 {
     VkConnData* conn_data = get_conn_data(gc);
@@ -111,14 +119,18 @@ VkUserInfo* get_user_info_for_buddy(PurpleBuddy* buddy)
     return &conn_data->user_infos[uid];
 }
 
-// Returns VkUserInfo, corresponding to buddy.
 VkUserInfo* get_user_info_for_buddy(PurpleConnection* gc, const char* name)
 {
-    VkConnData* conn_data = get_conn_data(gc);
     uint64 uid = uid_from_buddy_name(name);
-    if (!contains_key(conn_data->user_infos, uid))
+    return get_user_info_for_buddy(gc, uid);
+}
+
+VkUserInfo* get_user_info_for_buddy(PurpleConnection* gc, uint64 user_id)
+{
+    VkConnData* conn_data = get_conn_data(gc);
+    if (!contains_key(conn_data->user_infos, user_id))
         return nullptr;
-    return &conn_data->user_infos[uid];
+    return &conn_data->user_infos[user_id];
 }
 
 
@@ -223,5 +235,73 @@ void replace_emoji_with_text(string& message)
         if (smiley)
             message.replace(pos, 4, smiley);
         pos += 3;
+    }
+}
+
+
+void get_groups_info(PurpleConnection* gc, uint64_vec group_ids, const GroupInfoFetchedCb& fetched_cb)
+{
+    if (group_ids.empty()) {
+        fetched_cb({});
+        return;
+    }
+
+    string group_ids_str = str_concat_int(',', group_ids);
+    purple_debug_info("prpl-vkcom", "Getting infos for groups %s\n", group_ids_str.data());
+
+    CallParams params = { {"group_ids", group_ids_str} };
+    vk_call_api(gc, "groups.getById", params, [=](const picojson::value& result) {
+        if (!result.is<picojson::array>()) {
+            purple_debug_error("prpl-vkcom", "Wrong type returned as users.get call result: %s\n",
+                               result.serialize().data());
+            fetched_cb({});
+            return;
+        }
+
+        map<uint64, VkGroupInfo> infos;
+        const picojson::array& groups = result.get<picojson::array>();
+        for (const picojson::value& v: groups) {
+            if (!field_is_present<double>(v, "id") || !field_is_present<string>(v, "name")
+                    || !field_is_present<string>(v, "type")) {
+                purple_debug_error("prpl-vkcom", "Wrong type returned as users.get call result: %s\n",
+                                   result.serialize().data());
+                fetched_cb({});
+                return;
+            }
+
+            uint64 id = v.get("id").get<double>();
+            VkGroupInfo& info = infos[id];
+
+            info.name = v.get("name").get<string>();
+            info.type = v.get("type").get<string>();
+            if (field_is_present<string>(v, "screen_name"))
+                info.screen_name = v.get("screen_name").get<string>();
+        }
+        fetched_cb(infos);
+    });
+}
+
+string get_user_href(uint64 user_id, const VkUserInfo& info)
+{
+    if (!info.domain.empty())
+        return str_format("<a href='http://vk.com/%s'>%s</a>", info.domain.data(), info.name.data());
+    else
+        return str_format("<a href='http://vk.com/id%lld'>%s</a>", (long long)user_id, info.name.data());
+}
+
+string get_group_href(uint64 group_id, const VkGroupInfo& info)
+{
+    if (!info.screen_name.empty())
+        return str_format("<a href='http://vk.com/%s'>%s</a>", info.screen_name.data(), info.name.data());
+    // How the fuck am I supposed to learn these URL patterns?
+    if (info.type == "group") {
+        return str_format("<a href='http://vk.com/club%lld'>%s</a>", (long long)group_id, info.name.data());
+    } else if (info.type == "page") {
+        return str_format("<a href='http://vk.com/public%lld'>%s</a>", (long long)group_id, info.name.data());
+    } else if (info.type == "event") {
+        return str_format("<a href='http://vk.com/event%lld'>%s</a>", (long long)group_id, info.name.data());
+    } else {
+        purple_debug_error("prpl-vkcom", "Unknown group types %s\n", info.type.data());
+        return "http://vk.com";
     }
 }
