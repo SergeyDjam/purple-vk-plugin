@@ -228,7 +228,7 @@ void MessageReceiver::process_message(const picojson::value& fields)
         return;
     }
 
-    m_messages.push_back({});
+    m_messages.push_back(Message());
     Message& message = m_messages.back();
     message.mid = fields.get("id").get<double>();
     message.uid = fields.get("user_id").get<double>();
