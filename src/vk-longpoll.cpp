@@ -247,10 +247,19 @@ void process_update(PurpleConnection* gc, const picojson::value& v, LastMsg& las
 }
 
 // Checks if uid is present in buddy list and adds if not present.
-void ensure_in_buddy_list(PurpleConnection* gc, uint64 uid, const SuccessCb& success_cb);
+void add_to_buddy_list(PurpleConnection* gc, uint64 uid, const SuccessCb& success_cb);
+
+// Process incoming and outgoing messages respectively. In general, there is duplication between these functions
+// and vk-message-recv code, they should somehow be refactored.
+void process_incoming_message_internal(PurpleConnection* gc, uint64 msg_id, int flags, uint64 user_id, string text,
+                                       uint64 timestamp);
+void process_outgoing_message_internal(PurpleConnection* gc, uint64 msg_id, int flags, uint64 user_id, string text,
+                                       uint64 timestamp);
 
 void process_message(PurpleConnection* gc, const picojson::value& v, LastMsg& last_msg)
 {
+    using std::move;
+
     if (!v.contains(6) || !v.get(1).is<double>() || !v.get(2).is<double>() || !v.get(3).is<double>()
             || !v.get(4).is<double>() || !v.get(6).is<string>()) {
         purple_debug_error("prpl-vkcom", "Strange response from Long Poll in updates: %s\n",
@@ -281,14 +290,50 @@ void process_message(PurpleConnection* gc, const picojson::value& v, LastMsg& la
     // * Smileys are returned as Unicode emoji (both emoji and pseudocode smileys are accepted on message send).
     string text = v.get(6).get<string>();
 
-    // TODO: Process outgoing message. This message could've been sent either by us, or by another connected client.
-    if (flags & MESSAGE_FLAGS_OUTBOX)
-        return;
+    if (!(flags & MESSAGE_FLAGS_OUTBOX)) {
+        // Processing incoming message
+        process_incoming_message_internal(gc, mid, flags, uid, move(text), timestamp);
+    } else {
+        // Process outgoing message. This message could've been sent either by us, or by another connected client.
+        // See description in vk-common.h of corresponding members of VkConnData for details.
 
-    // NOTE: Chat messages are sent with chat_id + CHAT_UID_OFFSET as user id. Unfortunately, we cannot get
-    // uid from longpoll updates, so we have to process via receive_messages.
-    const uint64 CHAT_ID_OFFSET = 2000000000LL;
+        VkConnData* conn_data = get_conn_data(gc);
+        if (contains_key(conn_data->sent_msg_ids, mid)) {
+            // The message has been sent by us, ignore it.
+            conn_data->sent_msg_ids.erase(mid);
+            return;
+        }
 
+        steady_duration since_last_msg_sent = steady_clock::now() - conn_data->last_msg_sent_time;
+        if (to_milliseconds(since_last_msg_sent) >= 5000) {
+            // This is fast path: the message is guaranteed to be sent from someplace else, no need for timeout.
+            process_outgoing_message_internal(gc, mid, flags, uid, move(text), timestamp);
+            return;
+        }
+
+        // The last message, which has been sent by us, has been sent not long ago (i.e. less than 1 second).
+        purple_debug_warning("prpl-vkcom", "We sent message not long ago, let's have check after timeout\n");
+        timeout_add(gc, 5000, [=] {
+            // Check again after 5 seconds, whether we sent the message or not.
+            if (contains_key(conn_data->sent_msg_ids, mid)) {
+                conn_data->sent_msg_ids.erase(mid);
+            } else {
+                purple_debug_warning("prpl-vkcom", "We have sent a message not long ago, but not all msg id"
+                                     "are belong to us (msg id %lld)\n", (long long)mid);
+                process_outgoing_message_internal(gc, mid, flags, uid, move(text), timestamp);
+            }
+            return false;
+        });
+    }
+}
+
+// NOTE: Chat messages are sent with chat_id + CHAT_UID_OFFSET as user id. Unfortunately, we cannot get
+// uid from longpoll updates, so we have to process via receive_messages.
+const uint64 CHAT_ID_OFFSET = 2000000000LL;
+
+void process_incoming_message_internal(PurpleConnection* gc, uint64 msg_id, int flags, uint64 user_id, string text,
+                                       uint64 timestamp)
+{
     // NOTE:
     //  There are two ways of processing messages with attachments:
     //   a) either we can get attachement ids (photo ids, audio ids etc.) from Long Poll event and get information
@@ -299,15 +344,38 @@ void process_message(PurpleConnection* gc, const picojson::value& v, LastMsg& la
     //     is prohibited and we can only show links to the corresponding page;
     //   * there is no video.getById so we can show no information on video;
     //   * it takes at least one additional call per message (receive_messages takes exactly one call).
-    if (uid > CHAT_ID_OFFSET || flags & MESSAGE_FLAG_MEDIA) {
-        receive_messages(gc, { mid });
+    if (user_id > CHAT_ID_OFFSET || flags & MESSAGE_FLAG_MEDIA) {
+        receive_messages(gc, { msg_id });
     } else {
         replace_emoji_with_text(text);
 
-        ensure_in_buddy_list(gc, uid, [=] {
-            serv_got_im(gc, buddy_name_from_uid(uid).data(), text.data(), PURPLE_MESSAGE_RECV, timestamp);
-            mark_message_as_read(gc, { mid });
+        add_to_buddy_list(gc, user_id, [=] {
+            serv_got_im(gc, buddy_name_from_uid(user_id).data(), text.data(), PURPLE_MESSAGE_RECV, timestamp);
+            mark_message_as_read(gc, { msg_id });
         });
+    }
+}
+
+void process_outgoing_message_internal(PurpleConnection* gc, uint64 msg_id, int flags, uint64 user_id, string text,
+                                       uint64 timestamp)
+{
+    // See NOTE in process_incoming_message_internal
+    if (user_id > CHAT_ID_OFFSET || flags & MESSAGE_FLAG_MEDIA) {
+        receive_messages(gc, { msg_id });
+    } else {
+        replace_emoji_with_text(text);
+
+        // Check if the conversation is open, so that we write to the conversation, not the log.
+        // TODO: Remove code duplication with vk-message-recv.cpp
+        PurpleConversation* conv = find_conv_for_id(gc, user_id, 0);
+        string from = purple_account_get_name_for_display(purple_connection_get_account(gc));
+        if (conv) {
+            purple_conv_im_write(PURPLE_CONV_IM(conv), from.data(), text.data(), PURPLE_MESSAGE_SEND, timestamp);
+        } else {
+            PurpleLogCache logs(gc);
+            PurpleLog* log = logs.for_uid(user_id);
+            purple_log_write(log, PURPLE_MESSAGE_SEND, from.data(), timestamp, text.data());
+        }
     }
 }
 
@@ -353,14 +421,15 @@ void process_typing(PurpleConnection* gc, const picojson::value& v)
     }
     uint64 uid = v.get(1).get<double>();
 
-    ensure_in_buddy_list(gc, uid, [=] {
+    add_to_buddy_list(gc, uid, [=] {
         // Vk.com documentation states, that "user is typing" messages are sent with ~5 second
         // interval between them. Let's make it 6, just to be sure.
         serv_got_typing(gc, buddy_name_from_uid(uid).data(), 6, PURPLE_TYPING);
     });
 }
 
-void ensure_in_buddy_list(PurpleConnection* gc, uint64 uid, const SuccessCb& success_cb)
+// A wrapper around add_to_buddy_list, only for one uid.
+void add_to_buddy_list(PurpleConnection* gc, uint64 uid, const SuccessCb& success_cb)
 {
     if (in_buddy_list(gc, uid)) {
         success_cb();

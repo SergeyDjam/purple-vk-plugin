@@ -244,30 +244,29 @@ void send_message_internal(PurpleConnection* gc, const SendMessage& message, con
         params.emplace_back("captcha_sid", captcha_sid);
     if (!captcha_key.empty())
         params.emplace_back("captcha_key", captcha_key);
+
+    VkConnData* conn_data = get_conn_data(gc);
+    steady_time_point current_time = steady_clock::now();
+    assert(conn_data->last_msg_sent_time <= current_time);
+    conn_data->last_msg_sent_time = current_time;
+
     vk_call_api(gc, "messages.send", params, [=](const picojson::value& v) {
         if (!v.is<double>()) {
             purple_debug_error("prpl-vkcom", "Wrong response from message.send: %s\n", v.serialize().data());
             message.error_cb();
             return;
         }
+
         // NOTE: We do not set last_msg_id here, because it is done when corresponding notification is received
         // in longpoll.
+        uint64 msg_id = v.get<double>();
+        conn_data->sent_msg_ids.insert(msg_id);
 
         if (message.success_cb)
             message.success_cb();
     }, [=](const picojson::value& error) {
         process_im_error(error, gc, message);
     });
-}
-
-PurpleConversation* find_conv_for_id(PurpleConnection* gc, uint64 uid, uint64 chat_id)
-{
-    if (uid > 0)
-        return purple_find_conversation_with_account(PURPLE_CONV_TYPE_IM, buddy_name_from_uid(uid).data(),
-                                                     purple_connection_get_account(gc));
-    else
-        return purple_find_conversation_with_account(PURPLE_CONV_TYPE_CHAT, to_string(chat_id).data(),
-                                                     purple_connection_get_account(gc));
 }
 
 void process_im_error(const picojson::value& error, PurpleConnection* gc, const SendMessage& message)

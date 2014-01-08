@@ -228,7 +228,7 @@ void MessageReceiver::process_message(const picojson::value& fields)
         return;
     }
 
-    m_messages.push_back(Message());
+    m_messages.push_back({});
     Message& message = m_messages.back();
     message.mid = fields.get("id").get<double>();
     message.uid = fields.get("user_id").get<double>();
@@ -505,6 +505,8 @@ void MessageReceiver::process_link_attachment(const picojson::value& fields, Mes
 
 void MessageReceiver::append_thumbnail_placeholder(const string& thumbnail_url, Message& message)
 {
+    // TODO: If the conversation is open and an outgoing message has been received, we should show
+    // the image too.
     if (message.status == MESSAGE_INCOMING_UNREAD) {
         message.text += str_format("<br><thumbnail-placeholder-%d>", message.thumbnail_urls.size());
         message.thumbnail_urls.push_back(thumbnail_url);
@@ -639,15 +641,23 @@ void MessageReceiver::finish()
 //                        serv_got_chat_in(m_gc, m.chat_id, get_buddy_name(m_gc, m.uid).data(),
 //                                         PURPLE_MESSAGE_RECV, m.text.data(), m.timestamp);
                     }
-                } else {
+                } else if (m.status == MESSAGE_INCOMING_READ) {
                     // Append message to log.
                     PurpleLog* log = (m.chat_id == 0) ? logs.for_uid(m.uid) : logs.for_chat(m.chat_id);
-                    string from;
-                    if (m.status == MESSAGE_OUTGOING)
-                        from = purple_account_get_name_for_display(purple_connection_get_account(m_gc));
-                    else
-                        from = get_buddy_name(m_gc, m.uid);
+                    string from = get_buddy_name(m_gc, m.uid);
                     purple_log_write(log, PURPLE_MESSAGE_SEND, from.data(), m.timestamp, m.text.data());
+                } else { // m.status == MESSAGE_OUTGOING
+                    // Check if the conversation is open, so that we write to the conversation, not the log.
+                    // TODO: Remove code duplication with vk-longpoll.cpp
+                    PurpleConversation* conv = find_conv_for_id(m_gc, m.uid, 0);
+                    string from = purple_account_get_name_for_display(purple_connection_get_account(m_gc));
+                    if (conv) {
+                        purple_conv_im_write(PURPLE_CONV_IM(conv), from.data(), m.text.data(), PURPLE_MESSAGE_SEND,
+                                             m.timestamp);
+                    } else {
+                        PurpleLog* log = logs.for_uid(m.uid);
+                        purple_log_write(log, PURPLE_MESSAGE_SEND, from.data(), m.timestamp, m.text.data());
+                    }
                 }
             }
 

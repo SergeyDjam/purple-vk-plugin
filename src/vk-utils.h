@@ -74,3 +74,6 @@ string get_user_href(uint64 user_id, const VkUserInfo& info);
 
 // Gets href, which points to the group page.
 string get_group_href(uint64 group_id, const VkGroupInfo& info);
+
+// Finds conversation open with user_id or chat_id. Either of the two identifiers must be zero.
+PurpleConversation* find_conv_for_id(PurpleConnection* gc, uint64 user_id, uint64 chat_id);

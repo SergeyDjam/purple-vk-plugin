@@ -5,6 +5,7 @@
 
 #include <algorithm>
 #include <cassert>
+#include <chrono>
 #include <cstdarg>
 #include <cstring>
 #include <functional>
@@ -35,6 +36,10 @@ using uint64_vec = vector<uint64>;
 using uint64_set = set<uint64>;
 
 using std::to_string;
+
+using steady_clock = std::chrono::steady_clock;
+using steady_time_point = std::chrono::steady_clock::time_point;
+using steady_duration = std::chrono::steady_clock::duration;
 
 // This function type is used for signalling success if no other information must be passed.
 using SuccessCb = std::function<void()>;
@@ -195,4 +200,13 @@ template<typename D, typename S>
 inline void append(D& dst, const S& src)
 {
     dst.insert(dst.end(), src.begin(), src.end());
+}
+
+// Time functions
+
+// Converts the given duration to milliseconds.
+template<typename T>
+inline std::chrono::milliseconds::rep to_milliseconds(T duration)
+{
+    return std::chrono::duration_cast<std::chrono::milliseconds>(duration).count();
 }

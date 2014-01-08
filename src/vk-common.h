@@ -71,6 +71,24 @@ public:
     // Gets updated periodically (once in 15 minutes).
     map<uint64, VkUserInfo> user_infos;
 
+    // There is a problem with processing outgoing messages: either they are sent by us and need no further
+    // processing, or they are sent by some other client (or from website) and we need to at least append
+    // them to log. We can potentially receive response from messages.send *after* longpoll informs us
+    // about them. The devised algorithm is as follows:
+    //
+    // 1) Upon calling messages.send, last_msg_send_time is updated to the current time.
+    // 2) The returned mid from messages.send call is stored in sent_msg_ids.
+    // 3) When longpoll processes outgoing message with given mid, it checks sent_msg_ids if the message
+    //    has been sent by us. If received mid is not present in sent_msg_ids, it checks if the last message
+    //    has been sent by us earlier then 1 second. If it has not, after a 5 second timeout sent_msg_ids
+    //    is checked again (hopefully, by that time messages.send would have returned a message and the desured
+    //    mid will be in sent_msg_ids).
+    //
+    // Both variables refer only to *locally* sent messages.
+    uint64_set sent_msg_ids;
+
+    steady_time_point last_msg_sent_time;
+
     // If true, connection is in "closing" state. This is set in vk_close and is used in longpoll
     // callback to differentiate the case of network timeout/silent connection dropping and connection
     // cancellation.
