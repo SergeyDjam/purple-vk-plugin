@@ -592,9 +592,9 @@ purple_http_socket_read(PurpleHttpSocket *hs, gchar *buf, size_t len)
 	g_return_val_if_fail(buf != NULL, -1);
 
 	if (hs->is_ssl)
-		return purple_ssl_read(hs->ssl_connection, buf, sizeof(buf));
+		return purple_ssl_read(hs->ssl_connection, buf, len);
 	else
-		return read(hs->fd, buf, sizeof(buf));
+		return read(hs->fd, buf, len);
 }
 
 static int
