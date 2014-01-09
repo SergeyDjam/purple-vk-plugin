@@ -25,6 +25,9 @@
 // If update_presence is false, does not set presence statuses.
 void update_buddies(PurpleConnection* gc, bool update_presence, const SuccessCb& on_update_cb = nullptr);
 
+// Updates status of non-friends, which we have open conversation with.
+void update_open_conv_status(PurpleConnection* gc);
+
 // Updates VkConnData::user_infos and buddy list with users with given uids.
 //
 // Always updates presence of buddies, because this function is used only for buddies not in the buddy

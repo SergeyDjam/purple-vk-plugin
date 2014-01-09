@@ -421,6 +421,64 @@ void fetch_buddy_icon(PurpleConnection* gc, const string& buddy_name, const stri
 
 } // End anonymous namespace
 
+namespace
+{
+
+// Updates only online status of the given friends.
+void update_status_only(PurpleConnection* gc, const uint64_vec user_ids)
+{
+    string ids_str = str_concat_int(',', user_ids);
+    purple_debug_info("prpl-vkcom", "Updating online status for buddies %s\n", ids_str.data());
+    CallParams params = { {"user_ids", ids_str}, {"fields", "online"} };
+    vk_call_api(gc, "users.get", params, [=](const picojson::value& result) {
+        if (!result.is<picojson::array>()) {
+            purple_debug_error("prpl-vkcom", "Wrong type returned as users.get call result\n");
+            return;
+        }
+
+        VkConnData* conn_data = get_conn_data(gc);
+        PurpleAccount* account = purple_connection_get_account(gc);
+        for (const picojson::value& v: result.get<picojson::array>()) {
+            if (!v.is<picojson::object>()) {
+                purple_debug_error("prpl-vkcom", "Strange node found in users.get result: %s\n",
+                                   v.serialize().data());
+                continue;
+
+            }
+            if (!field_is_present<double>(v, "id") || !field_is_present<double>(v, "online")) {
+                purple_debug_error("prpl-vkcom", "Strange node found in users.get result: %s\n",
+                                   v.serialize().data());
+                continue;
+            }
+            uint64 user_id = v.get("id").get<double>();
+
+            VkUserInfo& info = conn_data->user_infos[user_id];
+            info.online = v.get("online").get<double>() == 1;
+
+            purple_prpl_got_user_status(account, buddy_name_from_uid(user_id).data(), info.online ? "online" : "offline", nullptr);
+        }
+    });
+
+}
+
+}
+
+void update_open_conv_status(PurpleConnection *gc)
+{
+    uint64_vec open_non_friends;
+    VkConnData* conn_data = get_conn_data(gc);
+    for (const auto& it: conn_data->user_infos) {
+        uint64 user_id = it.first;
+        if (!is_friend(gc, user_id) && find_conv_for_id(gc, user_id, 0))
+            open_non_friends.push_back(user_id);
+    }
+
+    if (open_non_friends.empty())
+        return;
+
+    update_status_only(gc, open_non_friends);
+}
+
 void remove_from_buddy_list_if_not_needed(PurpleConnection* gc, const uint64_vec& uids, bool convo_closed)
 {
     PurpleAccount* account = purple_connection_get_account(gc);

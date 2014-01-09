@@ -101,6 +101,13 @@ void vk_login(PurpleAccount* acct)
             return true;
         });
 
+        // Longpoll only notifies about status of friends. If we have conversations open with non-friends,
+        // we update their status every minute.
+        timeout_add(gc, 60 * 1000, [=] {
+            update_open_conv_status(gc);
+            return true;
+        });
+
         vk_update_status(gc);
         // Update that we are online every 15 minutes.
         timeout_add(gc, 15 * 60 * 1000, [=] {
