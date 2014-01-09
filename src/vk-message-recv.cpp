@@ -645,7 +645,7 @@ void MessageReceiver::finish()
                     // Append message to log.
                     PurpleLog* log = (m.chat_id == 0) ? logs.for_uid(m.uid) : logs.for_chat(m.chat_id);
                     string from = get_buddy_name(m_gc, m.uid);
-                    purple_log_write(log, PURPLE_MESSAGE_SEND, from.data(), m.timestamp, m.text.data());
+                    purple_log_write(log, PURPLE_MESSAGE_RECV, from.data(), m.timestamp, m.text.data());
                 } else { // m.status == MESSAGE_OUTGOING
                     // Check if the conversation is open, so that we write to the conversation, not the log.
                     // TODO: Remove code duplication with vk-longpoll.cpp
