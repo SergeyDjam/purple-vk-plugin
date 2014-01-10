@@ -641,22 +641,27 @@ void MessageReceiver::finish()
 //                        serv_got_chat_in(m_gc, m.chat_id, get_buddy_name(m_gc, m.uid).data(),
 //                                         PURPLE_MESSAGE_RECV, m.text.data(), m.timestamp);
                     }
-                } else if (m.status == MESSAGE_INCOMING_READ) {
-                    // Append message to log.
-                    PurpleLog* log = (m.chat_id == 0) ? logs.for_uid(m.uid) : logs.for_chat(m.chat_id);
-                    string from = get_buddy_name(m_gc, m.uid);
-                    purple_log_write(log, PURPLE_MESSAGE_RECV, from.data(), m.timestamp, m.text.data());
-                } else { // m.status == MESSAGE_OUTGOING
+                } else { // m.status == MESSAGE_INCOMING_READ || m.status == MESSAGE_OUTGOING
                     // Check if the conversation is open, so that we write to the conversation, not the log.
                     // TODO: Remove code duplication with vk-longpoll.cpp
-                    PurpleConversation* conv = find_conv_for_id(m_gc, m.uid, 0);
-                    string from = purple_account_get_name_for_display(purple_connection_get_account(m_gc));
+                    string from;
+                    PurpleMessageFlags flags;
+                    if (m.status == MESSAGE_INCOMING_UNREAD) {
+                        from = get_buddy_name(m_gc, m.uid);
+                        flags = PURPLE_MESSAGE_RECV;
+                    } else {
+                        from = purple_account_get_name_for_display(purple_connection_get_account(m_gc));
+                        flags = PURPLE_MESSAGE_SEND;
+                    }
+
+                    PurpleConversation* conv = find_conv_for_id(m_gc, m.uid, m.chat_id);
+                    purple_debug_error("prpl-vkcom", "WWWW %x %s %d\n", conv, from.data(), flags);
                     if (conv) {
-                        purple_conv_im_write(PURPLE_CONV_IM(conv), from.data(), m.text.data(), PURPLE_MESSAGE_SEND,
+                        purple_conv_im_write(PURPLE_CONV_IM(conv), from.data(), m.text.data(), flags,
                                              m.timestamp);
                     } else {
-                        PurpleLog* log = logs.for_uid(m.uid);
-                        purple_log_write(log, PURPLE_MESSAGE_SEND, from.data(), m.timestamp, m.text.data());
+                        PurpleLog* log = (m.chat_id == 0) ? logs.for_uid(m.uid) : logs.for_chat(m.chat_id);
+                        purple_log_write(log, flags, from.data(), m.timestamp, m.text.data());
                     }
                 }
             }
