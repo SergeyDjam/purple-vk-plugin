@@ -646,7 +646,7 @@ void MessageReceiver::finish()
                     // TODO: Remove code duplication with vk-longpoll.cpp
                     string from;
                     PurpleMessageFlags flags;
-                    if (m.status == MESSAGE_INCOMING_UNREAD) {
+                    if (m.status == MESSAGE_INCOMING_READ) {
                         from = get_buddy_name(m_gc, m.uid);
                         flags = PURPLE_MESSAGE_RECV;
                     } else {
