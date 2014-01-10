@@ -655,7 +655,6 @@ void MessageReceiver::finish()
                     }
 
                     PurpleConversation* conv = find_conv_for_id(m_gc, m.uid, m.chat_id);
-                    purple_debug_error("prpl-vkcom", "WWWW %x %s %d\n", conv, from.data(), flags);
                     if (conv) {
                         purple_conv_im_write(PURPLE_CONV_IM(conv), from.data(), m.text.data(), flags,
                                              m.timestamp);
