@@ -49,6 +49,7 @@ class VkConnData
 {
 public:
     VkConnData(PurpleConnection* gc, const string& email, const string& password);
+    ~VkConnData();
 
     void authenticate(const SuccessCb& success_cb, const ErrorCb& error_cb = nullptr);
 
@@ -88,6 +89,11 @@ public:
     uint64_set sent_msg_ids;
 
     steady_time_point last_msg_sent_time;
+
+    // These two sets are updated when user selects "Add buddy" or "Remove buddy" in the buddy list.
+    // They are permanently stored in account properties, loaded in VkConnData constructor and stored in destructor.
+    uint64_set manually_added_buddies;
+    uint64_set manually_removed_buddies;
 
     // If true, connection is in "closing" state. This is set in vk_close and is used in longpoll
     // callback to differentiate the case of network timeout/silent connection dropping and connection

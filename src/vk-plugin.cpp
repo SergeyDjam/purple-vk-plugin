@@ -202,53 +202,23 @@ void vk_set_status(PurpleAccount* account, PurpleStatus*)
     vk_update_status(purple_account_get_connection(account));
 }
 
-//namespace
-//{
+void vk_remove_buddy(PurpleConnection* gc, PurpleBuddy* buddy, PurpleGroup*)
+{
+    uint64 user_id = uid_from_buddy_name(purple_buddy_get_name(buddy));
+    if (user_id == 0)
+        return;
 
-//// A helper function, which adds (or updates) buddy with uid and adds him to group_name. Used in vk_remove_buddy
-//// and vk_add_buddy_with_invite.
-//void add_buddy_to_group(PurpleConnection* gc, uint64 uid, const string& group_name)
-//{
-//    // We update presence as we are not sure if buddy is a friend or not.
-//    add_to_buddy_list(gc, { uid }, [=] {
-//        string who = buddy_name_from_uid(uid);
-//        PurpleBuddy* new_buddy = purple_find_buddy(purple_connection_get_account(gc), who.data());
-//        PurpleGroup* new_group = purple_group_new(group_name.data());
-//        // That's definitely the strange way to change groups...
-//        purple_blist_add_buddy(new_buddy, nullptr, new_group, nullptr);
-//    });
-//}
-
-//} // End of anonymous namespace
-
-
-//// We do not remove buddies from contact lists anyway, because there is no proper way to do this.
-//void vk_remove_buddy(PurpleConnection* gc, PurpleBuddy* buddy, PurpleGroup* group)
-//{
-//    const char* title = "Removing buddies is not supported";
-//    const char* message = "In order to remove buddy from buddy list please unfriend him and clear all "
-//                          "messaging history with him.";
-//    purple_notify_error(gc, title, title, message);
-
-//    // Re-add buddy back to the same group. We need to call timeout after we get out of "remove buddies"
-//    // function.
-//    uint64 uid = uid_from_buddy_name(purple_buddy_get_name(buddy));
-//    if (uid == 0)
-//        return;
-
-//    string group_name = purple_group_get_name(group);
-//    timeout_add(gc, 1, [=] {
-//        add_buddy_to_group(gc, uid, group_name);
-//        return false;
-//    });
-//}
-
+    VkConnData* conn_data = get_conn_data(gc);
+    if (contains_key(conn_data->manually_added_buddies, user_id))
+        conn_data->manually_added_buddies.erase(user_id);
+    else
+        conn_data->manually_removed_buddies.insert(user_id);
+}
 
 char* vk_get_chat_name(GHashTable* data)
 {
     return g_strdup((const char*)g_hash_table_lookup(data, "title"));
 }
-
 
 int vk_chat_send(PurpleConnection* gc, int id, const char* message, PurpleMessageFlags)
 {
@@ -331,32 +301,52 @@ GHashTable* vk_get_account_text_table(PurpleAccount*)
     return table;
 }
 
-//// We either "properly" re-add buddy if name was something like "idXXXXX" or try to find the uid
-//// with given nick.
-//void vk_add_buddy_with_invite(PurpleConnection* gc, PurpleBuddy* buddy, PurpleGroup* group, const char*)
-//{
-//    string name = purple_buddy_get_name(buddy);
-//    string group_name = purple_group_get_name(group);
+void vk_add_buddy_with_invite(PurpleConnection* gc, PurpleBuddy* buddy, PurpleGroup* group, const char*)
+{
+    // Get only the latest part of URL if we've been supplied with it.
+    string buddy_name = str_rsplit(purple_buddy_get_name(buddy), '/');
 
-//    uint64 uid = uid_from_buddy_name(name.data());
-//    purple_blist_remove_buddy(buddy);
+    // Store alias and group name, as buddy will be removed momentarily and readded later.
+    string alias = purple_buddy_get_alias(buddy);
+    string group_name = purple_group_get_name(group);
 
-//    if (uid == 0) {
-//        // We assume that name is a "screen name" e.g. nickname
-//        find_user_by_screenname(gc, name, [=](uint64 uid) {
-//            if (uid == 0) {
-//                string title = str_format("Unable to find user %s", name.data());
-//                const char* message = "User name should be either idXXXXXX or nickname"
-//                        " (i.e. the last part of http://vk.com/nickname)";
-//                purple_notify_error(gc, title.data(), title.data(), message);
-//                return;
-//            }
-//            add_buddy_to_group(gc, uid, group_name);
-//        });
-//    } else {
-//        add_buddy_to_group(gc, uid, group_name);
-//    }
-//}
+    resolve_screen_name(gc, buddy_name.data(), [=](const string& type, uint64 user_id) {
+        purple_blist_remove_buddy(buddy);
+
+        if (type != "user") {
+            string title = str_format("Unable to find user %s", buddy_name.data());
+            const char* message = "User name should be either idXXXXXX or nickname"
+                    " (i.e. the last part of http://vk.com/nickname)";
+            purple_notify_error(gc, title.data(), title.data(), message);
+            return;
+        }
+
+        VkConnData* conn_data = get_conn_data(gc);
+        if (contains_key(conn_data->manually_removed_buddies, user_id))
+            conn_data->manually_removed_buddies.erase(user_id);
+        else
+            conn_data->manually_added_buddies.insert(user_id);
+
+        add_to_buddy_list(gc, { user_id }, [=] {
+            PurpleBuddy* buddy = purple_find_buddy(purple_connection_get_account(gc),
+                                                   buddy_name_from_uid(user_id).data());
+            assert(buddy);
+
+            if (!alias.empty()) {
+                purple_blist_alias_buddy(buddy, alias.data());
+                purple_blist_node_set_bool(&buddy->node, "custom-alias", true);
+            }
+
+            string default_group = purple_account_get_string(purple_connection_get_account(gc),
+                                                             "blist_default_group", "");
+            if (group_name != default_group) {
+                PurpleGroup* new_group = purple_group_new(group_name.data());
+                purple_blist_add_buddy(buddy, nullptr, new_group, nullptr);
+                purple_blist_node_set_bool(&buddy->node, "custom-group", true);
+            }
+        });
+    });
+}
 
 PurplePluginProtocolInfo prpl_info = {
     PurpleProtocolOptions(OPT_PROTO_IM_IMAGE), /* options */
@@ -390,7 +380,7 @@ PurplePluginProtocolInfo prpl_info = {
     nullptr, /* change_passwd */
     nullptr, /* add_buddy */
     nullptr, /* add_buddies */
-    nullptr, //    vk_remove_buddy, /* remove_buddy */
+    vk_remove_buddy, /* remove_buddy */
     nullptr, /* remove_buddies */
     nullptr, /* add_permit */
     nullptr, /* add_deny */
@@ -439,7 +429,7 @@ PurplePluginProtocolInfo prpl_info = {
     nullptr, /* get_moods */
     nullptr, /* set_public_alias */
     nullptr, /* get_public_alias */
-    nullptr, //    vk_add_buddy_with_invite, /* add_buddy_with_invite */
+    vk_add_buddy_with_invite, /* add_buddy_with_invite */
     nullptr /* add_buddies_with_invite */
 };
 

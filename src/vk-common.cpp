@@ -1,10 +1,34 @@
-#include "vk-common.h"
+#include <cstdlib>
 
 #include <debug.h>
 
 #include "vk-auth.h"
 
+#include "vk-common.h"
+
 const char VK_CLIENT_ID[] = "3833170";
+
+namespace {
+
+// Splits the comma-separated string of integers.
+uint64_set str_split_int(const char* str)
+{
+    uint64_set ret;
+    while (*str) {
+        char* next;
+        uint64 i = strtoll(str, &next, 10);
+        ret.insert(i);
+        if (*next) {
+            assert(*next == ',');
+            str = next + 1;
+        } else {
+            str = next;
+        }
+    }
+    return ret;
+}
+
+} // namespace
 
 VkConnData::VkConnData(PurpleConnection* gc, const string& email, const string& password)
     : m_email(email),
@@ -12,6 +36,21 @@ VkConnData::VkConnData(PurpleConnection* gc, const string& email, const string& 
       m_gc(gc),
       m_closing(false)
 {
+    PurpleAccount* account = purple_connection_get_account(m_gc);
+    const char* str = purple_account_get_string(account, "manually_added_buddies", "");
+    manually_added_buddies = str_split_int(str);
+
+    str = purple_account_get_string(account, "manually_removed_buddies", "");
+    manually_removed_buddies = str_split_int(str);
+}
+
+VkConnData::~VkConnData()
+{
+    PurpleAccount* account = purple_connection_get_account(m_gc);
+    string str = str_concat_int(',', manually_added_buddies);
+    purple_account_set_string(account, "manually_added_buddies", str.data());
+    str = str_concat_int(',', manually_removed_buddies);
+    purple_account_set_string(account, "manually_removed_buddies", str.data());
 }
 
 void VkConnData::authenticate(const SuccessCb& success_cb, const ErrorCb& error_cb)

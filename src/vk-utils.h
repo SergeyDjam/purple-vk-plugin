@@ -32,6 +32,12 @@ VkUserInfo* get_user_info_for_buddy(PurpleBuddy* buddy);
 VkUserInfo* get_user_info_for_buddy(PurpleConnection* gc, const char* name);
 VkUserInfo* get_user_info_for_buddy(PurpleConnection* gc, uint64 user_id);
 
+// Check if buddy has been manually added to the buddy list.
+bool is_manually_added(PurpleConnection* gc, uint64 user_id);
+
+// Check if buddy has been manually removed from the buddy list.
+bool is_manually_removed(PurpleConnection* gc, uint64 user_id);
+
 // Map of several PurpleLogs (one for each user), so that they are not created for each received message.
 // Used in vk-message-recv.cpp
 class PurpleLogCache
@@ -77,3 +83,7 @@ string get_group_href(uint64 group_id, const VkGroupInfo& info);
 
 // Finds conversation open with user_id or chat_id. Either of the two identifiers must be zero.
 PurpleConversation* find_conv_for_id(PurpleConnection* gc, uint64 user_id, uint64 chat_id);
+
+// Resolves screen name, like a nickname or group name to type and identifier.
+using ResolveScreenNameCb = std::function<void(const string& type, uint64 id)>;
+void resolve_screen_name(PurpleConnection* gc, const char* screen_name, const ResolveScreenNameCb& resolved_cb);

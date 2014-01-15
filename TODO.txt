@@ -1,5 +1,3 @@
- * Configure groups for friends, for everyone else, for multichats.
-
  * Add support for creating/joining multi-user chats.
  * Add support for sending already stored files (compute md5sum).
  * Add support for receiving geo-information.

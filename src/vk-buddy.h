@@ -14,7 +14,9 @@
 //
 // 1) Friends are always added to buddy list.
 // 2) Non-friends are added either if user has "Show only friends in buddy list" account option
-//    unset or if the user has IM conversation open with them. The latter is required so that
+//    unset, if the user manually added them to the buddy list or if the user has IM conversation
+//    open with them. The latter is required so that
+//
 //    Pidgin shows proper user name, status and avatar. If user has "Show only friends in buddy list"
 //    enabled and conversation closes, non-friend buddy is removed from blist.
 // 3) Multiuser chats... TODO (same as non-friends, non-friend participants in multiuser chats are never
@@ -44,8 +46,7 @@ void add_to_buddy_list(PurpleConnection* gc, const uint64_vec& uids, const Succe
 void remove_from_buddy_list_if_not_needed(PurpleConnection* gc, const uint64_vec& uids, bool convo_closed);
 
 // Adds or updated information on buddies in VkConnData::user_infos
-void add_or_update_user_infos(PurpleConnection* gc, const uint64_vec& uids,
-                              const SuccessCb& on_update_cb = nullptr);
+void add_or_update_user_infos(PurpleConnection* gc, const uint64_vec& uids, const SuccessCb& on_update_cb = nullptr);
 
 // Fetches buddy full name (First name + second name).
 using NameFetchedCb = std::function<void(const string& data)>;

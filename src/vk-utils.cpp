@@ -108,6 +108,18 @@ bool have_conversation_with(PurpleConnection* gc, uint64 uid)
 
 }
 
+bool is_manually_added(PurpleConnection* gc, uint64 user_id)
+{
+    VkConnData* conn_data = get_conn_data(gc);
+    return contains_key(conn_data->manually_added_buddies, user_id);
+}
+
+bool is_manually_removed(PurpleConnection* gc, uint64 user_id)
+{
+    VkConnData* conn_data = get_conn_data(gc);
+    return contains_key(conn_data->manually_removed_buddies, user_id);
+}
+
 
 VkUserInfo* get_user_info_for_buddy(PurpleBuddy* buddy)
 {
@@ -315,4 +327,22 @@ PurpleConversation* find_conv_for_id(PurpleConnection* gc, uint64 user_id, uint6
     else
         return purple_find_conversation_with_account(PURPLE_CONV_TYPE_CHAT, to_string(chat_id).data(),
                                                      purple_connection_get_account(gc));
+}
+
+
+void resolve_screen_name(PurpleConnection* gc, const char* screen_name, const ResolveScreenNameCb& resolved_cb)
+{
+    CallParams params = { { "screen_name", screen_name } };
+    vk_call_api(gc, "utils.resolveScreenName", params, [=](const picojson::value& result) {
+        if (!field_is_present<string>(result, "type") || !field_is_present<double>(result, "object_id")) {
+            purple_debug_error("prpl-vkcom", "Strange response from resolveScreenName: %s\n",
+                               result.serialize().data());
+            resolved_cb("", 0);
+            return;
+        }
+
+        resolved_cb(result.get("type").get<string>(), result.get("object_id").get<double>());
+    }, [=](const picojson::value&) {
+        resolved_cb("", 0);
+    });
 }
