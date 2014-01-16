@@ -18,5 +18,10 @@ void receive_messages_range(PurpleConnection* gc, uint64 last_msg_id, const Rece
 // Receives messages with given ids.
 void receive_messages(PurpleConnection* gc, const uint64_vec& message_ids, const ReceivedCb& received_cb = nullptr);
 
-// Marks messages as read.
+// Marks messages as read or defers marking them until user changes status (if the corresponding
+// option is enabled and status is not Online).
 void mark_message_as_read(PurpleConnection* gc, const uint64_vec& message_ids);
+
+// Marks all messages, which have been previously deferred, as read. Used when user changes
+// status or starts typing.
+void mark_deferred_messages_as_read(PurpleConnection* gc);

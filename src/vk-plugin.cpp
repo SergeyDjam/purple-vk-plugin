@@ -11,6 +11,7 @@
 #include "vk-common.h"
 #include "vk-filexfer.h"
 #include "vk-longpoll.h"
+#include "vk-message-recv.h"
 #include "vk-message-send.h"
 #include "vk-status.h"
 #include "vk-utils.h"
@@ -27,6 +28,9 @@ GList* vk_status_types(PurpleAccount*)
     PurpleStatusType* type;
 
     type = purple_status_type_new_full(PURPLE_STATUS_AVAILABLE, "online", nullptr, TRUE, TRUE, FALSE);
+    types = g_list_prepend(types, type);
+
+    type = purple_status_type_new_full(PURPLE_STATUS_AWAY, "away", nullptr, TRUE, TRUE, FALSE);
     types = g_list_prepend(types, type);
 
     type = purple_status_type_new_full(PURPLE_STATUS_OFFLINE, "offline", nullptr, TRUE, TRUE, FALSE);
@@ -138,6 +142,7 @@ void vk_close(PurpleConnection* gc)
 
 int vk_send_im(PurpleConnection* gc, const char* to, const char* message, PurpleMessageFlags)
 {
+    mark_deferred_messages_as_read(gc);
     return send_im_message(gc, uid_from_buddy_name(to), message);
 }
 
@@ -145,6 +150,7 @@ unsigned int vk_send_typing(PurpleConnection* gc, const char* name, PurpleTyping
 {
     if (state != PURPLE_TYPING)
         return 0;
+    mark_deferred_messages_as_read(gc);
     return send_typing_notification(gc, uid_from_buddy_name(name));
 }
 
@@ -197,8 +203,11 @@ void vk_get_info(PurpleConnection* gc, const char* username)
 }
 
 // Called when user changes the status.
-void vk_set_status(PurpleAccount* account, PurpleStatus*)
+void vk_set_status(PurpleAccount* account, PurpleStatus* status)
 {
+    PurpleStatusPrimitive primitive_status = purple_status_type_get_primitive(purple_status_get_type(status));
+    if (primitive_status == PURPLE_STATUS_AVAILABLE)
+        mark_deferred_messages_as_read(purple_account_get_connection(account));
     vk_update_status(purple_account_get_connection(account));
 }
 
@@ -481,6 +490,9 @@ void vkcom_prpl_init(PurplePlugin*)
     prpl_info.protocol_options = g_list_append(prpl_info.protocol_options, option);
 
     option = purple_account_option_bool_new("Show chats in buddy list", "chats_in_blist", true);
+    prpl_info.protocol_options = g_list_append(prpl_info.protocol_options, option);
+
+    option = purple_account_option_bool_new("Mark messages as read only when Available", "mark_as_read_online_only", true);
     prpl_info.protocol_options = g_list_append(prpl_info.protocol_options, option);
 
     option = purple_account_option_string_new("Group for buddies", "blist_default_group", "");

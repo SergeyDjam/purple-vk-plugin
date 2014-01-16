@@ -686,13 +686,43 @@ void MessageReceiver::finish()
 
 } // End of anonymous namespace
 
-void mark_message_as_read(PurpleConnection* gc, const uint64_vec& message_ids)
+namespace {
+
+template<typename Cont>
+void mark_messages_as_read_impl(PurpleConnection* gc, const Cont& message_ids)
 {
     if (message_ids.empty())
         return;
-    // Creates string of identifiers, separated with comma.
+
     string ids_str = str_concat_int(',', message_ids);
 
     CallParams params = { {"message_ids", ids_str} };
     vk_call_api(gc, "messages.markAsRead", params);
+}
+
+} // namespace
+
+void mark_message_as_read(PurpleConnection* gc, const uint64_vec& message_ids)
+{
+    PurpleAccount* account = purple_connection_get_account(gc);
+    if (purple_account_get_bool(account, "mark_as_read_online_only", true)) {
+        PurpleStatus* status = purple_account_get_active_status(purple_connection_get_account(gc));
+        PurpleStatusPrimitive primitive_status = purple_status_type_get_primitive(purple_status_get_type(status));
+        if (primitive_status != PURPLE_STATUS_AVAILABLE) {
+            VkConnData* conn_data = get_conn_data(gc);
+            for (uint64 id: message_ids)
+                conn_data->deferred_mark_as_read.insert(id);
+            return;
+        }
+    }
+
+    mark_messages_as_read_impl(gc, message_ids);
+}
+
+
+void mark_deferred_messages_as_read(PurpleConnection* gc)
+{
+    VkConnData* conn_data = get_conn_data(gc);
+    mark_messages_as_read_impl(gc, conn_data->deferred_mark_as_read);
+    conn_data->deferred_mark_as_read.clear();
 }

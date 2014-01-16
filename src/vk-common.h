@@ -95,6 +95,11 @@ public:
     uint64_set manually_added_buddies;
     uint64_set manually_removed_buddies;
 
+    // A collection of message ids, which should be marked as read later (when user starts
+    // typing or changes status to Available). Must be stored and loaded, so that we do not
+    // lose any read statuses.
+    uint64_set deferred_mark_as_read;
+
     // If true, connection is in "closing" state. This is set in vk_close and is used in longpoll
     // callback to differentiate the case of network timeout/silent connection dropping and connection
     // cancellation.

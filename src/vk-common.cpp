@@ -42,6 +42,9 @@ VkConnData::VkConnData(PurpleConnection* gc, const string& email, const string& 
 
     str = purple_account_get_string(account, "manually_removed_buddies", "");
     manually_removed_buddies = str_split_int(str);
+
+    str = purple_account_get_string(account, "deferred_mark_as_read", "");
+    deferred_mark_as_read = str_split_int(str);
 }
 
 VkConnData::~VkConnData()
@@ -49,8 +52,12 @@ VkConnData::~VkConnData()
     PurpleAccount* account = purple_connection_get_account(m_gc);
     string str = str_concat_int(',', manually_added_buddies);
     purple_account_set_string(account, "manually_added_buddies", str.data());
+
     str = str_concat_int(',', manually_removed_buddies);
     purple_account_set_string(account, "manually_removed_buddies", str.data());
+
+    str = str_concat_int(',', deferred_mark_as_read);
+    purple_account_set_string(account, "deferred_mark_as_read", str.data());
 }
 
 void VkConnData::authenticate(const SuccessCb& success_cb, const ErrorCb& error_cb)
