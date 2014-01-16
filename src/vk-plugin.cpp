@@ -492,7 +492,7 @@ void vkcom_prpl_init(PurplePlugin*)
     option = purple_account_option_bool_new("Show chats in buddy list", "chats_in_blist", true);
     prpl_info.protocol_options = g_list_append(prpl_info.protocol_options, option);
 
-    option = purple_account_option_bool_new("Mark messages as read only when Available", "mark_as_read_online_only", true);
+    option = purple_account_option_bool_new("Do not mark messages as read when away", "mark_as_read_online_only", true);
     prpl_info.protocol_options = g_list_append(prpl_info.protocol_options, option);
 
     option = purple_account_option_string_new("Group for buddies", "blist_default_group", "");
