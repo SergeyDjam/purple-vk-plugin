@@ -33,10 +33,10 @@ GList* vk_status_types(PurpleAccount*)
     type = purple_status_type_new_full(PURPLE_STATUS_AWAY, "away", nullptr, TRUE, TRUE, FALSE);
     types = g_list_prepend(types, type);
 
-    type = purple_status_type_new_full(PURPLE_STATUS_OFFLINE, "offline", nullptr, TRUE, TRUE, FALSE);
+    type = purple_status_type_new_full(PURPLE_STATUS_INVISIBLE, "invisible", nullptr, TRUE, TRUE, FALSE);
     types = g_list_prepend(types, type);
 
-    type = purple_status_type_new_full(PURPLE_STATUS_INVISIBLE, "invisible", nullptr, TRUE, TRUE, FALSE);
+    type = purple_status_type_new_full(PURPLE_STATUS_OFFLINE, "offline", nullptr, TRUE, TRUE, FALSE);
     types = g_list_prepend(types, type);
 
     return g_list_reverse(types);
