@@ -111,7 +111,7 @@ void vk_login(PurpleAccount* acct)
         // Longpoll only notifies about status of friends. If we have conversations open with non-friends,
         // we update their status every minute.
         timeout_add(gc, 60 * 1000, [=] {
-            update_open_conv_status(gc);
+            update_open_conversation_presence(gc);
             return true;
         });
 
@@ -279,7 +279,12 @@ void vk_rename_group(PurpleConnection*, const char*,  PurpleGroup*, GList*)
 void vk_convo_closed(PurpleConnection* gc, const char* who)
 {
     uint64 uid = uid_from_buddy_name(who);
-    remove_from_buddy_list_if_not_needed(gc, { uid }, true);
+    // We must call remove_buddy_if_needed later, otherwise the conversation is still open when this
+    // function is closed and buddy is not removed.
+    timeout_add(gc, 0, [=] {
+        remove_buddy_if_needed(gc, uid);
+        return false;
+    });
 }
 
 gboolean vk_can_receive_file(PurpleConnection*, const char*)
@@ -339,7 +344,7 @@ void vk_add_buddy_with_invite(PurpleConnection* gc, PurpleBuddy* buddy, PurpleGr
         else
             conn_data->manually_added_buddies.insert(user_id);
 
-        add_to_buddy_list(gc, { user_id }, [=] {
+        add_buddy_if_needed(gc, user_id, [=] {
             PurpleBuddy* buddy = purple_find_buddy(purple_connection_get_account(gc),
                                                    buddy_name_from_uid(user_id).data());
             assert(buddy);

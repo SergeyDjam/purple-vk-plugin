@@ -246,9 +246,6 @@ void process_update(PurpleConnection* gc, const picojson::value& v, LastMsg& las
     }
 }
 
-// Checks if uid is present in buddy list and adds if not present.
-void add_to_buddy_list(PurpleConnection* gc, uint64 uid, const SuccessCb& success_cb);
-
 // Process incoming and outgoing messages respectively. In general, there is duplication between these functions
 // and vk-message-recv code, they should somehow be refactored.
 void process_incoming_message_internal(PurpleConnection* gc, uint64 msg_id, int flags, uint64 user_id, string text,
@@ -349,7 +346,7 @@ void process_incoming_message_internal(PurpleConnection* gc, uint64 msg_id, int 
     } else {
         replace_emoji_with_text(text);
 
-        add_to_buddy_list(gc, user_id, [=] {
+        add_buddy_if_needed(gc, user_id, [=] {
             serv_got_im(gc, buddy_name_from_uid(user_id).data(), text.data(), PURPLE_MESSAGE_RECV, timestamp);
             mark_message_as_read(gc, { msg_id });
         });
@@ -399,7 +396,7 @@ void process_online(PurpleConnection* gc, const picojson::value& v, bool online)
     if (!in_buddy_list(gc, uid)) {
         purple_debug_info("prpl-vkcom", "User %s has come online, but is not present in buddy list."
                           "He has probably been added behind our backs.", name.data());
-        add_to_buddy_list(gc, { uid });
+        add_buddy_if_needed(gc, uid);
         return;
     } else {
         PurpleAccount* account = purple_connection_get_account(gc);
@@ -421,21 +418,11 @@ void process_typing(PurpleConnection* gc, const picojson::value& v)
     }
     uint64 uid = v.get(1).get<double>();
 
-    add_to_buddy_list(gc, uid, [=] {
+    add_buddy_if_needed(gc, uid, [=] {
         // Vk.com documentation states, that "user is typing" messages are sent with ~5 second
         // interval between them. Let's make it 6, just to be sure.
         serv_got_typing(gc, buddy_name_from_uid(uid).data(), 6, PURPLE_TYPING);
     });
-}
-
-// A wrapper around add_to_buddy_list, only for one uid.
-void add_to_buddy_list(PurpleConnection* gc, uint64 uid, const SuccessCb& success_cb)
-{
-    if (in_buddy_list(gc, uid)) {
-        success_cb();
-    } else {
-        add_to_buddy_list(gc, { uid }, success_cb);
-    }
 }
 
 void long_poll_fatal(PurpleConnection* gc)

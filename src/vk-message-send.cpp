@@ -104,8 +104,7 @@ int send_message(PurpleConnection* gc, uint64 uid, uint64 chat_id, const char* r
         show_error(gc, { uid, chat_id, message, {}, success_cb, error_cb });
     });
 
-    if (!in_buddy_list(gc, uid))
-        add_to_buddy_list(gc, { uid });
+    add_buddy_if_needed(gc, uid);
 
     return 1;
 
@@ -327,8 +326,7 @@ unsigned send_typing_notification(PurpleConnection* gc, uint64 uid)
     CallParams params = { {"user_id", to_string(uid)}, {"type", "typing"} };
     vk_call_api(gc, "messages.setActivity", params);
 
-    if (!in_buddy_list(gc, uid))
-        add_to_buddy_list(gc, { uid });
+    add_buddy_if_needed(gc, uid);
 
     // Resend typing notification in 5 seconds
     return 5;

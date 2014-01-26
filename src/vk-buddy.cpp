@@ -82,7 +82,7 @@ void add_or_update_user_infos(PurpleConnection* gc, const uint64_vec& uids, cons
     });
 }
 
-void add_to_buddy_list(PurpleConnection* gc, const uint64_vec& uids, const SuccessCb& on_update_cb)
+void add_buddies_if_needed(PurpleConnection* gc, const uint64_vec& uids, const SuccessCb& on_update_cb)
 {
     if (uids.empty()) {
         if (on_update_cb)
@@ -100,6 +100,16 @@ void add_to_buddy_list(PurpleConnection* gc, const uint64_vec& uids, const Succe
         if (on_update_cb)
             on_update_cb();
     });
+}
+
+void add_buddy_if_needed(PurpleConnection* gc, uint64 user_id, const SuccessCb& on_update_cb)
+{
+    if (in_buddy_list(gc, user_id)) {
+        on_update_cb();
+        return;
+    }
+
+    add_buddies_if_needed(gc, { user_id }, on_update_cb);
 }
 
 namespace
@@ -261,47 +271,52 @@ void get_users_from_dialogs(PurpleConnection* gc, ReceivedUsersCb received_users
     });
 }
 
+// Returns true if buddy with given user id should be shown in buddy list, false otherwise.
+bool should_be_in_blist(PurpleConnection* gc, uint64 user_id)
+{
+    if (is_manually_removed(gc, user_id))
+        return false;
+
+    PurpleAccount* account = purple_connection_get_account(gc);
+    bool friends_only = purple_account_get_bool(account, "only_friends_in_blist", false);
+    if (friends_only) {
+        if (is_friend(gc, user_id))
+            return true;
+        if (is_manually_added(gc, user_id))
+            return true;
+        if (have_conversation_with(gc, user_id))
+            return true;
+        return false;
+    } else {
+        return true;
+    }
+}
+
 // Helper function for update_buddy_list and update_buddy_list_for
 void update_buddy_in_blist(PurpleConnection* gc, uint64 uid, const VkUserInfo& info, bool update_presence);
 
 void update_buddy_list(PurpleConnection* gc, bool update_presence)
 {
     PurpleAccount* account = purple_connection_get_account(gc);
-    bool friends_only = purple_account_get_bool(account, "only_friends_in_blist", false);
 
     VkConnData* conn_data = get_conn_data(gc);
     // Check all currently known users if they should be added/updated to buddy list.
     for (const pair<uint64, VkUserInfo>& p: conn_data->user_infos) {
-        uint64 uid = p.first;
-        if (friends_only && (!is_friend(gc, uid)
-                             && !have_conversation_with(gc, uid)
-                             && !is_manually_added(gc, uid)))
-            continue;
-        if (is_manually_removed(gc, uid))
+        uint64 user_id = p.first;
+        if (!should_be_in_blist(gc, user_id))
             continue;
 
-        update_buddy_in_blist(gc, uid, p.second, update_presence);
+        update_buddy_in_blist(gc, user_id, p.second, update_presence);
     }
 
     // Check all current buddy list entries if they should be removed.
     GSList* buddies_list = purple_find_buddies(account, nullptr);
     for (GSList* it = buddies_list; it; it = it->next) {
         PurpleBuddy* buddy = (PurpleBuddy*)it->data;
-        uint64 uid = uid_from_buddy_name(purple_buddy_get_name(buddy));
+        uint64 user_id = uid_from_buddy_name(purple_buddy_get_name(buddy));
 
-        if (contains_key(conn_data->user_infos, uid)) {
-            if (friends_only) {
-                if (is_friend(gc, uid) && !is_manually_removed(gc, uid))
-                    continue;
-                if (have_conversation_with(gc, uid))
-                    continue;
-                if (is_manually_added(gc, uid))
-                    continue;
-            } else {
-                if (!is_manually_removed(gc, uid))
-                    continue;
-            }
-        }
+        if (contains_key(conn_data->user_infos, user_id) && should_be_in_blist(gc, user_id))
+            continue;
 
         purple_debug_info("prpl-vkcom", "Removing %s from buddy list\n", purple_buddy_get_name(buddy));
         purple_blist_remove_buddy(buddy);
@@ -472,7 +487,7 @@ void update_status_only(PurpleConnection* gc, const uint64_vec user_ids)
 
 } // namespace
 
-void update_open_conv_status(PurpleConnection *gc)
+void update_open_conversation_presence(PurpleConnection *gc)
 {
     uint64_vec open_non_friends;
     VkConnData* conn_data = get_conn_data(gc);
@@ -488,32 +503,23 @@ void update_open_conv_status(PurpleConnection *gc)
     update_status_only(gc, open_non_friends);
 }
 
-void remove_from_buddy_list_if_not_needed(PurpleConnection* gc, const uint64_vec& uids, bool convo_closed)
+void remove_buddy_if_needed(PurpleConnection* gc, uint64 user_id)
 {
     PurpleAccount* account = purple_connection_get_account(gc);
-    bool friends_only = purple_account_get_bool(account, "only_friends_in_blist", false);
-    for (uint64 uid: uids) {
-        if (friends_only) {
-            if (is_friend(gc, uid) && !is_manually_removed(gc, uid))
-                continue;
-            if (!convo_closed && have_conversation_with(gc, uid))
-                continue;
-            if (is_manually_added(gc, uid))
-                continue;
-        } else {
-            if (!is_manually_removed(gc, uid))
-                continue;
-        }
+    if (should_be_in_blist(gc, user_id))
+        return;
 
-        string buddy_name = buddy_name_from_uid(uid);
-        PurpleBuddy* buddy = purple_find_buddy(account, buddy_name.data());
-        if (!buddy)
-            continue;
-
-        purple_debug_info("prpl-vkcom", "Removing %s from buddy list as unneeded (convo_closed is %d)\n",
-                          buddy_name.data(), convo_closed);
-        purple_blist_remove_buddy(buddy);
+    string buddy_name = buddy_name_from_uid(user_id);
+    PurpleBuddy* buddy = purple_find_buddy(account, buddy_name.data());
+    if (!buddy) {
+        purple_debug_info("prpl-vkcom", "Trying to remove buddy %s not in buddy list\n",
+                          buddy_name.data());
+        return;
     }
+
+    purple_debug_info("prpl-vkcom", "Removing %s from buddy list as unneeded after convo close\n",
+                      buddy_name.data());
+    purple_blist_remove_buddy(buddy);
 }
 
 

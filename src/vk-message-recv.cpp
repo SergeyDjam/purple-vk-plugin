@@ -628,7 +628,7 @@ void MessageReceiver::finish()
                 uids_to_buddy_list.push_back(m.uid);
 
         // We are setting presence because this is the first time we update the buddies.
-        add_to_buddy_list(m_gc, uids_to_buddy_list, [=] {
+        add_buddies_if_needed(m_gc, uids_to_buddy_list, [=] {
             PurpleLogCache logs(m_gc);
             for (const Message& m: m_messages) {
                 if (m.status == MESSAGE_INCOMING_UNREAD) {
