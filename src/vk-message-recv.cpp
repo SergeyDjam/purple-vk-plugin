@@ -20,153 +20,122 @@
 namespace
 {
 
-// Three reasons for creating a separate class:
-//  a) messages.get returns answers in reverse time order, so we have to store messages and sort them later;
-//  b) messages.get paginates the answers, so that multiple calls may be required in order to retrieve all
-//     messages;
-//  c) we have to run a bunch of HTTP requests to retrieve photo and video thumbnails and append them to
-//     received messages.
-// NOTE: This design (along with VkAuthenticator in vk-auth.cpp) seems to bee too heavyweight and Java-ish,
-// but I cannot create any better. Any ideas?
-
-class MessageReceiver
-{
-public:
-    static MessageReceiver* create(PurpleConnection* gc, const ReceivedCb& recevied_cb);
-
-    // Receives all messages starting after last_msg_id.
-    void run_all(uint64 last_msg_id);
-    // Receives messages with given ids.
-    void run(const uint64_vec& message_ids);
-
-private:
-    enum MessageStatus {
-        MESSAGE_INCOMING_READ,
-        MESSAGE_INCOMING_UNREAD,
-        MESSAGE_OUTGOING
-    };
-
-    struct Message
-    {
-        uint64 mid;
-        uint64 uid;
-        uint64 chat_id; // If chat_id is 0, this is a regular IM message.
-        string text;
-        time_t timestamp;
-        MessageStatus status;
-
-        // A list of thumbnail URLs to download and append to message. Set in process_attachments,
-        // replaced in download_thumbnails.
-        vector<string> thumbnail_urls;
-        // A list of user and group ids, present in message. Set in process_attachments
-        // and process_fwd_message, replaced in replace_user_ids and replace_group_ids.
-        vector<uint64> user_ids;
-        vector<uint64> group_ids;
-    };
-    vector<Message> m_messages;
-
-    PurpleConnection* m_gc;
-    ReceivedCb m_received_cb;
-
-    MessageReceiver(PurpleConnection* gc, const ReceivedCb& received_cb)
-        : m_gc(gc),
-          m_received_cb(received_cb)
-    {
-    }
-
-    ~MessageReceiver()
-    {
-    }
-
-    // Runs messages.get from given offset.
-    void run_all(uint64 last_msg_id, bool outgoing);
-    // Processes one item from the result of messages.get and messages.getById.
-    void process_message(const picojson::value& fields);
-    // Processes attachments: appends urls to message text, adds thumbnail_urls.
-    static void process_attachments(PurpleConnection* gc, const picojson::array& items, Message& message);
-    // Processes forwarded messages: appends message text and processes attachments.
-    static void process_fwd_message(PurpleConnection* gc, const picojson::value& fields, Message& message);
-    // Processes photo attachment.
-    static void process_photo_attachment(const picojson::value& items, Message& message);
-    // Processes video attachment.
-    static void process_video_attachment(const picojson::value& fields, Message& message);
-    // Processes audio attachment.
-    static void process_audio_attachment(const picojson::value& fields, Message& message);
-    // Processes doc attachment.
-    static void process_doc_attachment(const picojson::value& fields, Message& message);
-    // Processes wall post attachment.
-    static void process_wall_attachment(PurpleConnection* gc, const picojson::value& fields, Message& message);
-    // Processes link attachment.
-    static void process_link_attachment(const picojson::value& fields, Message& message);
-
-    // Appends specific thumbnail placeholder to the end of message text. Placeholder will be replaced
-    // by actual image later in download_thumbnail().
-    static void append_thumbnail_placeholder(const string& thumbnail_url, Message& message);
-    // Returns user/group placeholder, which should be appended to the message text. It will
-    // be replaced with actual user/group name and link to the page later in replace_user/group_ids().
-    static string get_user_placeholder(PurpleConnection* gc, uint64 user_id, Message& message);
-    static string get_group_placeholder(uint64 group_id, Message& message);
-
-    // Downloads the given thumbnail for given message, modifies corresponding message text
-    // and calls either next download_thumbnail() or finish(). message is index into m_messages,
-    // thumbnail is index into thumbnail_urls.
-    void download_thumbnail(size_t message, size_t thumbnail);
-    // Replaces all placeholder texts for user/group ids in messages with user/group names
-    // and hrefs. Gets information on users, which are not present in user_infos, and groups
-    // from vk.com
-    void replace_user_ids();
-    void replace_group_ids();
-    // Sorts received messages, sends them to libpurple client and destroys this.
-    void finish();
+enum MessageStatus {
+    MESSAGE_INCOMING_READ,
+    MESSAGE_INCOMING_UNREAD,
+    MESSAGE_OUTGOING
 };
+
+// A structure, describing one received message.
+struct Message
+{
+    uint64 mid;
+    uint64 uid;
+    uint64 chat_id; // If chat_id is 0, this is a regular IM message.
+    string text;
+    time_t timestamp;
+    MessageStatus status;
+
+    // A list of thumbnail URLs to download and append to message. Set in process_attachments,
+    // replaced in download_thumbnails.
+    vector<string> thumbnail_urls;
+    // A list of user and group ids, present in message. Set in process_attachments
+    // and process_fwd_message, replaced in replace_user_ids and replace_group_ids.
+    vector<uint64> user_ids;
+    vector<uint64> group_ids;
+};
+
+// A structure, capturing all information about received messages.
+struct MessagesData
+{
+    vector<Message> messages;
+
+    PurpleConnection* gc;
+    ReceivedCb received_cb;
+};
+
+using MessagesDataPtr = shared_ptr<MessagesData>;
+
+// Receives all messages starting after last_msg_id.
+void receive_messages_range_internal(const MessagesDataPtr& data, uint64 last_msg_id, bool outgoing);
+
+// Processes one item from the result of messages.get and messages.getById.
+void process_message(const MessagesDataPtr& data, const picojson::value& fields);
+// Processes attachments: appends urls to message text, adds thumbnail_urls.
+void process_attachments(PurpleConnection* gc, const picojson::array& items, Message& message);
+// Processes forwarded messages: appends message text and processes attachments.
+void process_fwd_message(PurpleConnection* gc, const picojson::value& fields, Message& message);
+// Processes photo attachment.
+void process_photo_attachment(const picojson::value& items, Message& message);
+// Processes video attachment.
+void process_video_attachment(const picojson::value& fields, Message& message);
+// Processes audio attachment.
+void process_audio_attachment(const picojson::value& fields, Message& message);
+// Processes doc attachment.
+void process_doc_attachment(const picojson::value& fields, Message& message);
+// Processes wall post attachment.
+void process_wall_attachment(PurpleConnection* gc, const picojson::value& fields, Message& message);
+// Processes link attachment.
+void process_link_attachment(const picojson::value& fields, Message& message);
+
+// Appends specific thumbnail placeholder to the end of message text. Placeholder will be replaced
+// by actual image later in download_thumbnail().
+void append_thumbnail_placeholder(const string& thumbnail_url, Message& message);
+// Returns user/group placeholder, which should be appended to the message text. It will
+// be replaced with actual user/group name and link to the page later in replace_user/group_ids().
+string get_user_placeholder(PurpleConnection* gc, uint64 user_id, Message& message);
+string get_group_placeholder(uint64 group_id, Message& message);
+
+// Downloads the given thumbnail for given message, modifies corresponding message text
+// and calls either next download_thumbnail() or finish(). message is index into m_messages,
+// thumbnail is index into thumbnail_urls.
+void download_thumbnail(const MessagesDataPtr& data, size_t message, size_t thumbnail);
+// Replaces all placeholder texts for user/group ids in messages with user/group names
+// and hrefs. Gets information on users, which are not present in user_infos, and groups
+// from vk.com
+void replace_user_ids(const MessagesDataPtr& data);
+void replace_group_ids(const MessagesDataPtr& data);
+// Sorts received messages, sends them to libpurple client and destroys this.
+void finish_receiving(const MessagesDataPtr& data);
 
 } // End of anonymous namespace
 
 void receive_messages_range(PurpleConnection* gc, uint64 last_msg_id, const ReceivedCb& received_cb)
 {
-    MessageReceiver* receiver = MessageReceiver::create(gc, received_cb);
-    receiver->run_all(last_msg_id);
+    MessagesDataPtr data{ new MessagesData };
+    data->gc = gc;
+    data->received_cb = received_cb;
+
+    receive_messages_range_internal(data, last_msg_id, false);
 }
 
 void receive_messages(PurpleConnection* gc, const uint64_vec& message_ids, const ReceivedCb& received_cb)
 {
-    MessageReceiver* receiver = MessageReceiver::create(gc, received_cb);
-    receiver->run(message_ids);
+    if (message_ids.empty()) {
+        if (received_cb)
+            received_cb(0);
+        return;
+    }
+
+    MessagesDataPtr data{ new MessagesData };
+    data->gc = gc;
+    data->received_cb = received_cb;
+
+    string ids_str = str_concat_int(',', message_ids);
+    CallParams params = { {"message_ids", ids_str} };
+    vk_call_api_items(data->gc, "messages.getById", params, false, [=](const picojson::value& message) {
+        process_message(data, message);
+    }, [=] {
+        download_thumbnail(data, 0, 0);
+    }, [=](const picojson::value&) {
+        finish_receiving(data);
+    });
 }
 
 namespace
 {
 
-MessageReceiver* MessageReceiver::create(PurpleConnection* gc, const ReceivedCb& recevied_cb)
-{
-    return new MessageReceiver(gc, recevied_cb);
-}
-
-void MessageReceiver::run_all(uint64 last_msg_id)
-{
-    run_all(last_msg_id, false);
-}
-
-void MessageReceiver::run(const uint64_vec& message_ids)
-{
-    if (message_ids.empty()) {
-        if (m_received_cb)
-            m_received_cb(0);
-        return;
-    }
-
-    string ids_str = str_concat_int(',', message_ids);
-    CallParams params = { {"message_ids", ids_str} };
-    vk_call_api_items(m_gc, "messages.getById", params, false, [=](const picojson::value& message) {
-        process_message(message);
-    }, [=] {
-        download_thumbnail(0, 0);
-    }, [=](const picojson::value&) {
-        finish();
-    });
-}
-
-void MessageReceiver::run_all(uint64 last_msg_id, bool outgoing)
+void receive_messages_range_internal(const MessagesDataPtr& data, uint64 last_msg_id, bool outgoing)
 {
     CallParams params = { {"out", outgoing ? "1" : "0"}, {"count", "200"} };
     if (last_msg_id == 0) {
@@ -182,16 +151,17 @@ void MessageReceiver::run_all(uint64 last_msg_id, bool outgoing)
         params.emplace_back("last_message_id", to_string(last_msg_id));
     }
 
-    vk_call_api_items(m_gc, "messages.get", params, true, [=](const picojson::value& message) {
-        process_message(message);
+    vk_call_api_items(data->gc, "messages.get", params, true, [=](const picojson::value& message) {
+        process_message(data, message);
     }, [=] {
         purple_debug_info("prpl-vkcom", "Finished processing %s messages\n", outgoing ? "outgoing" : "incoming");
+        // We do not receive outgoing messages on first login as we receive only unread incoming messages.
         if (!outgoing && last_msg_id != 0)
-            run_all(last_msg_id, true);
+            receive_messages_range_internal(data, last_msg_id, true);
         else
-            download_thumbnail(0, 0);
+            download_thumbnail(data, 0, 0);
     }, [=](const picojson::value&) {
-        finish();
+        finish_receiving(data);
     });
 }
 
@@ -218,7 +188,7 @@ string timestamp_to_long_format(time_t timestamp)
     return purple_date_format_long(&tm);
 }
 
-void MessageReceiver::process_message(const picojson::value& fields)
+void process_message(const MessagesDataPtr& data, const picojson::value& fields)
 {
     if (!field_is_present<double>(fields, "user_id") || !field_is_present<double>(fields, "date")
             || !field_is_present<string>(fields, "body") || !field_is_present<double>(fields, "id")
@@ -228,8 +198,8 @@ void MessageReceiver::process_message(const picojson::value& fields)
         return;
     }
 
-    m_messages.push_back(Message());
-    Message& message = m_messages.back();
+    data->messages.push_back(Message());
+    Message& message = data->messages.back();
     message.mid = fields.get("id").get<double>();
     message.uid = fields.get("user_id").get<double>();
     message.chat_id = 0;
@@ -247,17 +217,17 @@ void MessageReceiver::process_message(const picojson::value& fields)
 
     // Process attachments: append information to text.
     if (field_is_present<picojson::array>(fields, "attachments"))
-        process_attachments(m_gc, fields.get("attachments").get<picojson::array>(), message);
+        process_attachments(data->gc, fields.get("attachments").get<picojson::array>(), message);
 
     // Process forwarded messages.
     if (field_is_present<picojson::array>(fields, "fwd_messages")) {
         const picojson::array& fwd_messages = fields.get("fwd_messages").get<picojson::array>();
         for (const picojson::value& m: fwd_messages)
-            process_fwd_message(m_gc, m, message);
+            process_fwd_message(data->gc, m, message);
     }
 }
 
-void MessageReceiver::process_attachments(PurpleConnection* gc, const picojson::array& items, Message& message)
+void process_attachments(PurpleConnection* gc, const picojson::array& items, Message& message)
 {
     for (const picojson::value& v: items) {
         if (!field_is_present<string>(v, "type")) {
@@ -298,7 +268,7 @@ void MessageReceiver::process_attachments(PurpleConnection* gc, const picojson::
     }
 }
 
-void MessageReceiver::process_fwd_message(PurpleConnection* gc, const picojson::value& fields, Message& message)
+void process_fwd_message(PurpleConnection* gc, const picojson::value& fields, Message& message)
 {
     if (!field_is_present<double>(fields, "user_id") || !field_is_present<double>(fields, "date")
             || !field_is_present<string>(fields, "body")) {
@@ -326,7 +296,7 @@ void MessageReceiver::process_fwd_message(PurpleConnection* gc, const picojson::
         process_attachments(gc, fields.get("attachments").get<picojson::array>(), message);
 }
 
-void MessageReceiver::process_photo_attachment(const picojson::value& fields, Message& message)
+void process_photo_attachment(const picojson::value& fields, Message& message)
 {
     if (!field_is_present<double>(fields, "id") || !field_is_present<double>(fields, "owner_id")
             || !field_is_present<string>(fields, "text") || !field_is_present<string>(fields, "photo_604")) {
@@ -364,7 +334,7 @@ void MessageReceiver::process_photo_attachment(const picojson::value& fields, Me
     append_thumbnail_placeholder(thumbnail, message);
 }
 
-void MessageReceiver::process_video_attachment(const picojson::value& fields, Message& message)
+void process_video_attachment(const picojson::value& fields, Message& message)
 {
     if (!field_is_present<double>(fields, "id") || !field_is_present<double>(fields, "owner_id")
             || !field_is_present<string>(fields, "title") || !field_is_present<string>(fields, "photo_320")) {
@@ -383,7 +353,7 @@ void MessageReceiver::process_video_attachment(const picojson::value& fields, Me
     append_thumbnail_placeholder(thumbnail, message);
 }
 
-void MessageReceiver::process_audio_attachment(const picojson::value& fields, Message& message)
+void process_audio_attachment(const picojson::value& fields, Message& message)
 {
     if (!field_is_present<string>(fields, "url") || !field_is_present<string>(fields, "artist")
             || !field_is_present<string>(fields, "title")) {
@@ -398,7 +368,7 @@ void MessageReceiver::process_audio_attachment(const picojson::value& fields, Me
     message.text += str_format("<a href='%s'>%s - %s</a>", url.data(), artist.data(), title.data());
 }
 
-void MessageReceiver::process_doc_attachment(const picojson::value& fields, Message& message)
+void process_doc_attachment(const picojson::value& fields, Message& message)
 {
     if (!field_is_present<string>(fields, "url") || !field_is_present<string>(fields, "title")) {
         purple_debug_error("prpl-vkcom", "Strange attachment in response from messages.get "
@@ -417,7 +387,7 @@ void MessageReceiver::process_doc_attachment(const picojson::value& fields, Mess
     }
 }
 
-void MessageReceiver::process_wall_attachment(PurpleConnection* gc, const picojson::value& fields, Message& message)
+void process_wall_attachment(PurpleConnection* gc, const picojson::value& fields, Message& message)
 {
     if (!field_is_present<double>(fields, "id")
             || (!field_is_present<double>(fields, "to_id") && !field_is_present<double>(fields, "from_id"))
@@ -467,7 +437,7 @@ void MessageReceiver::process_wall_attachment(PurpleConnection* gc, const picojs
     }
 }
 
-void MessageReceiver::process_link_attachment(const picojson::value& fields, Message& message)
+void process_link_attachment(const picojson::value& fields, Message& message)
 {
     if (!field_is_present<string>(fields, "url")) {
         purple_debug_error("prpl-vkcom", "Strange attachment in response from messages.get "
@@ -503,7 +473,7 @@ void MessageReceiver::process_link_attachment(const picojson::value& fields, Mes
         append_thumbnail_placeholder(image_src, message);
 }
 
-void MessageReceiver::append_thumbnail_placeholder(const string& thumbnail_url, Message& message)
+void append_thumbnail_placeholder(const string& thumbnail_url, Message& message)
 {
     // TODO: If the conversation is open and an outgoing message has been received, we should show
     // the image too.
@@ -513,7 +483,7 @@ void MessageReceiver::append_thumbnail_placeholder(const string& thumbnail_url, 
     }
 }
 
-string MessageReceiver::get_user_placeholder(PurpleConnection* gc, uint64 user_id, Message& message)
+string get_user_placeholder(PurpleConnection* gc, uint64 user_id, Message& message)
 {
     VkUserInfo* info = get_user_info_for_buddy(gc, user_id);
     if (info)
@@ -524,77 +494,77 @@ string MessageReceiver::get_user_placeholder(PurpleConnection* gc, uint64 user_i
     return text;
 }
 
-string MessageReceiver::get_group_placeholder(uint64 group_id, Message& message)
+string get_group_placeholder(uint64 group_id, Message& message)
 {
     string text = str_format("<group-placeholder-%d>", message.group_ids.size());
     message.group_ids.push_back(group_id);
     return text;
 }
 
-void MessageReceiver::download_thumbnail(size_t message, size_t thumbnail)
+void download_thumbnail(const MessagesDataPtr& data, size_t message, size_t thumbnail)
 {
-    if (message >= m_messages.size()) {
-        replace_user_ids();
+    if (message >= data->messages.size()) {
+        replace_user_ids(data);
         return;
     }
-    if (thumbnail >= m_messages[message].thumbnail_urls.size()) {
-        download_thumbnail(message + 1, 0);
+    if (thumbnail >= data->messages[message].thumbnail_urls.size()) {
+        download_thumbnail(data, message + 1, 0);
         return;
     }
 
-    const string& url = m_messages[message].thumbnail_urls[thumbnail];
-    http_get(m_gc, url, [=](PurpleHttpConnection*, PurpleHttpResponse* response) {
+    const string& url = data->messages[message].thumbnail_urls[thumbnail];
+    http_get(data->gc, url, [=](PurpleHttpConnection*, PurpleHttpResponse* response) {
         if (!purple_http_response_is_successful(response)) {
             purple_debug_error("prpl-vkcom", "Unable to download thumbnail: %s\n",
                                purple_http_response_get_error(response));
-            download_thumbnail(message, thumbnail + 1);
+            download_thumbnail(data, message, thumbnail + 1);
             return;
         }
 
         size_t size;
-        const char* data = purple_http_response_get_data(response, &size);
-        int img_id = purple_imgstore_add_with_id(g_memdup(data, size), size, nullptr);
+        const char* img_data = purple_http_response_get_data(response, &size);
+        int img_id = purple_imgstore_add_with_id(g_memdup(img_data, size), size, nullptr);
 
         string img_tag = str_format("<img id=\"%d\">", img_id);
         string img_placeholder = str_format("<thumbnail-placeholder-%d>", thumbnail);
-        str_replace(m_messages[message].text, img_placeholder, img_tag);
+        str_replace(data->messages[message].text, img_placeholder, img_tag);
 
-        download_thumbnail(message, thumbnail + 1);
+        download_thumbnail(data, message, thumbnail + 1);
     });
 }
 
-void MessageReceiver::replace_user_ids()
+void replace_user_ids(const MessagesDataPtr& data)
 {
     // Get all uids, which are not present in user_infos.
     uint64_vec unknown_uids;
-    for (const Message& m: m_messages)
+    for (const Message& m: data->messages)
         for (uint64 id: m.user_ids)
             unknown_uids.push_back(id);
 
-    add_or_update_user_infos(m_gc, unknown_uids, [=] {
-        for (Message& m: m_messages) {
+    add_or_update_user_infos(data->gc, unknown_uids, [=] {
+        for (Message& m: data->messages) {
             for (unsigned i = 0; i < m.user_ids.size(); i++) {
                 uint64 id = m.user_ids[i];
                 string placeholder = str_format("<user-placeholder-%d>", i);
-                VkUserInfo* info = get_user_info_for_buddy(m_gc, id);
+                VkUserInfo* info = get_user_info_for_buddy(data->gc, id);
                 string href = get_user_href(id, *info);
                 str_replace(m.text, placeholder, href);
             }
         }
 
-        replace_group_ids();
+        replace_group_ids(data);
     });
 }
 
-void MessageReceiver::replace_group_ids()
+void replace_group_ids(const MessagesDataPtr& data)
 {
     uint64_vec group_ids;
-    for (const Message& m: m_messages)
+    for (const Message& m: data->messages)
         for (uint64 id: m.group_ids)
             group_ids.push_back(id);
 
-    get_groups_info(m_gc, group_ids, [=](const map<uint64, VkGroupInfo>& infos) {
-        for (Message& m: m_messages) {
+    get_groups_info(data->gc, group_ids, [=](const map<uint64, VkGroupInfo>& infos) {
+        for (Message& m: data->messages) {
             for (unsigned i = 0; i < m.group_ids.size(); i++) {
                 uint64 group_id = m.group_ids[i];
                 string placeholder = str_format("<group-placeholder-%d>", i);
@@ -603,38 +573,38 @@ void MessageReceiver::replace_group_ids()
             }
         }
 
-        finish();
+        finish_receiving(data);
     });
 }
 
 
-void MessageReceiver::finish()
+void finish_receiving(const MessagesDataPtr& data)
 {
-    std::sort(m_messages.begin(), m_messages.end(), [](const Message& a, const Message& b) {
+    std::sort(data->messages.begin(), data->messages.end(), [](const Message& a, const Message& b) {
         return a.mid < b.mid;
     });
 
     uint64_vec uids_to_user_info; // Users to get information about.
-    for (const Message& m: m_messages)
-        if (m.status != MESSAGE_OUTGOING && is_unknown_uid(m_gc, m.uid))
+    for (const Message& m: data->messages)
+        if (m.status != MESSAGE_OUTGOING && is_unknown_uid(data->gc, m.uid))
             uids_to_user_info.push_back(m.uid);
 
-    add_or_update_user_infos(m_gc, uids_to_user_info, [=] {
+    add_or_update_user_infos(data->gc, uids_to_user_info, [=] {
         uint64_vec uids_to_buddy_list; // Users to be added to buddy list.
-        for (const Message& m: m_messages)
+        for (const Message& m: data->messages)
             // We want to add buddies to buddy list for unread personal messages because we will open conversations
             // with them.
-            if (m.status == MESSAGE_INCOMING_UNREAD && m.chat_id == 0 && !in_buddy_list(m_gc, m.uid))
+            if (m.status == MESSAGE_INCOMING_UNREAD && m.chat_id == 0 && !in_buddy_list(data->gc, m.uid))
                 uids_to_buddy_list.push_back(m.uid);
 
         // We are setting presence because this is the first time we update the buddies.
-        add_buddies_if_needed(m_gc, uids_to_buddy_list, [=] {
-            PurpleLogCache logs(m_gc);
-            for (const Message& m: m_messages) {
+        add_buddies_if_needed(data->gc, uids_to_buddy_list, [=] {
+            PurpleLogCache logs(data->gc);
+            for (const Message& m: data->messages) {
                 if (m.status == MESSAGE_INCOMING_UNREAD) {
                     // Open new conversation for received message.
                     if (m.chat_id == 0) {
-                        serv_got_im(m_gc, buddy_name_from_uid(m.uid).data(), m.text.data(), PURPLE_MESSAGE_RECV,
+                        serv_got_im(data->gc, buddy_name_from_uid(m.uid).data(), m.text.data(), PURPLE_MESSAGE_RECV,
                                     m.timestamp);
                     } else {
 //                        TODO: open chat
@@ -647,14 +617,14 @@ void MessageReceiver::finish()
                     string from;
                     PurpleMessageFlags flags;
                     if (m.status == MESSAGE_INCOMING_READ) {
-                        from = get_buddy_name(m_gc, m.uid);
+                        from = get_buddy_name(data->gc, m.uid);
                         flags = PURPLE_MESSAGE_RECV;
                     } else {
-                        from = purple_account_get_name_for_display(purple_connection_get_account(m_gc));
+                        from = purple_account_get_name_for_display(purple_connection_get_account(data->gc));
                         flags = PURPLE_MESSAGE_SEND;
                     }
 
-                    PurpleConversation* conv = find_conv_for_id(m_gc, m.uid, m.chat_id);
+                    PurpleConversation* conv = find_conv_for_id(data->gc, m.uid, m.chat_id);
                     if (conv) {
                         purple_conv_im_write(PURPLE_CONV_IM(conv), from.data(), m.text.data(), flags,
                                              m.timestamp);
@@ -667,19 +637,18 @@ void MessageReceiver::finish()
 
             // Mark incoming messages as read.
             uint64_vec unread_message_ids;
-            for (const Message& m: m_messages)
+            for (const Message& m: data->messages)
                 if (m.status == MESSAGE_INCOMING_UNREAD)
                     unread_message_ids.push_back(m.mid);
-            mark_message_as_read(m_gc, unread_message_ids);
+            mark_message_as_read(data->gc, unread_message_ids);
 
             // Sets the last message id as m_messages are sorted by mid.
             uint64 max_msg_id = 0;
-            if (!m_messages.empty())
-                max_msg_id = m_messages.back().mid;
+            if (!data->messages.empty())
+                max_msg_id = data->messages.back().mid;
 
-            if (m_received_cb)
-                m_received_cb(max_msg_id);
-            delete this;
+            if (data->received_cb)
+                data->received_cb(max_msg_id);
         });
     });
 }

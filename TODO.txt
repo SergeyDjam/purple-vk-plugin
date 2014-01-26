@@ -11,4 +11,3 @@
  * Check what's with Unicode on Windows (let's assume everyone runs UTF-8 on Linux). Check what's with
    building on windows.
  * Do HTTP retries on timeouts/50x errors?
- * Replace manual pointer lifetime management with shared_ptr everywhere.

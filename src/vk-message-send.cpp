@@ -164,10 +164,10 @@ struct UploadImgstoreImages
     ImagesUploadedCb uploaded_cb;
     ErrorCb error_cb;
 };
-using UploadImgstoreImages_ptr = shared_ptr<UploadImgstoreImages>;
+using UploadImgstoreImagesPtr = shared_ptr<UploadImgstoreImages>;
 
 // Helper function for upload_imgstore_images.
-void upload_imgstore_images_internal(PurpleConnection* gc, const UploadImgstoreImages_ptr& data);
+void upload_imgstore_images_internal(PurpleConnection* gc, const UploadImgstoreImagesPtr& data);
 
 void upload_imgstore_images(PurpleConnection* gc, const int_vec& img_ids, const ImagesUploadedCb& uploaded_cb,
                             const ErrorCb& error_cb)
@@ -177,13 +177,13 @@ void upload_imgstore_images(PurpleConnection* gc, const int_vec& img_ids, const 
         return;
     }
 
-    UploadImgstoreImages_ptr data{ new UploadImgstoreImages{ img_ids, "", uploaded_cb, error_cb } };
+    UploadImgstoreImagesPtr data{ new UploadImgstoreImages{ img_ids, "", uploaded_cb, error_cb } };
     // Reverse data->img_ids as we start pop the items from the back of the img_ids.
     std::reverse(data->img_ids.begin(), data->img_ids.end());
     upload_imgstore_images_internal(gc, data);
 }
 
-void upload_imgstore_images_internal(PurpleConnection* gc, const UploadImgstoreImages_ptr& data)
+void upload_imgstore_images_internal(PurpleConnection* gc, const UploadImgstoreImagesPtr& data)
 {
     int img_id = data->img_ids.back();
     PurpleStoredImage* img = purple_imgstore_find_by_id(img_id);
