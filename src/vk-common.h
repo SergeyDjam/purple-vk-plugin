@@ -35,7 +35,7 @@ struct VkUserInfo
     string bdate;
     string domain;
     string education;
-    bool is_mobile;
+    bool online_mobile;
     time_t last_seen;
     string mobile_phone;
     bool online;

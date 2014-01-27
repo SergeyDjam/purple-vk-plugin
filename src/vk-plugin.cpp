@@ -39,6 +39,9 @@ GList* vk_status_types(PurpleAccount*)
     type = purple_status_type_new_full(PURPLE_STATUS_OFFLINE, "offline", nullptr, TRUE, TRUE, FALSE);
     types = g_list_prepend(types, type);
 
+    type = purple_status_type_new_full(PURPLE_STATUS_MOBILE, "mobile", nullptr, FALSE, FALSE, FALSE);
+    types = g_list_prepend(types, type);
+
     return g_list_reverse(types);
 }
 
@@ -72,7 +75,7 @@ void vk_tooltip_text(PurpleBuddy* buddy, PurpleNotifyUserInfo* info, gboolean)
 
     if (!user_info->activity.empty())
         purple_notify_user_info_add_pair_plaintext(info, "Status", user_info->activity.data());
-    if (user_info->is_mobile)
+    if (user_info->online_mobile)
         purple_notify_user_info_add_pair_plaintext(info, "Uses mobile client", nullptr);
 }
 

@@ -237,7 +237,7 @@ uint64 on_update_user_info(PurpleConnection* gc, const picojson::value& fields)
     else
         info.online = false;
 
-    info.is_mobile = field_is_present<double>(fields, "online_mobile");
+    info.online_mobile = field_is_present<double>(fields, "online_mobile");
     if (field_is_present<picojson::object>(fields, "last_seen"))
         info.last_seen = fields.get("last_seen").get("time").get<double>();
 
@@ -331,6 +331,18 @@ void update_buddy_list_for(PurpleConnection* gc, const uint64_vec& uids, bool up
         update_buddy_in_blist(gc, uid, conn_data->user_infos[uid], update_presence);
 }
 
+// Returns buddy status (in libpurple terms) from user info.
+const char* get_user_status(const VkUserInfo& user_info)
+{
+    if (user_info.online_mobile) {
+        return "mobile";
+    } else if (user_info.online) {
+        return "online";
+    } else {
+        return "offline";
+    }
+}
+
 // Returns default group to add buddies to.
 PurpleGroup* get_default_group(PurpleConnection* gc);
 
@@ -383,7 +395,7 @@ void update_buddy_in_blist(PurpleConnection* gc, uint64 uid, const VkUserInfo& i
 
     // Update presence
     if (update_presence) {
-        purple_prpl_got_user_status(account, buddy_name.data(), info.online ? "online" : "offline", nullptr);
+        purple_prpl_got_user_status(account, buddy_name.data(), get_user_status(info), nullptr);
     } else {
         // We do not update online/offline status here, because it is done in Long Poll processing but we
         // "update" it so that status strings in buddy list get updated (vk_status_text gets called).
@@ -467,7 +479,6 @@ void update_status_only(PurpleConnection* gc, const uint64_vec user_ids)
                 purple_debug_error("prpl-vkcom", "Strange node found in users.get result: %s\n",
                                    v.serialize().data());
                 continue;
-
             }
             if (!field_is_present<double>(v, "id") || !field_is_present<double>(v, "online")) {
                 purple_debug_error("prpl-vkcom", "Strange node found in users.get result: %s\n",
@@ -479,7 +490,7 @@ void update_status_only(PurpleConnection* gc, const uint64_vec user_ids)
             VkUserInfo& info = conn_data->user_infos[user_id];
             info.online = v.get("online").get<double>() == 1;
 
-            purple_prpl_got_user_status(account, buddy_name_from_uid(user_id).data(), info.online ? "online" : "offline", nullptr);
+            purple_prpl_got_user_status(account, buddy_name_from_uid(user_id).data(), get_user_status(info), nullptr);
         }
     });
 

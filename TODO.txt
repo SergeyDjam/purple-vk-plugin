@@ -1,7 +1,6 @@
  * Add support for creating/joining multi-user chats.
  * Add support for sending already stored files (compute md5sum).
  * Add support for receiving geo-information.
- * Supply a mobile emblem.
  * Add groups (PurpleBuddys will have duplicate names, is it ok?)
  * Update buddy info asynchronously on "Get Info".
  * Add fast setting of user presences via friends.getOnline and update all other user information later.
