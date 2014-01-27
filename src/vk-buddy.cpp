@@ -404,7 +404,7 @@ void update_buddy_in_blist(PurpleConnection* gc, uint64 uid, const VkUserInfo& i
     }
 
     // Update last seen time.
-    if (!info.online) {
+    if (!info.online && !info.online_mobile) {
         if (info.last_seen != 0)
             // This is not documented, but set in libpurple, i.e. not Pidgin-specific.
             purple_blist_node_set_int(&buddy->node, "last_seen", info.last_seen);

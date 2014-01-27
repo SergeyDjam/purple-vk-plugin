@@ -35,10 +35,11 @@ struct VkUserInfo
     string bdate;
     string domain;
     string education;
-    bool online_mobile;
     time_t last_seen;
     string mobile_phone;
+    // Either online or online_mobile can be set to true.
     bool online;
+    bool online_mobile;
     string photo_min;
     string photo_max;
 };
