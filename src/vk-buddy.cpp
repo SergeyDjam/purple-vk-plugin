@@ -345,6 +345,23 @@ const char* get_user_status(const VkUserInfo& user_info)
     }
 }
 
+// Updates buddy status. It is a bit more complicated than simply calling purple_prpl_got_user_status,
+// because we want to make sure buddy->icon is set. It is used e.g. in libnotify notifications
+// "Buddy signed in". It is loaded lazily by Pidgin buddy list (this applies to all protocols,
+// not only vkcom) and will not be loaded e.g. until buddy comes online (it will be loaded AFTER
+// libnotify shows notification).
+void update_buddy_status_internal(PurpleConnection* gc, const string& buddy_name, const VkUserInfo& info)
+{
+    PurpleAccount* account = purple_connection_get_account(gc);
+    PurpleBuddy* buddy = purple_find_buddy(account, buddy_name.data());
+
+    // Check if icon has not been already loaded.
+    if (!purple_buddy_get_icon(buddy))
+        // This method forces icons to be loaded.
+        purple_buddy_icons_find(account, buddy_name.data());
+    purple_prpl_got_user_status(account, buddy_name.data(), get_user_status(info), nullptr);
+}
+
 // Returns default group to add buddies to.
 PurpleGroup* get_default_group(PurpleConnection* gc);
 
@@ -397,7 +414,7 @@ void update_buddy_in_blist(PurpleConnection* gc, uint64 uid, const VkUserInfo& i
 
     // Update presence
     if (update_presence) {
-        purple_prpl_got_user_status(account, buddy_name.data(), get_user_status(info), nullptr);
+        update_buddy_status_internal(gc, buddy_name, info);
     } else {
         // We do not update online/offline status here, because it is done in Long Poll processing but we
         // "update" it so that status strings in buddy list get updated (vk_status_text gets called).
@@ -471,7 +488,6 @@ void update_buddies_status_only(PurpleConnection* gc, const uint64_vec user_ids,
         }
 
         VkConnData* conn_data = get_conn_data(gc);
-        PurpleAccount* account = purple_connection_get_account(gc);
         for (const picojson::value& v: result.get<picojson::array>()) {
             if (!v.is<picojson::object>()) {
                 purple_debug_error("prpl-vkcom", "Strange node found in users.get result: %s\n",
@@ -493,7 +509,7 @@ void update_buddies_status_only(PurpleConnection* gc, const uint64_vec user_ids,
 
             info.online = online;
             info.online_mobile = online_mobile;
-            purple_prpl_got_user_status(account, buddy_name_from_uid(user_id).data(), get_user_status(info), nullptr);
+            update_buddy_status_internal(gc, buddy_name_from_uid(user_id), info);
         }
         if (on_update_cb)
             on_update_cb();
