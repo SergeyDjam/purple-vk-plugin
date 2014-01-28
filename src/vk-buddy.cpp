@@ -67,7 +67,8 @@ void update_buddies(PurpleConnection* gc, bool update_presence, const SuccessCb&
 void add_or_update_user_infos(PurpleConnection* gc, const uint64_vec& uids, const SuccessCb& on_update_cb)
 {
     if (uids.empty()) {
-        on_update_cb();
+        if (on_update_cb)
+            on_update_cb();
         return;
     }
 

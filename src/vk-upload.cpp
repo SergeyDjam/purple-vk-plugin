@@ -26,7 +26,8 @@ void upload_doc_for_im(PurpleConnection* gc, const char* name, const void* conte
     upload_file(gc, "docs.getWallUploadServer", "file", name, contents, size, [=](const picojson::value& v) {
         if (!field_is_present<string>(v, "file")) {
             purple_debug_error("prpl-vkcom", "Strange response from upload server: %s\n", v.serialize().data());
-            error_cb();
+            if (error_cb)
+                error_cb();
             return;
         }
         const string& file = v.get("file").get<string>();
@@ -34,7 +35,8 @@ void upload_doc_for_im(PurpleConnection* gc, const char* name, const void* conte
         vk_call_api(gc, "docs.save", params, [=](const picojson::value& result) {
             uploaded_cb(result);
         }, [=](const picojson::value&) {
-            error_cb();
+            if (error_cb)
+                error_cb();
         });
     }, error_cb, upload_progress_cb);
 }
@@ -48,7 +50,8 @@ void upload_photo_for_im(PurpleConnection* gc, const char* name, const void* con
         if (!(field_is_present<int>(v, "server") || field_is_present<string>(v, "server"))
                 || !field_is_present<string>(v, "photo") || !field_is_present<string>(v, "hash")) {
             purple_debug_error("prpl-vkcom", "Strange response from upload server: %s\n", v.serialize().data());
-            error_cb();
+            if (error_cb)
+                error_cb();
             return;
         }
         const string& server = v.get("server").to_str();
@@ -58,7 +61,8 @@ void upload_photo_for_im(PurpleConnection* gc, const char* name, const void* con
         vk_call_api(gc, "photos.saveMessagesPhoto", params, [=](const picojson::value& result) {
             uploaded_cb(result);
         }, [=](const picojson::value&) {
-            error_cb();
+            if (error_cb)
+                error_cb();
         });
     }, error_cb, upload_progress_cb);
 }
@@ -88,7 +92,8 @@ void upload_file(PurpleConnection* gc, const char* get_upload_server, const char
         if (!field_is_present<string>(result, "upload_url")) {
             purple_debug_error("prpl-vkcom", "Strange response from docs.getWallUploadServer: %s\n",
                                result.serialize().data());
-            error_cb();
+            if (error_cb)
+                error_cb();
             return;
         }
         const string& upload_url = result.get("upload_url").get<string>();
@@ -96,7 +101,8 @@ void upload_file(PurpleConnection* gc, const char* get_upload_server, const char
 
         start_upload(gc, upload_url, partname, name, contents, size, uploaded_cb, error_cb, upload_progress_cb);
     }, [=](const picojson::value&) {
-        error_cb();
+        if (error_cb)
+            error_cb();
     });
 }
 
@@ -114,7 +120,8 @@ void start_upload(PurpleConnection* gc, const string& upload_url, const char* pa
         delete progress_data;
 
         if (!purple_http_response_is_successful(response)) {
-            error_cb();
+            if (error_cb)
+                error_cb();
             return;
         }
 
@@ -124,7 +131,8 @@ void start_upload(PurpleConnection* gc, const string& upload_url, const char* pa
         string error = picojson::parse(root, response_text, response_text + strlen(response_text));
         if (!error.empty()) {
             purple_debug_error("prpl-vkcom", "Error parsing %s: %s\n", response_text_copy, error.data());
-            error_cb();
+            if (error_cb)
+                error_cb();
             return;
         }
         uploaded_cb(root);

@@ -37,7 +37,8 @@ void request_captcha_ok(CaptchaRequestData* data, PurpleRequestFields* fields)
 void request_captcha_cancel(CaptchaRequestData* data, PurpleRequestFields*)
 {
     purple_debug_info("prpl-vkcom", "Captcha entry cancelled by user\n");
-    data->error_cb();
+    if (data->error_cb)
+        data->error_cb();
     delete data;
 }
 
@@ -49,7 +50,8 @@ void request_captcha(PurpleConnection* gc, const string& captcha_img, const Capt
         if (!purple_http_response_is_successful(response)) {
             purple_debug_error("prpl-vkcom", "Error while fetching captcha: %s\n",
                                purple_http_response_get_error(response));
-            error_cb();
+            if (error_cb)
+                error_cb();
             return;
         }
 

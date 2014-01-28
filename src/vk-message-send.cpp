@@ -196,13 +196,15 @@ void upload_imgstore_images_internal(PurpleConnection* gc, const UploadImgstoreI
         purple_debug_info("prpl-vkcom", "Sucessfully uploaded img %d\n", img_id);
         if (!v.is<picojson::array>() || !v.contains(0)) {
             purple_debug_error("prpl-vkcom", "Unknown photos.saveMessagesPhoto result: %s\n", v.serialize().data());
-            data->error_cb();
+            if (data->error_cb)
+                data->error_cb();
             return;
         }
         const picojson::value& fields = v.get(0);
         if (!field_is_present<double>(fields, "owner_id") || !field_is_present<double>(fields, "id")) {
             purple_debug_error("prpl-vkcom", "Unknown photos.saveMessagesPhoto result: %s\n", v.serialize().data());
-            data->error_cb();
+            if (data->error_cb)
+                data->error_cb();
             return;
         }
 
@@ -222,7 +224,8 @@ void upload_imgstore_images_internal(PurpleConnection* gc, const UploadImgstoreI
             upload_imgstore_images_internal(gc, data);
         }
     }, [=] {
-        data->error_cb();
+        if (data->error_cb)
+            data->error_cb();
     });
 
 }
@@ -252,7 +255,8 @@ void send_message_internal(PurpleConnection* gc, const SendMessage& message, con
     vk_call_api(gc, "messages.send", params, [=](const picojson::value& v) {
         if (!v.is<double>()) {
             purple_debug_error("prpl-vkcom", "Wrong response from message.send: %s\n", v.serialize().data());
-            message.error_cb();
+            if (message.error_cb)
+                message.error_cb();
             return;
         }
 
