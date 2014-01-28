@@ -105,7 +105,8 @@ void add_buddies_if_needed(PurpleConnection* gc, const uint64_vec& uids, const S
 void add_buddy_if_needed(PurpleConnection* gc, uint64 user_id, const SuccessCb& on_update_cb)
 {
     if (in_buddy_list(gc, user_id)) {
-        on_update_cb();
+        if (on_update_cb)
+            on_update_cb();
         return;
     }
 
