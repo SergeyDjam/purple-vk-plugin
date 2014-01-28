@@ -459,11 +459,7 @@ void fetch_buddy_icon(PurpleConnection* gc, const string& buddy_name, const stri
 
 } // End anonymous namespace
 
-namespace
-{
-
-// Updates only online status of the given friends.
-void update_status_only(PurpleConnection* gc, const uint64_vec user_ids)
+void update_buddies_status_only(PurpleConnection* gc, const uint64_vec user_ids, const SuccessCb& on_update_cb)
 {
     string ids_str = str_concat_int(',', user_ids);
     purple_debug_info("prpl-vkcom", "Updating online status for buddies %s\n", ids_str.data());
@@ -499,11 +495,11 @@ void update_status_only(PurpleConnection* gc, const uint64_vec user_ids)
             info.online_mobile = online_mobile;
             purple_prpl_got_user_status(account, buddy_name_from_uid(user_id).data(), get_user_status(info), nullptr);
         }
+        if (on_update_cb)
+            on_update_cb();
     });
 
 }
-
-} // namespace
 
 void update_open_conversation_presence(PurpleConnection *gc)
 {
@@ -518,7 +514,7 @@ void update_open_conversation_presence(PurpleConnection *gc)
     if (open_non_friends.empty())
         return;
 
-    update_status_only(gc, open_non_friends);
+    update_buddies_status_only(gc, open_non_friends);
 }
 
 void remove_buddy_if_needed(PurpleConnection* gc, uint64 user_id)

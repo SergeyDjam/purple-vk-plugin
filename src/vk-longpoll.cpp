@@ -401,8 +401,11 @@ void process_online(PurpleConnection* gc, const picojson::value& v, bool online)
     } else {
         PurpleAccount* account = purple_connection_get_account(gc);
         if (online) {
-            purple_prpl_got_user_status(account, name.data(), "online", nullptr);
-            purple_prpl_got_user_login_time(account, name.data(), time(nullptr));
+            // Unfortunately, Vk longpoll does not give us information, whether the logged in user
+            // using mobile client or not, so we have to make the request to Vk.com API to know.
+            update_buddies_status_only(gc, { uid }, [=] {
+                purple_prpl_got_user_login_time(account, name.data(), time(nullptr));
+            });
         } else {
             purple_prpl_got_user_status(account, name.data(), "offline", nullptr);
         }
