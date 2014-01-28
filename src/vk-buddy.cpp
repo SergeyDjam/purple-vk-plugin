@@ -276,6 +276,8 @@ void get_users_from_dialogs(PurpleConnection* gc, ReceivedUsersCb received_users
 // Returns true if buddy with given user id should be shown in buddy list, false otherwise.
 bool should_be_in_blist(PurpleConnection* gc, uint64 user_id)
 {
+    if (have_conversation_with(gc, user_id))
+        return true;
     if (is_manually_removed(gc, user_id))
         return false;
 
@@ -285,8 +287,6 @@ bool should_be_in_blist(PurpleConnection* gc, uint64 user_id)
         if (is_friend(gc, user_id))
             return true;
         if (is_manually_added(gc, user_id))
-            return true;
-        if (have_conversation_with(gc, user_id))
             return true;
         return false;
     } else {
