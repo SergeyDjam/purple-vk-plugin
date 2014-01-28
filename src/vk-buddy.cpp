@@ -466,7 +466,7 @@ void update_status_only(PurpleConnection* gc, const uint64_vec user_ids)
 {
     string ids_str = str_concat_int(',', user_ids);
     purple_debug_info("prpl-vkcom", "Updating online status for buddies %s\n", ids_str.data());
-    CallParams params = { {"user_ids", ids_str}, {"fields", "online"} };
+    CallParams params = { {"user_ids", ids_str}, {"fields", "online,online_mobile"} };
     vk_call_api(gc, "users.get", params, [=](const picojson::value& result) {
         if (!result.is<picojson::array>()) {
             purple_debug_error("prpl-vkcom", "Wrong type returned as users.get call result\n");
@@ -487,10 +487,15 @@ void update_status_only(PurpleConnection* gc, const uint64_vec user_ids)
                 continue;
             }
             uint64 user_id = v.get("id").get<double>();
+            bool online = v.get("online").get<double>() == 1;
+            bool online_mobile = field_is_present<double>(v, "online_mobile");
 
             VkUserInfo& info = conn_data->user_infos[user_id];
-            info.online = v.get("online").get<double>() == 1;
+            if (info.online == online && info.online_mobile == online_mobile)
+                return;
 
+            info.online = online;
+            info.online_mobile = online_mobile;
             purple_prpl_got_user_status(account, buddy_name_from_uid(user_id).data(), get_user_status(info), nullptr);
         }
     });
