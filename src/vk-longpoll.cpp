@@ -40,6 +40,7 @@ void start_long_poll_internal(PurpleConnection* gc, uint64 last_msg_id);
 void start_long_poll(PurpleConnection* gc)
 {
     uint64 last_msg_id = load_last_msg_id(gc);
+    purple_debug_info("prpl-vkcom", "Starting Long Poll with last msg id %lld\n", last_msg_id);
     start_long_poll_internal(gc, last_msg_id);
 }
 
@@ -129,7 +130,9 @@ void request_long_poll(PurpleConnection* gc, const string& server, const string&
     VkConnData* conn_data = get_conn_data(gc);
 
     string server_url = str_format(long_poll_url, server.data(), key.data(), ts);
+#if 0
     purple_debug_info("prpl-vkcom", "Connecting to Long Poll %s\n", server_url.data());
+#endif
 
     http_get(gc, server_url, [=](PurpleHttpConnection*, PurpleHttpResponse* response) {
         // Connection has been cancelled due to account being disconnected.
