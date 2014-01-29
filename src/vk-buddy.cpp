@@ -252,9 +252,9 @@ uint64 on_update_user_info(PurpleConnection* gc, const picojson::value& fields, 
         info.online_mobile = online_mobile;
     } else {
         if (info.online != online || info.online_mobile != online_mobile)
-            purple_debug_error("prpl-vkcom", "Strange, got different online status"
+            purple_debug_error("prpl-vkcom", "Strange, got different online status for %lld"
                                "in friends.get vs Long Poll: %d, %d vs %d, %d\n",
-                               online, online_mobile, info.online, info.online_mobile);
+                               (long long)uid, online, online_mobile, info.online, info.online_mobile);
     }
 
     if (field_is_present<picojson::object>(fields, "last_seen"))
