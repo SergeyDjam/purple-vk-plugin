@@ -3,6 +3,9 @@
 
 #pragma once
 
+// It gets set by CMake and is so much trouble to unset, so let's unset it here :-)
+#undef NDEBUG
+
 #include <algorithm>
 #include <cassert>
 #include <chrono>

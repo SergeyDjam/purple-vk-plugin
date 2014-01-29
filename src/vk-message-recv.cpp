@@ -584,12 +584,12 @@ void finish_receiving(const MessagesDataPtr& data)
         return a.mid < b.mid;
     });
 
-    uint64_vec uids_to_user_info; // Users to get information about.
+    uint64_vec unknown_uids; // Users to get information about.
     for (const Message& m: data->messages)
         if (m.status != MESSAGE_OUTGOING && is_unknown_uid(data->gc, m.uid))
-            uids_to_user_info.push_back(m.uid);
+            unknown_uids.push_back(m.uid);
 
-    add_or_update_user_infos(data->gc, uids_to_user_info, [=] {
+    add_or_update_user_infos(data->gc, unknown_uids, [=] {
         uint64_vec uids_to_buddy_list; // Users to be added to buddy list.
         for (const Message& m: data->messages)
             // We want to add buddies to buddy list for unread personal messages because we will open conversations

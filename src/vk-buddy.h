@@ -18,7 +18,7 @@
 void update_buddies(PurpleConnection* gc, bool update_presence, const SuccessCb& on_update_cb = nullptr);
 
 // Updates only presences of the given buddies (both in VkConnData::user_infos and buddy list).
-void update_buddies_status_only(PurpleConnection* gc, const uint64_vec user_ids, const SuccessCb& on_update_cb = nullptr);
+void update_buddies_presence_only(PurpleConnection* gc, const uint64_vec user_ids, const SuccessCb& on_update_cb = nullptr);
 
 // Updates presence status of non-friends, which we have open conversation with.
 void update_open_conversation_presence(PurpleConnection* gc);
@@ -41,7 +41,9 @@ void add_buddy_if_needed(PurpleConnection* gc, uint64 user_id, const SuccessCb& 
 void remove_buddy_if_needed(PurpleConnection* gc, uint64 user_id);
 
 
-// Adds or updated information on buddies in VkConnData::user_infos
+// Adds or updated information on buddies in VkConnData::user_infos.
+//
+// NOTE: uids must contain only non-friend uids.
 void add_or_update_user_infos(PurpleConnection* gc, const uint64_vec& uids, const SuccessCb& on_update_cb = nullptr);
 
 
