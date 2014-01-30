@@ -37,7 +37,7 @@ struct VkUserInfo
     string education;
     time_t last_seen;
     string mobile_phone;
-    // Either online or online_mobile can be set to true.
+    // Either online or online_mobile can be set to true (or both).
     bool online;
     bool online_mobile;
     string photo_min;

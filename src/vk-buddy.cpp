@@ -253,7 +253,7 @@ uint64 on_update_user_info(PurpleConnection* gc, const picojson::value& fields, 
     } else {
         if (info.online != online || info.online_mobile != online_mobile)
             purple_debug_error("prpl-vkcom", "Strange, got different online status for %lld"
-                               "in friends.get vs Long Poll: %d, %d vs %d, %d\n",
+                               " in friends.get vs Long Poll: %d, %d vs %d, %d\n",
                                (long long)uid, online, online_mobile, info.online, info.online_mobile);
     }
 
@@ -362,12 +362,12 @@ const char* get_user_status(const VkUserInfo& user_info)
     }
 }
 
-// Updates buddy status. It is a bit more complicated than simply calling purple_prpl_got_user_status,
+// Updates buddy presence status. It is a bit more complicated than simply calling purple_prpl_got_user_status,
 // because we want to make sure buddy->icon is set. It is used e.g. in libnotify notifications
 // "Buddy signed in". It is loaded lazily by Pidgin buddy list (this applies to all protocols,
 // not only vkcom) and will not be loaded e.g. until buddy comes online (it will be loaded AFTER
 // libnotify shows notification).
-void update_buddy_status_internal(PurpleConnection* gc, const string& buddy_name, const VkUserInfo& info)
+void update_buddy_presence_internal(PurpleConnection* gc, const string& buddy_name, const VkUserInfo& info)
 {
     PurpleAccount* account = purple_connection_get_account(gc);
     PurpleBuddy* buddy = purple_find_buddy(account, buddy_name.data());
@@ -431,7 +431,7 @@ void update_buddy_in_blist(PurpleConnection* gc, uint64 uid, const VkUserInfo& i
 
     // Update presence
     if (update_presence) {
-        update_buddy_status_internal(gc, buddy_name, info);
+        update_buddy_presence_internal(gc, buddy_name, info);
     } else {
         // We do not update online/offline status here, because it is done in Long Poll processing but we
         // "update" it so that status strings in buddy list get updated (vk_status_text gets called).
@@ -493,11 +493,14 @@ void fetch_buddy_icon(PurpleConnection* gc, const string& buddy_name, const stri
 
 } // End anonymous namespace
 
-void update_buddies_presence_only(PurpleConnection* gc, const uint64_vec user_ids, const SuccessCb& on_update_cb)
+namespace
+{
+
+void update_buddies_presence_only(PurpleConnection* gc, const uint64_vec user_ids)
 {
     string ids_str = str_concat_int(',', user_ids);
-    purple_debug_info("prpl-vkcom", "Updating online status for buddies %s\n", ids_str.data());
     CallParams params = { {"user_ids", ids_str}, {"fields", "online,online_mobile"} };
+    purple_debug_info("prpl-vkcom", "Updating online status for buddies %s\n", ids_str.data());
     vk_call_api(gc, "users.get", params, [=](const picojson::value& result) {
         if (!result.is<picojson::array>()) {
             purple_debug_error("prpl-vkcom", "Wrong type returned as users.get call result\n");
@@ -519,6 +522,7 @@ void update_buddies_presence_only(PurpleConnection* gc, const uint64_vec user_id
             uint64 user_id = v.get("id").get<double>();
             bool online = v.get("online").get<double>() == 1;
             bool online_mobile = field_is_present<double>(v, "online_mobile");
+            purple_debug_info("prpl-vkcom", "Got status %d, %d for %lld\n", online, online_mobile, user_id);
 
             VkUserInfo& info = conn_data->user_infos[user_id];
             if (info.online == online && info.online_mobile == online_mobile)
@@ -526,13 +530,12 @@ void update_buddies_presence_only(PurpleConnection* gc, const uint64_vec user_id
 
             info.online = online;
             info.online_mobile = online_mobile;
-            update_buddy_status_internal(gc, buddy_name_from_uid(user_id), info);
+            update_buddy_presence_internal(gc, buddy_name_from_uid(user_id), info);
         }
-        if (on_update_cb)
-            on_update_cb();
     });
-
 }
+
+} // Anonymous namespace
 
 void update_open_conversation_presence(PurpleConnection *gc)
 {
@@ -548,6 +551,13 @@ void update_open_conversation_presence(PurpleConnection *gc)
         return;
 
     update_buddies_presence_only(gc, open_non_friends);
+}
+
+void update_presence_in_buddy_list(PurpleConnection *gc, uint64 user_id)
+{
+    VkConnData* conn_data = get_conn_data(gc);
+    VkUserInfo& info = conn_data->user_infos[user_id];
+    update_buddy_presence_internal(gc, buddy_name_from_uid(user_id), info);
 }
 
 void remove_buddy_if_needed(PurpleConnection* gc, uint64 user_id)

@@ -17,9 +17,6 @@
 // If update_presence is false, does not set presence statuses.
 void update_buddies(PurpleConnection* gc, bool update_presence, const SuccessCb& on_update_cb = nullptr);
 
-// Updates only presences of the given buddies (both in VkConnData::user_infos and buddy list).
-void update_buddies_presence_only(PurpleConnection* gc, const uint64_vec user_ids, const SuccessCb& on_update_cb = nullptr);
-
 // Updates presence status of non-friends, which we have open conversation with.
 void update_open_conversation_presence(PurpleConnection* gc);
 
@@ -45,6 +42,11 @@ void remove_buddy_if_needed(PurpleConnection* gc, uint64 user_id);
 //
 // NOTE: uids must contain only non-friend uids.
 void add_or_update_user_infos(PurpleConnection* gc, const uint64_vec& uids, const SuccessCb& on_update_cb = nullptr);
+
+
+// Updates only presence status of the given buddy in buddy list according to information in VkConnData::user_infos.
+// Used in longpoll, where we directly receive online/offline status.
+void update_presence_in_buddy_list(PurpleConnection* gc, uint64 user_id);
 
 
 // Fetches buddy full name (First name + second name).

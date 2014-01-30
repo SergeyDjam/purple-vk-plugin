@@ -122,7 +122,7 @@ void start_long_poll_internal(PurpleConnection* gc, uint64 last_msg_id)
 // Reads and processes an event from updates array.
 void process_update(PurpleConnection* gc, const picojson::value& v, LastMsg& last_msg);
 
-const char* long_poll_url = "https://%s?act=a_check&key=%s&ts=%llu&wait=25";
+const char* long_poll_url = "https://%s?act=a_check&key=%s&ts=%llu&wait=25&mode=64";
 
 void request_long_poll(PurpleConnection* gc, const string& server, const string& key, uint64 ts,
                        LastMsg last_msg)
@@ -331,6 +331,8 @@ void process_message(PurpleConnection* gc, const picojson::value& v, LastMsg& la
 // uid from longpoll updates, so we have to process via receive_messages.
 const uint64 CHAT_ID_OFFSET = 2000000000LL;
 
+const uint PLATFORM_WEB = 7;
+
 void process_incoming_message_internal(PurpleConnection* gc, uint64 msg_id, int flags, uint64 user_id, string text,
                                        uint64 timestamp)
 {
@@ -402,13 +404,30 @@ void process_online(PurpleConnection* gc, const picojson::value& v, bool online)
         add_buddy_if_needed(gc, uid);
         return;
     } else {
-        PurpleAccount* account = purple_connection_get_account(gc);
-        // Unfortunately, Vk longpoll does not give us information, whether the logged in user
-        // using mobile client or not, so we have to make the request to Vk.com API to know.
-        update_buddies_presence_only(gc, { uid }, [=] {
-            if (online)
-                purple_prpl_got_user_login_time(account, name.data(), time(nullptr));
-        });
+        VkUserInfo& info = get_conn_data(gc)->user_infos[uid];
+        if (online) {
+            if (!v.contains(2) || !v.get(2).is<double>()) {
+                purple_debug_error("prpl-vkcom", "Strange response from Long Poll in updates: %s\n",
+                                   v.serialize().data());
+                return;
+            }
+            uint platform = uint64(v.get(2).get<double>()) % 0x100;
+
+            if (platform == PLATFORM_WEB) {
+                info.online = true;
+                info.online_mobile = false;
+            } else {
+                info.online = true;
+                info.online_mobile = true;
+            }
+
+            PurpleAccount* account = purple_connection_get_account(gc);
+            purple_prpl_got_user_login_time(account, name.data(), time(nullptr));
+        } else {
+            info.online = false;
+            info.online_mobile = false;
+        }
+        update_presence_in_buddy_list(gc, uid);
     }
 }
 
