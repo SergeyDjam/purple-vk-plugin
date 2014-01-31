@@ -4,6 +4,7 @@
 #pragma once
 
 // It gets set by CMake and is so much trouble to unset, so let's unset it here :-)
+// On Linux it is used only for always enabling assert().
 #undef NDEBUG
 
 #include <algorithm>

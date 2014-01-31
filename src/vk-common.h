@@ -44,6 +44,16 @@ struct VkUserInfo
     string photo_max;
 };
 
+// A structure, describing a previously uploaded doc. It is used to check whether the doc
+// has already been uploaded before and not upload it again.
+struct VkUploadedDoc
+{
+    uint64 id;
+    string filename;
+    uint64 size;
+    string md5sum;
+};
+
 // Data, associated with account. It contains all information, required for connecting and executing
 // API calls.
 class VkConnData
@@ -100,6 +110,10 @@ public:
     // typing or changes status to Available). Must be stored and loaded, so that we do not
     // lose any read statuses.
     uint64_set deferred_mark_as_read;
+
+    // We check this collection on each file xfer and update it after upload to Vk.com. It gets stored and loaded
+    // from settings.
+    vector<VkUploadedDoc> uploaded_docs;
 
     // If true, connection is in "closing" state. This is set in vk_close and is used in longpoll
     // callback to differentiate the case of network timeout/silent connection dropping and connection
