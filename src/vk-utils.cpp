@@ -254,7 +254,7 @@ void replace_emoji_with_text(string& message)
 void get_groups_info(PurpleConnection* gc, uint64_vec group_ids, const GroupInfoFetchedCb& fetched_cb)
 {
     if (group_ids.empty()) {
-        fetched_cb({});
+        fetched_cb(map<uint64, VkGroupInfo>());
         return;
     }
 
@@ -266,7 +266,7 @@ void get_groups_info(PurpleConnection* gc, uint64_vec group_ids, const GroupInfo
         if (!result.is<picojson::array>()) {
             purple_debug_error("prpl-vkcom", "Wrong type returned as users.get call result: %s\n",
                                result.serialize().data());
-            fetched_cb({});
+            fetched_cb(map<uint64, VkGroupInfo>());
             return;
         }
 
@@ -277,7 +277,7 @@ void get_groups_info(PurpleConnection* gc, uint64_vec group_ids, const GroupInfo
                     || !field_is_present<string>(v, "type")) {
                 purple_debug_error("prpl-vkcom", "Wrong type returned as users.get call result: %s\n",
                                    result.serialize().data());
-                fetched_cb({});
+                fetched_cb(map<uint64, VkGroupInfo>());
                 return;
             }
 

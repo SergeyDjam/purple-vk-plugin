@@ -50,6 +50,9 @@
 #include "ntlm.h"
 
 #include <zlib.h>
+#ifndef z_const
+#define z_const
+#endif
 
 // NOTE: Added in purple-vk-plugin, so that we do not have to supply translations for all
 // error codes.
@@ -343,12 +346,17 @@ static time_t purple_http_rfc1123_to_time(const gchar *str)
 		g_match_info_free(match_info);
 		return 0;
 	}
+	/*
 	g_match_info_free(match_info);
-
+	Memory is freed, and then used. This is not good.
+	*/
+	
 	d_date = g_match_info_fetch(match_info, 1);
 	d_month = g_match_info_fetch(match_info, 2);
 	d_year = g_match_info_fetch(match_info, 3);
 	d_time = g_match_info_fetch(match_info, 4);
+
+	g_match_info_free(match_info);
 
 	month = 0;
 	while (months[month] != NULL)

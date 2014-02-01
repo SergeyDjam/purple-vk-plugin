@@ -131,13 +131,18 @@ uint64_set on_update_user_infos(PurpleConnection* gc, const picojson::value& res
 {
     if (friends_get && !result.is<picojson::object>()) {
         purple_debug_error("prpl-vkcom", "Wrong type returned as friends.get call result\n");
+	/*
         return {};
+        As I can understand, it is all right here, but clang 3.2 doesn't compile it.
+        http://clang-developers.42468.n3.nabble.com/C-11-error-about-initializing-explicit-constructor-with-td4029849.html
+        */
+        return uint64_set();
     }
 
     const picojson::value& items = friends_get ? result.get("items") : result;
     if (!items.is<picojson::array>()) {
         purple_debug_error("prpl-vkcom", "Wrong type returned as friends.get or users.get call result\n");
-        return {};
+	return uint64_set();
     }
 
     // Adds or updates buddies in result and forms the active set of buddy ids.
@@ -270,7 +275,7 @@ void get_users_from_dialogs(PurpleConnection* gc, ReceivedUsersCb received_users
         uint64_set uids;
         ReceivedUsersCb received_users_cb;
     };
-    shared_ptr<Helper> helper{ new Helper{ {}, move(received_users_cb) } };
+    shared_ptr<Helper> helper{ new Helper{ uint64_set(), move(received_users_cb) } };
 
     // preview_length minimum value is 1, zero means "full message".
     CallParams params = { {"preview_length", "1"}, {"count", "200"} };
@@ -286,7 +291,7 @@ void get_users_from_dialogs(PurpleConnection* gc, ReceivedUsersCb received_users
     }, [=] {
         helper->received_users_cb(helper->uids);
     }, [=](const picojson::value&) {
-        helper->received_users_cb({});
+        helper->received_users_cb(uint64_set());
     });
 }
 

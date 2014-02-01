@@ -17,6 +17,7 @@
 #include <memory>
 #include <set>
 #include <string>
+#include <vector>
 
 // Let's make using most popular names easier.
 using std::map;
@@ -32,6 +33,7 @@ using string_pair = pair<string, string>;
 using string_set = set<string>;
 using string_vec = vector<string>;
 
+using uint = unsigned int;
 using int_vec = vector<int>;
 using uint_set = set<uint>;
 using int64 = int64_t;
