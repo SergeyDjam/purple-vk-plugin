@@ -611,8 +611,18 @@ void get_user_full_name(PurpleConnection* gc, uint64 uid, const NameFetchedCb& f
         }
         string first_name = users[0].get("first_name").get<string>();
         string last_name = users[0].get("last_name").get<string>();
-
+	/*
+	I have no idea why fetch_cb() call crashes on Mac OS.
+	And I can't offer anything better.
+	It produce warning if __APPLE__ macro defined, but plugin doesn't crash.
+	*/
+	#ifdef __APPLE__
+	string full_name = first_name + " " + last_name;
+	PurpleAccount* account = purple_connection_get_account(gc);
+	purple_account_set_alias(account, full_name.data());
+	#else
         fetch_cb(first_name + " " + last_name);
+	#endif
     });
 }
 
