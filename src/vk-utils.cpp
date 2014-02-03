@@ -14,7 +14,7 @@ namespace
 // because there are too many ways to open photo/video in vk.com: from search, from newsfeed etc.
 
 #define VK_COM_URL(type) "https?://vk.com/\\S*(?<attachment>" type "-?\\d*_\\d*)\\S*?(\\Whash=(?<hash>\\w+))?"
-const char attachment_regex_const[] = VK_COM_URL("photo") "|" VK_COM_URL("video") "|" VK_COM_URL("doc");
+const char attachment_regex_const[] = VK_COM_URL("photo") "|" VK_COM_URL("video") "|" VK_COM_URL("doc") "|" VK_COM_URL("wall");
 
 } // End of anonymous namespace
 
