@@ -77,6 +77,8 @@ void process_doc_attachment(const picojson::value& fields, Message& message);
 void process_wall_attachment(PurpleConnection* gc, const picojson::value& fields, Message& message);
 // Processes link attachment.
 void process_link_attachment(const picojson::value& fields, Message& message);
+// Processes album attachment.
+void process_album_attachment(const picojson::value& fields, Message& message);
 
 // Appends specific thumbnail placeholder to the end of message text. Placeholder will be replaced
 // by actual image later in download_thumbnail().
@@ -258,6 +260,8 @@ void process_attachments(PurpleConnection* gc, const picojson::array& items, Mes
             process_wall_attachment(gc, fields, message);
         } else if (type == "link") {
             process_link_attachment(fields, message);
+        } else if (type == "album") {
+            process_album_attachment(fields, message);
         } else {
             purple_debug_error("prpl-vkcom", "Strange attachment in response from messages.get "
                                "or messages.getById: type %s, %s\n", type.data(), fields.serialize().data());
@@ -470,6 +474,23 @@ void process_link_attachment(const picojson::value& fields, Message& message)
 
     if (!image_src.empty())
         append_thumbnail_placeholder(image_src, message);
+}
+
+void process_album_attachment(const picojson::value& fields, Message& message)
+{
+    if (!field_is_present<string>(fields, "id") || !field_is_present<double>(fields, "owner_id")
+            || !field_is_present<string>(fields, "title")) {
+        purple_debug_error("prpl-vkcom", "Strange attachment in response from messages.get "
+                           "or messages.getById: %s\n", fields.serialize().data());
+        return;
+    }
+    const string& id = fields.get("id").get<string>();
+    string owner_id = fields.get("owner_id").to_str();
+    const string& title = fields.get("title").get<string>();
+
+    string url = str_format("http://vk.com/album%s_%s", owner_id.data(), id.data());
+
+    message.text += str_format("Album: <a href='%s'>%s</a>", url.data(), title.data());
 }
 
 void append_thumbnail_placeholder(const string& thumbnail_url, Message& message)
