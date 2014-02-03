@@ -35,7 +35,7 @@ void update_buddy_list_for(PurpleConnection* gc, const uint64_vec& uids, bool up
 } // End of anonymous namespace
 
 const char user_fields_param[] = "first_name,last_name,bdate,education,photo_50,photo_max_orig,"
-                                 "online,contacts,can_write_private_message,activity,last_seen,domain";
+                                 "online,contacts,activity,last_seen,domain";
 
 void update_buddies(PurpleConnection* gc, bool update_presence, const SuccessCb& on_update_cb)
 {
@@ -197,12 +197,9 @@ uint64 on_update_user_info(PurpleConnection* gc, const picojson::value& fields, 
     VkUserInfo& info = conn_data->user_infos[uid];
     info.name = fields.get("first_name").get<string>() + " " + fields.get("last_name").get<string>();
 
-    // We cannot write private messages, we have zero interest in user.
-    if (field_is_present<string>(fields, "deactivated")
-            || fields.get("can_write_private_message").get<double>() != 1) {
-        info.can_write = false;
+    // This usually means that user has been deleted.
+    if (field_is_present<string>(fields, "deactivated"))
         return 0;
-    }
 
     if (field_is_present<string>(fields, "photo_50")) {
         info.photo_min = fields.get("photo_50").get<string>();

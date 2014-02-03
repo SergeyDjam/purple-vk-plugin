@@ -28,8 +28,6 @@ struct VkUserInfo
     // name is saved, because we can set custom alias for the user, but still display original name
     // in "Get Info" dialog
     string name;
-    // True if we can write a message to the user.
-    bool can_write;
 
     string activity;
     string bdate;
