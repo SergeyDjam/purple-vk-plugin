@@ -11,8 +11,6 @@
 namespace
 {
 
-using std::move;
-
 // Helper callback, used for friends.get and users.get. Adds and/or updates all buddies info in
 // VkConnData->user_infos from the result. Returns list of uids.
 //
@@ -270,7 +268,7 @@ void get_users_from_dialogs(PurpleConnection* gc, ReceivedUsersCb received_users
         uint64_set uids;
         ReceivedUsersCb received_users_cb;
     };
-    shared_ptr<Helper> helper{ new Helper{ {}, move(received_users_cb) } };
+    shared_ptr<Helper> helper{ new Helper{ {}, std::move(received_users_cb) } };
 
     // preview_length minimum value is 1, zero means "full message".
     CallParams params = { {"preview_length", "1"}, {"count", "200"} };
@@ -526,7 +524,7 @@ void update_buddies_presence_only(PurpleConnection* gc, const uint64_vec user_id
 
             VkUserInfo& info = conn_data->user_infos[user_id];
             if (info.online == online && info.online_mobile == online_mobile)
-                return;
+                continue;
 
             info.online = online;
             info.online_mobile = online_mobile;
