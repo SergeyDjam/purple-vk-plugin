@@ -281,7 +281,8 @@ void process_fwd_message(PurpleConnection* gc, const picojson::value& fields, Me
 
     uint64 user_id = fields.get("user_id").get<double>();
     string date = timestamp_to_long_format(fields.get("date").get<double>());
-    // Placeholder will be replaced with proper name and href in replace_ids().
+    // Placeholder either contains a formed href, if the user is already known, or will be replaced
+    // with proper name and href in replace_ids().
     string text = str_format("Forwarded message (from %s on %s):\n",
                              get_user_placeholder(gc, user_id, message).data(), date.data());
     text += cleanup_message_body(fields.get("body").get<string>());
@@ -289,8 +290,6 @@ void process_fwd_message(PurpleConnection* gc, const picojson::value& fields, Me
     str_replace(text, "\n", "\n    > ");
 
     message.text += text;
-
-    message.user_ids.push_back(user_id);
 
     if (field_is_present<picojson::array>(fields, "attachments"))
         process_attachments(gc, fields.get("attachments").get<picojson::array>(), message);
