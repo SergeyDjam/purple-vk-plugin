@@ -17,6 +17,10 @@ endif()
 if("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang" OR "${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
   set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall -Wextra -Wshadow -fvisibility=hidden")
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11 -Wall -Wextra -Wshadow -fvisibility=hidden")
+  
+  if(APPLE AND "${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -stdlib=libc++")
+  endif()
 
   set(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} -ggdb")
   set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -ggdb")
@@ -27,24 +31,30 @@ endif()
 # Set library-specific flags
 
 # Libpurple
-
 add_definitions(-DPURPLE_PLUGINS)
+pkg_check_modules(PURPLE REQUIRED purple)
+include_directories(${PURPLE_INCLUDE_DIRS})
+add_definitions(${PURPLE_CFLAGS_OTHER})
+link_directories(${PURPLE_LIBRARY_DIRS})
+list(APPEND EXTRA_LIBRARIES ${PURPLE_LIBRARIES})
 
-if(UNIX AND NOT APPLE)
-  pkg_check_modules(PURPLE REQUIRED purple)
+# Gio
+pkg_check_modules(GIO REQUIRED gio-2.0)
+include_directories(${GIO_INCLUDE_DIRS})
+add_definitions(${GIO_CFLAGS_OTHER})
+link_directories(${GIO_LIBRARY_DIRS})
+list(APPEND EXTRA_LIBRARIES ${GIO_LIBRARIES})
 
-  include_directories(${PURPLE_INCLUDE_DIRS})
-  add_definitions(${PURPLE_CFLAGS_OTHER})
-
-  link_directories(${PURPLE_LIBRARY_DIRS})
-  list(APPEND EXTRA_LIBRARIES ${PURPLE_LIBRARIES})
-endif()
+# zlib 
+find_package(ZLIB REQUIRED)
+include_directories(${ZLIB_INCLUDE_DIRS})
+add_definitions(${ZLIB_CFLAGS_OTHER})
+link_directories(${ZLIB_LIBRARY_DIRS})
+list(APPEND EXTRA_LIBRARIES ${ZLIB_LIBRARIES})
 
 # Libxml2
-
 include_directories(${LIBXML2_INCLUDE_DIR})
 add_definitions(${LIBXML2_DEFINITIONS})
-
 list(APPEND EXTRA_LIBRARIES ${LIBXML2_LIBRARIES})
 
 include_directories(src)
@@ -85,5 +95,11 @@ set(SOURCES
   src/contrib/purple/http.h
 )
 
+
 add_library(${PROJECT_NAME} SHARED ${SOURCES})
+
+if(APPLE)
+  set(CMAKE_SHARED_LIBRARY_SUFFIX ".so")
+endif()
+
 target_link_libraries(${PROJECT_NAME} ${EXTRA_LIBRARIES})

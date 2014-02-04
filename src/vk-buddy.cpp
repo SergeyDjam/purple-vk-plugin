@@ -129,13 +129,18 @@ uint64_set on_update_user_infos(PurpleConnection* gc, const picojson::value& res
 {
     if (friends_get && !result.is<picojson::object>()) {
         purple_debug_error("prpl-vkcom", "Wrong type returned as friends.get call result\n");
+    /*
         return {};
+        As I can understand, it is all right here, but clang 3.2 doesn't compile it.
+        http://clang-developers.42468.n3.nabble.com/C-11-error-about-initializing-explicit-constructor-with-td4029849.html
+    */
+        return uint64_set();
     }
 
     const picojson::value& items = friends_get ? result.get("items") : result;
     if (!items.is<picojson::array>()) {
         purple_debug_error("prpl-vkcom", "Wrong type returned as friends.get or users.get call result\n");
-        return {};
+        return uint64_set();
     }
 
     // Adds or updates buddies in result and forms the active set of buddy ids.
@@ -265,7 +270,7 @@ void get_users_from_dialogs(PurpleConnection* gc, ReceivedUsersCb received_users
         uint64_set uids;
         ReceivedUsersCb received_users_cb;
     };
-    shared_ptr<Helper> helper{ new Helper{ {}, std::move(received_users_cb) } };
+    shared_ptr<Helper> helper{ new Helper{ uint64_set(), std::move(received_users_cb) } };
 
     // preview_length minimum value is 1, zero means "full message".
     CallParams params = { {"preview_length", "1"}, {"count", "200"} };
@@ -281,7 +286,7 @@ void get_users_from_dialogs(PurpleConnection* gc, ReceivedUsersCb received_users
     }, [=] {
         helper->received_users_cb(helper->uids);
     }, [=](const picojson::value&) {
-        helper->received_users_cb({});
+        helper->received_users_cb(uint64_set());
     });
 }
 
@@ -575,7 +580,7 @@ void remove_buddy_if_needed(PurpleConnection* gc, uint64 user_id)
 }
 
 
-void get_user_full_name(PurpleConnection* gc, uint64 uid, const NameFetchedCb& fetch_cb)
+void set_account_alias(PurpleConnection* gc, uint64 uid)
 {
     purple_debug_info("prpl-vkcom", "Getting full name for %llu\n", (unsigned long long)uid);
 
@@ -602,7 +607,9 @@ void get_user_full_name(PurpleConnection* gc, uint64 uid, const NameFetchedCb& f
         string first_name = users[0].get("first_name").get<string>();
         string last_name = users[0].get("last_name").get<string>();
 
-        fetch_cb(first_name + " " + last_name);
+        string full_name = first_name + " " + last_name;
+        PurpleAccount* account = purple_connection_get_account(gc);
+        purple_account_set_alias(account, full_name.data());
     });
 }
 
