@@ -47,12 +47,10 @@ list(APPEND EXTRA_LIBRARIES ${GIO_LIBRARIES})
 
 # zlib 
 find_package(ZLIB REQUIRED)
-if (ZLIB_FOUND)
-        include_directories(${ZLIB_INCLUDE_DIRS})
-        add_definitions(${ZLIB_CFLAGS_OTHER})
-        link_directories(${ZLIB_LIBRARY_DIRS})
-        list(APPEND EXTRA_LIBRARIES ${ZLIB_LIBRARIES})
-endif(ZLIB_FOUND)
+include_directories(${ZLIB_INCLUDE_DIRS})
+add_definitions(${ZLIB_CFLAGS_OTHER})
+link_directories(${ZLIB_LIBRARY_DIRS})
+list(APPEND EXTRA_LIBRARIES ${ZLIB_LIBRARIES})
 
 # Libxml2
 include_directories(${LIBXML2_INCLUDE_DIR})
