@@ -162,8 +162,8 @@ PurpleHttpRequest* prepare_upload_request(const string& url, const char* partnam
     string body_header = str_format("--%s\r\n"
                                     "Content-Disposition: form-data; name=\"%s\"; filename=\"%s\"\r\n"
                                     "Content-Type: %s\r\n"
-                                    "Content-Length: %d\r\n"
-                                    "\r\n", boundary.data(), partname, name, mime_type, size);
+                                    "Content-Length: %lld\r\n"
+                                    "\r\n", boundary.data(), partname, name, mime_type, (long long)size);
     string body_footer = str_format("\r\n--%s--", boundary.data());
     g_free(mime_type);
     g_free(content_type);

@@ -218,7 +218,7 @@ void upload_imgstore_images_internal(PurpleConnection* gc, const UploadImgstoreI
         // vk.com will automatically add access_key to your private photos.
         int64 owner_id = int64(fields.get("owner_id").get<double>());
         uint64 id = uint64(fields.get("id").get<double>());
-        data->attachments += str_format("photo%d_%d", owner_id, id);
+        data->attachments += str_format("photo%lld_%lld", (long long)owner_id, (long long)id);
 
         data->img_ids.pop_back();
         if (data->img_ids.empty()) {
