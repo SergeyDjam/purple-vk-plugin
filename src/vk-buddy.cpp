@@ -21,7 +21,7 @@ uint64_set on_update_user_infos(PurpleConnection* gc, const picojson::value& res
                                 bool update_presence);
 
 // Returns a set of uids of all non-friends, which a user had a dialog with.
-using ReceivedUsersCb = std::function<void(const uint64_set&)>;
+typedef std::function<void(const uint64_set&)> ReceivedUsersCb;
 void get_users_from_dialogs(PurpleConnection* gc, ReceivedUsersCb received_users_cb);
 
 // Updates buddy list according to friend_uids and user_infos stored in VkConnData. Adds new buddies, removes
@@ -270,7 +270,7 @@ void get_users_from_dialogs(PurpleConnection* gc, ReceivedUsersCb received_users
         uint64_set uids;
         ReceivedUsersCb received_users_cb;
     };
-    shared_ptr<Helper> helper{ new Helper{ uint64_set(), std::move(received_users_cb) } };
+    shared_ptr<Helper> helper{ new Helper({ uint64_set(), std::move(received_users_cb) }) };
 
     // preview_length minimum value is 1, zero means "full message".
     CallParams params = { {"preview_length", "1"}, {"count", "200"} };
@@ -522,7 +522,7 @@ void update_buddies_presence_only(PurpleConnection* gc, const uint64_vec user_id
             uint64 user_id = v.get("id").get<double>();
             bool online = v.get("online").get<double>() == 1;
             bool online_mobile = field_is_present<double>(v, "online_mobile");
-            purple_debug_info("prpl-vkcom", "Got status %d, %d for %lld\n", online, online_mobile, user_id);
+            purple_debug_info("prpl-vkcom", "Got status %d, %d for %lld\n", online, online_mobile, (long long)user_id);
 
             VkUserInfo& info = conn_data->user_infos[user_id];
             if (info.online == online && info.online_mobile == online_mobile)

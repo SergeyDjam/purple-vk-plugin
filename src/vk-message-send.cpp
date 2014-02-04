@@ -27,7 +27,7 @@ int send_message(PurpleConnection* gc, uint64 uid, uint64 chat_id, const char* r
 pair<string, int_vec> remove_img_tags(const char* message);
 // Uploads a number of images, stored in imgstore and returns the list of attachments to be added
 // to the message which contained the images.
-using ImagesUploadedCb = std::function<void(const string& attachments)>;
+typedef std::function<void(const string& attachments)> ImagesUploadedCb;
 void upload_imgstore_images(PurpleConnection* gc, const int_vec& img_ids, const ImagesUploadedCb& uploaded_cb,
                             const ErrorCb& error_cb);
 
@@ -164,7 +164,7 @@ struct UploadImgstoreImages
     ImagesUploadedCb uploaded_cb;
     ErrorCb error_cb;
 };
-using UploadImgstoreImagesPtr = shared_ptr<UploadImgstoreImages>;
+typedef shared_ptr<UploadImgstoreImages> UploadImgstoreImagesPtr;
 
 // Helper function for upload_imgstore_images.
 void upload_imgstore_images_internal(PurpleConnection* gc, const UploadImgstoreImagesPtr& data);
@@ -177,7 +177,11 @@ void upload_imgstore_images(PurpleConnection* gc, const int_vec& img_ids, const 
         return;
     }
 
-    UploadImgstoreImagesPtr data{ new UploadImgstoreImages{ img_ids, "", uploaded_cb, error_cb } };
+    // GCC 4.6 crashes here if we try to use uniform intialization.
+    UploadImgstoreImagesPtr data{ new UploadImgstoreImages() };
+    data->img_ids = img_ids;
+    data->uploaded_cb = uploaded_cb;
+    data->error_cb  = error_cb;
     // Reverse data->img_ids as we start pop the items from the back of the img_ids.
     std::reverse(data->img_ids.begin(), data->img_ids.end());
     upload_imgstore_images_internal(gc, data);
@@ -236,7 +240,7 @@ void process_im_error(const picojson::value& error, PurpleConnection* gc, const 
 
 // We cannot send large messages at once due to URL limits (message is encoded in URL). The limit of 1200
 // characters is rather arbitrary, testing shows that it is usually ok.
-const int MESSAGE_TEXT_LIMIT = 1200;
+const uint MESSAGE_TEXT_LIMIT = 1200;
 
 void send_message_internal(PurpleConnection* gc, const SendMessage& message, const string& captcha_sid,
                            const string& captcha_key)

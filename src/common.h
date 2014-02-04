@@ -27,30 +27,37 @@ using std::shared_ptr;
 using std::vector;
 
 // NOTE: Should change string alias to __gnu_cxx::vstring;
-using string = std::string;
-using string_map = map<string, string>;
-using string_pair = pair<string, string>;
-using string_set = set<string>;
-using string_vec = vector<string>;
+typedef std::string string;
+typedef map<string, string> string_map;
+typedef pair<string, string> string_pair;
+typedef set<string> string_set;
+typedef vector<string> string_vec;
 
-using uint = unsigned int;
-using int_vec = vector<int>;
-using uint_set = set<uint>;
-using int64 = int64_t;
-using uint64 = uint64_t;
-using uint64_vec = vector<uint64>;
-using uint64_set = set<uint64>;
+typedef unsigned int uint;
+typedef vector<int> int_vec;
+typedef set<uint> uint_set;
+typedef int64_t int64;
+typedef uint64_t uint64;
+typedef vector<uint64> uint64_vec;
+typedef set<uint64> uint64_set;
 
 using std::to_string;
 
-using steady_clock = std::chrono::steady_clock;
-using steady_time_point = std::chrono::steady_clock::time_point;
-using steady_duration = std::chrono::steady_clock::duration;
+// GCC 4.6 supported only pre-C++11 monotonic_clock
+#if __GNUC__ != 4 || __GNUC_MINOR__ != 6
+using std::chrono::steady_clock;
+typedef std::chrono::steady_clock::time_point steady_time_point;
+typedef std::chrono::steady_clock::duration steady_duration;
+#else
+typedef std::chrono::monotonic_clock steady_clock;
+typedef std::chrono::monotonic_clock::time_point steady_time_point;
+typedef std::chrono::monotonic_clock::duration steady_duration;
+#endif
 
 // This function type is used for signalling success if no other information must be passed.
-using SuccessCb = std::function<void()>;
+typedef std::function<void()> SuccessCb;
 // This function type is used for returning errors via callback.
-using ErrorCb = std::function<void()>;
+typedef std::function<void()> ErrorCb;
 
 // A very simple object, which calls given function upon termination.
 class OnExit

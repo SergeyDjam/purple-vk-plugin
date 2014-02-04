@@ -99,7 +99,7 @@ struct AuthData
     ErrorCb error_cb;
 };
 
-using AuthDataPtr = std::shared_ptr<AuthData>;
+typedef std::shared_ptr<AuthData> AuthDataPtr;
 
 //    void on_success(const string& access_token, const string& uid);
 //    // Called upon failure, destroys this.

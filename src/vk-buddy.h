@@ -53,5 +53,5 @@ void update_presence_in_buddy_list(PurpleConnection* gc, uint64 user_id);
 void set_account_alias(PurpleConnection* gc, uint64 uid);
 
 // Finds user by "screen name" i.e. nickname.
-using UidFetchedCb = std::function<void(uint64 uid)>;
+typedef std::function<void(uint64 uid)> UidFetchedCb;
 void find_user_by_screenname(PurpleConnection* gc, const string& screen_name, const UidFetchedCb& fetch_cb);

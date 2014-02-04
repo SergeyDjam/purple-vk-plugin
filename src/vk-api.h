@@ -9,9 +9,9 @@
 #include "contrib/picojson.h"
 
 // Calls method with params.
-using CallParams = vector<string_pair>;
-using CallSuccessCb = std::function<void(const picojson::value& result)>;
-using CallErrorCb = std::function<void(const picojson::value& error)>;
+typedef vector<string_pair> CallParams;
+typedef std::function<void(const picojson::value& result)> CallSuccessCb;
+typedef std::function<void(const picojson::value& error)> CallErrorCb;
 void vk_call_api(PurpleConnection* gc, const char* method_name, const CallParams& params,
                  const CallSuccessCb& success_cb = nullptr, const CallErrorCb& error_cb = nullptr);
 
@@ -22,8 +22,8 @@ void vk_call_api(PurpleConnection* gc, const char* method_name, const CallParams
 // call_process_item_cb is called for each item in the array,
 // call_finished_cb is called upon completion,
 // error_cb is called upon error.
-using CallProcessItemCb = std::function<void(const picojson::value&)>;
-using CallFinishedCb = std::function<void()>;
+typedef std::function<void(const picojson::value&)> CallProcessItemCb;
+typedef std::function<void()> CallFinishedCb;
 void vk_call_api_items(PurpleConnection* gc, const char* method_name, const CallParams& params,
                        bool pagination, const CallProcessItemCb& call_process_item_cb,
                        const CallFinishedCb& call_finished_cb, const CallErrorCb& error_cb = nullptr);

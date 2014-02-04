@@ -6,7 +6,7 @@
 
 #include "common.h"
 
-using AuthSuccessCb = std::function<void(const string& auth_token, const string& uid)>;
+typedef std::function<void(const string& auth_token, const string& uid)> AuthSuccessCb;
 
 // Starts authentication process with given user id, password, client id and scope. Either success_cb or
 // error_cb is called upon finishing authorization.

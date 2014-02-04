@@ -72,7 +72,8 @@ string uploaded_docs_to_string(const vector<VkUploadedDoc>& docs)
 } // namespace
 
 VkConnData::VkConnData(PurpleConnection* gc, const string& email, const string& password)
-    : m_email(email),
+    : keepalive_pool(nullptr),
+      m_email(email),
       m_password(password),
       m_gc(gc),
       m_closing(false)

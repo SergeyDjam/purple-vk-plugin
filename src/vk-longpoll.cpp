@@ -40,7 +40,7 @@ void start_long_poll_internal(PurpleConnection* gc, uint64 last_msg_id);
 void start_long_poll(PurpleConnection* gc)
 {
     uint64 last_msg_id = load_last_msg_id(gc);
-    purple_debug_info("prpl-vkcom", "Starting Long Poll with last msg id %lld\n", last_msg_id);
+    purple_debug_info("prpl-vkcom", "Starting Long Poll with last msg id %lld\n", (long long)last_msg_id);
     start_long_poll_internal(gc, last_msg_id);
 }
 

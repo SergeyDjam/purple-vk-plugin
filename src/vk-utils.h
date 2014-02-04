@@ -72,7 +72,7 @@ struct VkGroupInfo
     string screen_name;
 };
 
-using GroupInfoFetchedCb = std::function<void(const map<uint64, VkGroupInfo>& infos)>;
+typedef std::function<void(const map<uint64, VkGroupInfo>& infos)> GroupInfoFetchedCb;
 void get_groups_info(PurpleConnection* gc, uint64_vec group_ids, const GroupInfoFetchedCb& fetched_cb);
 
 // Gets href, which points to the user page.
@@ -85,5 +85,5 @@ string get_group_href(uint64 group_id, const VkGroupInfo& info);
 PurpleConversation* find_conv_for_id(PurpleConnection* gc, uint64 user_id, uint64 chat_id);
 
 // Resolves screen name, like a nickname or group name to type and identifier.
-using ResolveScreenNameCb = std::function<void(const string& type, uint64 id)>;
+typedef std::function<void(const string& type, uint64 id)> ResolveScreenNameCb;
 void resolve_screen_name(PurpleConnection* gc, const char* screen_name, const ResolveScreenNameCb& resolved_cb);

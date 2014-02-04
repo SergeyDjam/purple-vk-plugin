@@ -132,7 +132,7 @@ public:
 
     // Per-connection HTTP keepalive pool, initialized upon first HTTP connection and destroy
     // upon closing the connection.
-    PurpleHttpKeepalivePool* keepalive_pool = nullptr;
+    PurpleHttpKeepalivePool* keepalive_pool;
 
 private:
     string m_email;

@@ -9,8 +9,8 @@
 #include <contrib/purple/http.h>
 #include "contrib/picojson.h"
 
-using UploadedCb = std::function<void(const picojson::value& result)>;
-using UploadProgressCb = std::function<void(PurpleHttpConnection* http_conn, int processed, int total)>;
+typedef std::function<void(const picojson::value& result)> UploadedCb;
+typedef std::function<void(PurpleHttpConnection* http_conn, int processed, int total)> UploadProgressCb;
 
 // Uploads document via docs.getWallUploadServer which means document will be prepared to be
 // sent as attachment via im. value returned via UploadedCb call is returned from docs.save

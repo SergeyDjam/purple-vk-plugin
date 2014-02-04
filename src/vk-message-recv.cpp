@@ -54,7 +54,7 @@ struct MessagesData
     ReceivedCb received_cb;
 };
 
-using MessagesDataPtr = shared_ptr<MessagesData>;
+typedef shared_ptr<MessagesData> MessagesDataPtr;
 
 // Receives all messages starting after last_msg_id.
 void receive_messages_range_internal(const MessagesDataPtr& data, uint64 last_msg_id, bool outgoing);
