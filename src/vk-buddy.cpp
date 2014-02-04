@@ -131,18 +131,18 @@ uint64_set on_update_user_infos(PurpleConnection* gc, const picojson::value& res
 {
     if (friends_get && !result.is<picojson::object>()) {
         purple_debug_error("prpl-vkcom", "Wrong type returned as friends.get call result\n");
-	/*
+    /*
         return {};
         As I can understand, it is all right here, but clang 3.2 doesn't compile it.
         http://clang-developers.42468.n3.nabble.com/C-11-error-about-initializing-explicit-constructor-with-td4029849.html
-        */
+    */
         return uint64_set();
     }
 
     const picojson::value& items = friends_get ? result.get("items") : result;
     if (!items.is<picojson::array>()) {
         purple_debug_error("prpl-vkcom", "Wrong type returned as friends.get or users.get call result\n");
-	return uint64_set();
+    return uint64_set();
     }
 
     // Adds or updates buddies in result and forms the active set of buddy ids.
