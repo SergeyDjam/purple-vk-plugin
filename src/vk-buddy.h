@@ -49,9 +49,8 @@ void add_or_update_user_infos(PurpleConnection* gc, const uint64_vec& uids, cons
 void update_presence_in_buddy_list(PurpleConnection* gc, uint64 user_id);
 
 
-// Fetches buddy full name (First name + second name).
-using NameFetchedCb = std::function<void(const string& data)>;
-void get_user_full_name(PurpleConnection* gc, uint64 uid, const NameFetchedCb& fetch_cb);
+// Set account alias to user full name (first name + second name).
+void set_account_alias(PurpleConnection* gc, uint64 uid);
 
 // Finds user by "screen name" i.e. nickname.
 using UidFetchedCb = std::function<void(uint64 uid)>;
