@@ -1,4 +1,6 @@
  * Add support for creating/joining multi-user chats.
+ * Add (optional) pseudo-user for informing on replies/comments to photos/whatever.
+ * Test bad connections with netem (emulate large packet loss, huge pings, random disconnects/timeouts)
  * Add support for receiving geo-information.
  * Add groups (PurpleBuddys will have duplicate names, is it ok?)
  * Update buddy info asynchronously on "Get Info".
