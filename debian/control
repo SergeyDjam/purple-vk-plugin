@@ -9,6 +9,5 @@ Homepage: http://bitbucket.org/olegoandreev/purple-vk-plugin
 Package: purple-vk-plugin
 Architecture: any
 Depends: ${shlibs:Depends}, ${misc:Depends}
-Description: vk.com messaging protocol for pidgin
- purple-vk-plugin is a Pidgin plugin, which adds support for chatting
- via Vk.com social network.
+Description: plugin for pidgin allowing to send messages in vk.com social network
+ purple-vk-plugin is a plugin for Pidgin, which supports Vk.com messaging.
