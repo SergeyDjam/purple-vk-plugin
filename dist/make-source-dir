@@ -1,0 +1,24 @@
+#!/bin/bash
+
+# This script creates the directory with clean source.
+#
+# Package name and version are read from version file and the resulting directory
+# is named $PACKAGENAME-$VERSION
+
+cd `dirname $0`
+
+. version
+
+FULLNAME=$PACKAGENAME-$VERSION
+
+echo "Packaging $FULLNAME"
+rm -rf $FULLNAME
+mkdir $FULLNAME
+
+cp -r ../data $FULLNAME
+cp -r ../src $FULLNAME
+cp -r ../CMakeLists.txt $FULLNAME
+cp -r ../COPYING $FULLNAME
+cp -r ../README.txt $FULLNAME
+cp -r ../TODO.txt $FULLNAME
+
