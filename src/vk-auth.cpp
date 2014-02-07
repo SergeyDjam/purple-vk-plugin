@@ -94,6 +94,7 @@ struct AuthData
     string password;
     string client_id;
     string scope;
+    bool imitate_mobile_client;
 
     AuthSuccessCb success_cb;
     ErrorCb error_cb;
@@ -129,6 +130,10 @@ void on_error(const AuthDataPtr& data, PurpleConnectionError error, const string
         data->error_cb();
 }
 
+const char api_version[] = "5.8";
+const char mobile_user_agent[] = "Mozilla/5.0 (Mobile; rv:17.0) Gecko/17.0 Firefox/17.0";
+const char desktop_user_agent[] = "Mozilla/5.0 (Windows NT 6.1; Win64; x64; rv:25.0) Firefox/25.0";
+
 void start_auth(const AuthDataPtr& data)
 {
     assert(data->success_cb);
@@ -136,8 +141,8 @@ void start_auth(const AuthDataPtr& data)
     purple_debug_info("prpl-vkcom", "Starting authentication\n");
 
     string url = str_format("https://oauth.vk.com/oauth/authorize?redirect_uri=https://oauth.vk.com/blank.html"
-                            "&response_type=token&client_id=%s&scope=%s&display=page", data->client_id.data(),
-                            data->scope.data());
+                            "&response_type=token&client_id=%s&scope=%s&display=page&v=%s",
+                            data->client_id.data(), data->scope.data(), api_version);
     http_get(data->gc, url, [=](PurpleHttpConnection* http_conn, PurpleHttpResponse* response) {
         on_fetch_vk_oauth_form(data, http_conn, response);
     });
@@ -184,6 +189,10 @@ void on_fetch_vk_oauth_form(const AuthDataPtr& data, PurpleHttpConnection* http_
     }
 
     PurpleHttpRequest* request = prepare_form_request(form);
+    if (data->imitate_mobile_client)
+        purple_http_request_header_add(request, "User-Agent", mobile_user_agent);
+    else
+        purple_http_request_header_add(request, "User-Agent", desktop_user_agent);
     http_request_copy_cookie_jar(request, http_conn);
     http_request_update_on_redirect(data->gc, request, [=](PurpleHttpConnection* new_conn, PurpleHttpResponse* new_response) {
         on_fetch_vk_confirmation_form(data, new_conn, new_response);
@@ -230,6 +239,10 @@ void on_fetch_vk_confirmation_form(const AuthDataPtr& data, PurpleHttpConnection
     }
 
     PurpleHttpRequest* request = prepare_form_request(form);
+    if (data->imitate_mobile_client)
+        purple_http_request_header_add(request, "User-Agent", mobile_user_agent);
+    else
+        purple_http_request_header_add(request, "User-Agent", desktop_user_agent);
     http_request_copy_cookie_jar(request, http_conn);
     http_request_update_on_redirect(data->gc, request, [=](PurpleHttpConnection* new_conn, PurpleHttpResponse* new_response) {
         on_fetch_vk_access_token(data, new_conn, new_response);
@@ -278,6 +291,9 @@ void vk_auth_user(PurpleConnection* gc, const string& email, const string& passw
     data->scope = scope;
     data->success_cb = success_cb;
     data->error_cb = error_cb;
+
+    PurpleAccount* account = purple_connection_get_account(gc);
+    data->imitate_mobile_client = purple_account_get_bool(account, "imitate_mobile_client", false);
 
     start_auth(data);
 }
