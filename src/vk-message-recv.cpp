@@ -741,24 +741,29 @@ void mark_messages_as_read_impl(PurpleConnection* gc, const Cont& message_ids)
 
 void mark_message_as_read(PurpleConnection* gc, const VkReceivedMessage_vec& messages)
 {
-    VkConnData* conn_data = get_conn_data(gc);
-    // Check if we should defer all messages, because we are Away.
-    if (is_away(gc)) {
-        append(conn_data->deferred_mark_as_read, messages);
-        return;
-    }
-
     uint64_vec message_ids;
 
-    PurpleConversation* conv = find_active_conv(gc);
-    uint64 active_user_id;
-    uint64 active_chat_id;
-    find_active_ids(conv, &active_user_id, &active_chat_id);
-    for (const VkReceivedMessage& msg: messages) {
-        if (message_is_active(msg, active_user_id, active_chat_id))
+    if (purple_account_get_bool(purple_connection_get_account(gc), "mark_as_read_instantaneous", false)) {
+        for (const VkReceivedMessage& msg: messages)
             message_ids.push_back(msg.msg_id);
-        else
-            conn_data->deferred_mark_as_read.push_back(msg);
+    } else {
+        VkConnData* conn_data = get_conn_data(gc);
+        // Check if we should defer all messages, because we are Away.
+        if (is_away(gc)) {
+            append(conn_data->deferred_mark_as_read, messages);
+            return;
+        }
+
+        PurpleConversation* conv = find_active_conv(gc);
+        uint64 active_user_id;
+        uint64 active_chat_id;
+        find_active_ids(conv, &active_user_id, &active_chat_id);
+        for (const VkReceivedMessage& msg: messages) {
+            if (message_is_active(msg, active_user_id, active_chat_id))
+                message_ids.push_back(msg.msg_id);
+            else
+                conn_data->deferred_mark_as_read.push_back(msg);
+        }
     }
 
     mark_messages_as_read_impl(gc, message_ids);
@@ -767,24 +772,30 @@ void mark_message_as_read(PurpleConnection* gc, const VkReceivedMessage_vec& mes
 
 void mark_deferred_messages_as_read(PurpleConnection* gc, bool active)
 {
-    if (is_away(gc) && !active)
-        return;
-
     uint64_vec message_ids;
 
     VkConnData* conn_data = get_conn_data(gc);
-    PurpleConversation* conv = find_active_conv(gc);
-    uint64 active_user_id;
-    uint64 active_chat_id;
-    find_active_ids(conv, &active_user_id, &active_chat_id);
-
-    for (const VkReceivedMessage& msg: conn_data->deferred_mark_as_read)
-        if (message_is_active(msg, active_user_id, active_chat_id))
+    if (purple_account_get_bool(purple_connection_get_account(gc), "mark_as_read_instantaneous", false)) {
+        for (const VkReceivedMessage& msg: conn_data->deferred_mark_as_read)
             message_ids.push_back(msg.msg_id);
+        conn_data->deferred_mark_as_read.clear();
+    } else {
+        if (is_away(gc) && !active)
+            return;
 
-    remove_all(conn_data->deferred_mark_as_read, [=](const VkReceivedMessage& msg) {
-       return message_is_active(msg, active_user_id, active_chat_id);
-    });
+        PurpleConversation* conv = find_active_conv(gc);
+        uint64 active_user_id;
+        uint64 active_chat_id;
+        find_active_ids(conv, &active_user_id, &active_chat_id);
+
+        for (const VkReceivedMessage& msg: conn_data->deferred_mark_as_read)
+            if (message_is_active(msg, active_user_id, active_chat_id))
+                message_ids.push_back(msg.msg_id);
+
+        remove_all(conn_data->deferred_mark_as_read, [=](const VkReceivedMessage& msg) {
+            return message_is_active(msg, active_user_id, active_chat_id);
+        });
+    }
 
     mark_messages_as_read_impl(gc, message_ids);
 }
