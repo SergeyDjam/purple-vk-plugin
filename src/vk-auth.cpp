@@ -121,6 +121,13 @@ void on_fetch_vk_confirmation_form(const AuthDataPtr& data, PurpleHttpConnection
 void on_fetch_vk_access_token(const AuthDataPtr& data, PurpleHttpConnection* http_conn,
                               PurpleHttpResponse*);
 
+// Replaces '\n' with ' ' (purple_debug_* functions output only the first line).
+string replace_br(const char* str)
+{
+    string ret = str;
+    str_replace(ret, "\n", " ");
+    return ret;
+}
 
 // Called upon auth error.
 void on_error(const AuthDataPtr& data, PurpleConnectionError error, const string& error_string)
@@ -164,7 +171,7 @@ void on_fetch_vk_oauth_form(const AuthDataPtr& data, PurpleHttpConnection* http_
     xmlDoc* doc = htmlReadDoc((xmlChar*)page_data, nullptr, "utf-8", HTML_PARSE_RECOVER | HTML_PARSE_NOBLANKS
                               | HTML_PARSE_NOERROR | HTML_PARSE_NOWARNING);
     if (!doc) {
-        purple_debug_error("prpl-vkcom", "Unable to parse login form HTML: %s\n", page_data);
+        purple_debug_error("prpl-vkcom", "Unable to parse login form HTML: %s\n", replace_br(page_data).data());
         on_error(data, PURPLE_CONNECTION_ERROR_AUTHENTICATION_IMPOSSIBLE, "Internal auth error");
         return;
     }
@@ -172,18 +179,18 @@ void on_fetch_vk_oauth_form(const AuthDataPtr& data, PurpleHttpConnection* http_
     xmlFreeDoc(doc);
 
     if (form.action_url.empty()) {
-        purple_debug_error("prpl-vkcom", "Error finding form in login page: %s\n", page_data);
+        purple_debug_error("prpl-vkcom", "Error finding form in login page: %s\n", replace_br(page_data).data());
         on_error(data, PURPLE_CONNECTION_ERROR_AUTHENTICATION_IMPOSSIBLE, "Internal auth error");
         return;
     }
 
     if (!map_update(form.params, "email", data->email)) {
-        purple_debug_error("prpl-vkcom", "Login form does not contain email: %s\n", page_data);
+        purple_debug_error("prpl-vkcom", "Login form does not contain email: %s\n", replace_br(page_data).data());
         on_error(data, PURPLE_CONNECTION_ERROR_AUTHENTICATION_IMPOSSIBLE, "Internal auth error");
         return;
     }
     if (!map_update(form.params, "pass", data->password)) {
-        purple_debug_error("prpl-vkcom", "Login form does not contain pass: %s\n", page_data);
+        purple_debug_error("prpl-vkcom", "Login form does not contain pass: %s\n", replace_br(page_data).data());
         on_error(data, PURPLE_CONNECTION_ERROR_AUTHENTICATION_IMPOSSIBLE, "Internal auth error");
         return;
     }
@@ -225,7 +232,7 @@ void on_fetch_vk_confirmation_form(const AuthDataPtr& data, PurpleHttpConnection
     xmlDoc* doc = htmlReadDoc((xmlChar*)page_data, nullptr, "utf-8", HTML_PARSE_RECOVER | HTML_PARSE_NOBLANKS
                               | HTML_PARSE_NOERROR | HTML_PARSE_NOWARNING);
     if (!doc) {
-        purple_debug_error("prpl-vkcom", "Unable to parse confirmation form HTML: %s\n", page_data);
+        purple_debug_error("prpl-vkcom", "Unable to parse confirmation form HTML: %s\n", replace_br(page_data).data());
         on_error(data, PURPLE_CONNECTION_ERROR_AUTHENTICATION_IMPOSSIBLE, "Internal auth error");
         return;
     }
@@ -233,7 +240,7 @@ void on_fetch_vk_confirmation_form(const AuthDataPtr& data, PurpleHttpConnection
     xmlFreeDoc(doc);
 
     if (form.action_url.empty()) {
-        purple_debug_error("prpl-vkcom", "Error finding form in login confirmation page: %s\n", page_data);
+        purple_debug_error("prpl-vkcom", "Error finding form in login confirmation page: %s\n", replace_br(page_data).data());
         on_error(data, PURPLE_CONNECTION_ERROR_AUTHENTICATION_IMPOSSIBLE, "Internal auth error");
         return;
     }
