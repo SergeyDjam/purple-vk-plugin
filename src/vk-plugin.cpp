@@ -73,6 +73,9 @@ void vk_tooltip_text(PurpleBuddy* buddy, PurpleNotifyUserInfo* info, gboolean)
     if (!user_info)
         return;
 
+    if (!user_info->domain.empty())
+        purple_notify_user_info_add_pair_plaintext(info, "Nickname", user_info->domain.data());
+
     if (!user_info->activity.empty())
         purple_notify_user_info_add_pair_plaintext(info, "Status", user_info->activity.data());
     if (user_info->online_mobile)

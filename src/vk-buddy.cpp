@@ -241,6 +241,8 @@ uint64 on_update_user_info(PurpleConnection* gc, const picojson::value& fields, 
         info.domain = fields.get("domain").get<string>();
     else
         info.domain.clear();
+    if (info.domain == buddy_name_from_uid(uid))
+        info.domain.clear();
 
     bool online = false;
     if (field_is_present<double>(fields, "online"))
