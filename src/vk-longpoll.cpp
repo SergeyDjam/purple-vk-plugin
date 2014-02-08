@@ -353,7 +353,7 @@ void process_incoming_message_internal(PurpleConnection* gc, uint64 msg_id, int 
 
         add_buddy_if_needed(gc, user_id, [=] {
             serv_got_im(gc, buddy_name_from_uid(user_id).data(), text.data(), PURPLE_MESSAGE_RECV, timestamp);
-            mark_message_as_read(gc, { msg_id });
+            mark_message_as_read(gc, { VkReceivedMessage({ msg_id, user_id, 0 }) });
         });
     }
 }

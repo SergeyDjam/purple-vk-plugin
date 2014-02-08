@@ -42,6 +42,18 @@ struct VkUserInfo
     string photo_max;
 };
 
+// Message, describing one received message. This structure is used for saving received messages
+// until they must be marked as read.
+struct VkReceivedMessage
+{
+    uint64 msg_id;
+    // Only one of the two fields is non-zero.
+    uint64 user_id;
+    uint64 chat_id;
+};
+
+typedef vector<VkReceivedMessage> VkReceivedMessage_vec;
+
 // A structure, describing a previously uploaded doc. It is used to check whether the doc
 // has already been uploaded before and not upload it again.
 struct VkUploadedDoc
@@ -104,10 +116,10 @@ public:
     uint64_set manually_added_buddies;
     uint64_set manually_removed_buddies;
 
-    // A collection of message ids, which should be marked as read later (when user starts
-    // typing or changes status to Available). Must be stored and loaded, so that we do not
-    // lose any read statuses.
-    uint64_set deferred_mark_as_read;
+    // A collection of messages, which should be marked as read later (when user starts
+    // typing or activates tab or changes status to Available). Must be stored and loaded, so that
+    // we do not lose any read statuses.
+    VkReceivedMessage_vec deferred_mark_as_read;
 
     // We check this collection on each file xfer and update it after upload to Vk.com. It gets stored and loaded
     // from settings.

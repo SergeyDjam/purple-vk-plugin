@@ -41,8 +41,8 @@ struct Message
     vector<string> thumbnail_urls;
     // A list of user and group ids, present in message. Set in process_attachments
     // and process_fwd_message, replaced in replace_user_ids and replace_group_ids.
-    vector<uint64> user_ids;
-    vector<uint64> group_ids;
+    vector<uint64> unknown_user_ids;
+    vector<uint64> unknown_group_ids;
 };
 
 // A structure, capturing all information about received messages.
@@ -509,15 +509,15 @@ string get_user_placeholder(PurpleConnection* gc, uint64 user_id, Message& messa
     if (info)
         return get_user_href(user_id, *info);
 
-    string text = str_format("<user-placeholder-%d>", message.user_ids.size());
-    message.user_ids.push_back(user_id);
+    string text = str_format("<user-placeholder-%d>", message.unknown_user_ids.size());
+    message.unknown_user_ids.push_back(user_id);
     return text;
 }
 
 string get_group_placeholder(uint64 group_id, Message& message)
 {
-    string text = str_format("<group-placeholder-%d>", message.group_ids.size());
-    message.group_ids.push_back(group_id);
+    string text = str_format("<group-placeholder-%d>", message.unknown_group_ids.size());
+    message.unknown_group_ids.push_back(group_id);
     return text;
 }
 
@@ -558,13 +558,12 @@ void replace_user_ids(const MessagesDataPtr& data)
     // Get all uids, which are not present in user_infos.
     uint64_vec unknown_uids;
     for (const Message& m: data->messages)
-        for (uint64 id: m.user_ids)
-            unknown_uids.push_back(id);
+        append(unknown_uids, m.unknown_user_ids);
 
     add_or_update_user_infos(data->gc, unknown_uids, [=] {
         for (Message& m: data->messages) {
-            for (unsigned i = 0; i < m.user_ids.size(); i++) {
-                uint64 id = m.user_ids[i];
+            for (unsigned i = 0; i < m.unknown_user_ids.size(); i++) {
+                uint64 id = m.unknown_user_ids[i];
                 string placeholder = str_format("<user-placeholder-%d>", i);
                 VkUserInfo* info = get_user_info_for_buddy(data->gc, id);
                 string href = get_user_href(id, *info);
@@ -580,13 +579,12 @@ void replace_group_ids(const MessagesDataPtr& data)
 {
     uint64_vec group_ids;
     for (const Message& m: data->messages)
-        for (uint64 id: m.group_ids)
-            group_ids.push_back(id);
+        append(group_ids, m.unknown_group_ids);
 
     get_groups_info(data->gc, group_ids, [=](const map<uint64, VkGroupInfo>& infos) {
         for (Message& m: data->messages) {
-            for (unsigned i = 0; i < m.group_ids.size(); i++) {
-                uint64 group_id = m.group_ids[i];
+            for (unsigned i = 0; i < m.unknown_group_ids.size(); i++) {
+                uint64 group_id = m.unknown_group_ids[i];
                 string placeholder = str_format("<group-placeholder-%d>", i);
                 string href = get_group_href(group_id, infos.at(group_id));
                 str_replace(m.text, placeholder, href);
@@ -656,11 +654,11 @@ void finish_receiving(const MessagesDataPtr& data)
             }
 
             // Mark incoming messages as read.
-            uint64_vec unread_message_ids;
+            VkReceivedMessage_vec unread_messages;
             for (const Message& m: data->messages)
                 if (m.status == MESSAGE_INCOMING_UNREAD)
-                    unread_message_ids.push_back(m.mid);
-            mark_message_as_read(data->gc, unread_message_ids);
+                    unread_messages.push_back(VkReceivedMessage{ m.mid, m.uid, m.chat_id });
+            mark_message_as_read(data->gc, unread_messages);
 
             // Sets the last message id as m_messages are sorted by mid.
             uint64 max_msg_id = 0;
@@ -677,6 +675,56 @@ void finish_receiving(const MessagesDataPtr& data)
 
 namespace {
 
+// Returns true if the user is away from the notifications point of view: he is Away and
+// mark_as_read_online_only option is enabled (the default).
+bool is_away(PurpleConnection* gc)
+{
+    PurpleAccount* account = purple_connection_get_account(gc);
+    if (purple_account_get_bool(account, "mark_as_read_online_only", true)) {
+        PurpleStatus* status = purple_account_get_active_status(purple_connection_get_account(gc));
+        PurpleStatusPrimitive primitive_status = purple_status_type_get_primitive(purple_status_get_type(status));
+        if (primitive_status != PURPLE_STATUS_AVAILABLE)
+            return true;
+    }
+    return false;
+}
+
+// Returns active PurpleConnection or nullptr.
+PurpleConversation* find_active_conv(PurpleConnection* gc)
+{
+    for (GList* p = purple_get_conversations(); p; p = p->next) {
+        PurpleConversation* conv = (PurpleConversation*)p->data;
+        if (purple_conversation_get_gc(conv) == gc && purple_conversation_has_focus(conv))
+            return conv;
+    }
+    return nullptr;
+}
+
+// Finds active user id or chat id. Both may be zero (if some other conversation is active).
+void find_active_ids(PurpleConversation* conv, uint64* user_id, uint64* chat_id)
+{
+    if (!conv) {
+        *user_id = 0;
+        *chat_id = 0;
+        return;
+    }
+
+    const char* name = purple_conversation_get_name(conv);
+    *user_id = uid_from_buddy_name(name);
+    *chat_id = chat_id_from_name(name);
+}
+
+// Returns true if message belongs to to the active conversation, which is defined by active_user_id
+// and active_chat_id, returned from find_active_ids.
+bool message_is_active(const VkReceivedMessage& msg, uint64 active_user_id, uint64 active_chat_id)
+{
+    if (active_user_id != 0 && msg.user_id == active_user_id)
+        return true;
+    if (active_chat_id != 0 && msg.chat_id == active_chat_id)
+        return true;
+    return false;
+}
+
 template<typename Cont>
 void mark_messages_as_read_impl(PurpleConnection* gc, const Cont& message_ids)
 {
@@ -691,27 +739,52 @@ void mark_messages_as_read_impl(PurpleConnection* gc, const Cont& message_ids)
 
 } // namespace
 
-void mark_message_as_read(PurpleConnection* gc, const uint64_vec& message_ids)
+void mark_message_as_read(PurpleConnection* gc, const VkReceivedMessage_vec& messages)
 {
-    PurpleAccount* account = purple_connection_get_account(gc);
-    if (purple_account_get_bool(account, "mark_as_read_online_only", true)) {
-        PurpleStatus* status = purple_account_get_active_status(purple_connection_get_account(gc));
-        PurpleStatusPrimitive primitive_status = purple_status_type_get_primitive(purple_status_get_type(status));
-        if (primitive_status != PURPLE_STATUS_AVAILABLE) {
-            VkConnData* conn_data = get_conn_data(gc);
-            for (uint64 id: message_ids)
-                conn_data->deferred_mark_as_read.insert(id);
-            return;
-        }
+    VkConnData* conn_data = get_conn_data(gc);
+    // Check if we should defer all messages, because we are Away.
+    if (is_away(gc)) {
+        append(conn_data->deferred_mark_as_read, messages);
+        return;
+    }
+
+    uint64_vec message_ids;
+
+    PurpleConversation* conv = find_active_conv(gc);
+    uint64 active_user_id;
+    uint64 active_chat_id;
+    find_active_ids(conv, &active_user_id, &active_chat_id);
+    for (const VkReceivedMessage& msg: messages) {
+        if (message_is_active(msg, active_user_id, active_chat_id))
+            message_ids.push_back(msg.msg_id);
+        else
+            conn_data->deferred_mark_as_read.push_back(msg);
     }
 
     mark_messages_as_read_impl(gc, message_ids);
 }
 
 
-void mark_deferred_messages_as_read(PurpleConnection* gc)
+void mark_deferred_messages_as_read(PurpleConnection* gc, bool active)
 {
+    if (is_away(gc) && !active)
+        return;
+
+    uint64_vec message_ids;
+
     VkConnData* conn_data = get_conn_data(gc);
-    mark_messages_as_read_impl(gc, conn_data->deferred_mark_as_read);
-    conn_data->deferred_mark_as_read.clear();
+    PurpleConversation* conv = find_active_conv(gc);
+    uint64 active_user_id;
+    uint64 active_chat_id;
+    find_active_ids(conv, &active_user_id, &active_chat_id);
+
+    for (const VkReceivedMessage& msg: conn_data->deferred_mark_as_read)
+        if (message_is_active(msg, active_user_id, active_chat_id))
+            message_ids.push_back(msg.msg_id);
+
+    remove_all(conn_data->deferred_mark_as_read, [=](const VkReceivedMessage& msg) {
+       return message_is_active(msg, active_user_id, active_chat_id);
+    });
+
+    mark_messages_as_read_impl(gc, message_ids);
 }

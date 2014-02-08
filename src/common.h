@@ -215,6 +215,13 @@ inline void append(D& dst, const S& src)
     dst.insert(dst.end(), src.begin(), src.end());
 }
 
+// A simple wrapper over std::remove_if and erase, usable for std::vector/std::string/std::deque.
+template<typename C, typename Pred>
+inline void remove_all(C& cont, Pred pred)
+{
+    cont.erase(std::remove_if(cont.begin(), cont.end(), pred), cont.end());
+}
+
 // Time functions
 
 // Converts the given duration to milliseconds.

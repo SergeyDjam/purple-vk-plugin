@@ -74,8 +74,9 @@ void add_or_update_user_infos(PurpleConnection* gc, const uint64_vec& uids, cons
         return;
     }
 
-    for (uint64 uid: uids)
+    for (uint64 uid: uids) {
         assert(!is_friend(gc, uid));
+    }
 
     string ids_str = str_concat_int(',', uids);
     purple_debug_info("prpl-vkcom", "Updating information for buddies %s\n", ids_str.data());

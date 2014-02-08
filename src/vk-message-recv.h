@@ -2,7 +2,7 @@
 
 #pragma once
 
-#include "common.h"
+#include "vk-common.h"
 
 #include <connection.h>
 
@@ -18,10 +18,11 @@ void receive_messages_range(PurpleConnection* gc, uint64 last_msg_id, const Rece
 // Receives messages with given ids.
 void receive_messages(PurpleConnection* gc, const uint64_vec& message_ids, const ReceivedCb& received_cb = nullptr);
 
-// Marks messages as read or defers marking them until user changes status (if the corresponding
-// option is enabled and status is not Online).
-void mark_message_as_read(PurpleConnection* gc, const uint64_vec& message_ids);
+// Marks messages as read or defers marking them until it is appropriate to mark them as read.
+void mark_message_as_read(PurpleConnection* gc, const VkReceivedMessage_vec& messages);
 
-// Marks all messages, which have been previously deferred, as read. Used when user changes
-// status or starts typing.
-void mark_deferred_messages_as_read(PurpleConnection* gc);
+// Marks appropriate messages, which have been previously deferred, as read. Used when user does
+// something: changes status to available, starts typing or switches the active conversation.
+// If active is true, the user has done something active: started typing, sent the message or
+// set status to available. This means, that whether the user is Available or Away is disregarded.
+void mark_deferred_messages_as_read(PurpleConnection* gc, bool active);

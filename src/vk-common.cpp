@@ -30,7 +30,44 @@ uint64_set str_split_int(const char* str)
     return ret;
 }
 
-// Parses VkUploadedDoc from JSON representation.
+// Parses VkReceivedMessages from JSON representation.
+vector<VkReceivedMessage> deferred_mark_as_read_from_string(const char* str)
+{
+    picojson::value v;
+    string err = picojson::parse(v, str, str + strlen(str));
+    if (!err.empty() || !v.is<picojson::array>()) {
+        purple_debug_error("prpl-vkcom", "Error loading uploaded docs: %s\n", err.data());
+        return {};
+    }
+
+    vector<VkReceivedMessage> ret;
+    const picojson::array& a = v.get<picojson::array>();
+    for (const picojson::value& d: a) {
+        ret.push_back(VkReceivedMessage());
+        VkReceivedMessage& msg = ret.back();
+        msg.msg_id = d.get("msg_id").get<double>();
+        msg.user_id = d.get("user_id").get<double>();
+        msg.chat_id = d.get("chat_id").get<double>();
+    }
+    return ret;
+}
+
+// Stores VkReceivedMessages in JSON representation.
+string deferred_mark_as_read_to_string(const vector<VkReceivedMessage>& messages)
+{
+    picojson::array a;
+    for (const VkReceivedMessage& msg: messages) {
+        picojson::object d = {
+            {"msg_id",  picojson::value((double)msg.msg_id)},
+            {"user_id", picojson::value((double)msg.user_id)},
+            {"chat_id", picojson::value((double)msg.chat_id)},
+        };
+        a.push_back(picojson::value(d));
+    }
+    return picojson::value(a).serialize();
+}
+
+// Parses VkUploadedDocs from JSON representation.
 vector<VkUploadedDoc> uploaded_docs_from_string(const char* str)
 {
     picojson::value v;
@@ -53,7 +90,7 @@ vector<VkUploadedDoc> uploaded_docs_from_string(const char* str)
     return ret;
 }
 
-// Stores VkUploadedDoc in JSON representation.
+// Stores VkUploadedDocs in JSON representation.
 string uploaded_docs_to_string(const vector<VkUploadedDoc>& docs)
 {
     picojson::array a;
@@ -86,7 +123,7 @@ VkConnData::VkConnData(PurpleConnection* gc, const string& email, const string& 
     manually_removed_buddies = str_split_int(str);
 
     str = purple_account_get_string(account, "deferred_mark_as_read", "");
-    deferred_mark_as_read = str_split_int(str);
+    deferred_mark_as_read = deferred_mark_as_read_from_string(str);
 
     str = purple_account_get_string(account, "uploaded_docs", "[]");
     uploaded_docs = uploaded_docs_from_string(str);
@@ -101,7 +138,7 @@ VkConnData::~VkConnData()
     str = str_concat_int(',', manually_removed_buddies);
     purple_account_set_string(account, "manually_removed_buddies", str.data());
 
-    str = str_concat_int(',', deferred_mark_as_read);
+    str = deferred_mark_as_read_to_string(deferred_mark_as_read);
     purple_account_set_string(account, "deferred_mark_as_read", str.data());
 
     str = uploaded_docs_to_string(uploaded_docs);

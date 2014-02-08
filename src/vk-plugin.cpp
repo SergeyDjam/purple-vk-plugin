@@ -79,6 +79,26 @@ void vk_tooltip_text(PurpleBuddy* buddy, PurpleNotifyUserInfo* info, gboolean)
         purple_notify_user_info_add_pair_plaintext(info, "Uses mobile client", nullptr);
 }
 
+// Signal handler for conversation-updated signal, which is received when user changes active
+// conversation.
+void conversation_updated(PurpleConversation* conv, PurpleConvUpdateType type, gpointer data)
+{
+    PurpleConnection* gc = (PurpleConnection*)data;
+
+    // This is not our conversation.
+    if (gc != purple_conversation_get_gc(conv))
+        return;
+
+    if (type == PURPLE_CONV_UPDATE_UNSEEN) {
+        // Pidgin sends this signal before the conversation becomes focused, so we have to run
+        // a bit later.
+        timeout_add(gc, 0, [=] {
+            mark_deferred_messages_as_read(gc, false);
+            return false;
+        });
+    }
+}
+
 void vk_login(PurpleAccount* acct)
 {
     PurpleConnection* gc = purple_account_get_connection(acct);
@@ -122,11 +142,17 @@ void vk_login(PurpleAccount* acct)
             vk_update_status(gc);
             return true;
         });
+
+        purple_signal_connect(purple_conversations_get_handle(), "conversation-updated", gc,
+                              PURPLE_CALLBACK(conversation_updated), gc);
     }, nullptr);
 }
 
 void vk_close(PurpleConnection* gc)
 {
+    purple_signal_disconnect(purple_conversations_get_handle(), "conversation-updated", gc,
+                          PURPLE_CALLBACK(conversation_updated));
+
     vk_set_offline(gc);
     // Let's sleep 250 msec, so that setOffline executes successfully. Yes, it is ugly, but
     // we cannot defer destruction of PurpleConnection and doing the "right way" is such a bother.
@@ -146,7 +172,7 @@ void vk_close(PurpleConnection* gc)
 
 int vk_send_im(PurpleConnection* gc, const char* to, const char* message, PurpleMessageFlags)
 {
-    mark_deferred_messages_as_read(gc);
+    mark_deferred_messages_as_read(gc, true);
     return send_im_message(gc, uid_from_buddy_name(to), message);
 }
 
@@ -154,7 +180,7 @@ unsigned int vk_send_typing(PurpleConnection* gc, const char* name, PurpleTyping
 {
     if (state != PURPLE_TYPING)
         return 0;
-    mark_deferred_messages_as_read(gc);
+    mark_deferred_messages_as_read(gc, true);
     return send_typing_notification(gc, uid_from_buddy_name(name));
 }
 
@@ -209,9 +235,10 @@ void vk_get_info(PurpleConnection* gc, const char* username)
 // Called when user changes the status.
 void vk_set_status(PurpleAccount* account, PurpleStatus* status)
 {
+    // We consider only changing to Available to be a "user activity".
     PurpleStatusPrimitive primitive_status = purple_status_type_get_primitive(purple_status_get_type(status));
     if (primitive_status == PURPLE_STATUS_AVAILABLE)
-        mark_deferred_messages_as_read(purple_account_get_connection(account));
+        mark_deferred_messages_as_read(purple_account_get_connection(account), true);
     vk_update_status(purple_account_get_connection(account));
 }
 
