@@ -332,6 +332,8 @@ void vk_send_file(PurpleConnection* gc, const char* who, const char* filename)
         purple_xfer_request_accepted(xfer, filename);
     else
         purple_xfer_request(xfer);
+
+    mark_deferred_messages_as_read(gc, true);
 }
 
 gboolean vk_offline_message(const PurpleBuddy*)
