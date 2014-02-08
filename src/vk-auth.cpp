@@ -141,7 +141,7 @@ void start_auth(const AuthDataPtr& data)
     purple_debug_info("prpl-vkcom", "Starting authentication\n");
 
     string url = str_format("https://oauth.vk.com/oauth/authorize?redirect_uri=https://oauth.vk.com/blank.html"
-                            "&response_type=token&client_id=%s&scope=%s&display=page&v=%s",
+                            "&response_type=token&client_id=%s&scope=%s&display=mobile&v=%s",
                             data->client_id.data(), data->scope.data(), api_version);
     http_get(data->gc, url, [=](PurpleHttpConnection* http_conn, PurpleHttpResponse* response) {
         on_fetch_vk_oauth_form(data, http_conn, response);
