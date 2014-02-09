@@ -9,16 +9,12 @@ cd `dirname $0`
 
 . version
 
-FULLNAME=$PACKAGENAME-$VERSION
+FULLNAME=$PACKAGENAME-$PACKAGEVERSION
 
 echo "Packaging $FULLNAME"
 rm -rf $FULLNAME
-mkdir $FULLNAME
 
-cp -r ../data $FULLNAME
-cp -r ../src $FULLNAME
-cp -r ../CMakeLists.txt $FULLNAME
-cp -r ../COPYING $FULLNAME
-cp -r ../README.txt $FULLNAME
-cp -r ../TODO.txt $FULLNAME
+hg archive $FULLNAME
 
+rm -f $FULLNAME/.hgignore
+rm -rf $FULLNAME/dist
