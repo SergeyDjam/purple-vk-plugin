@@ -49,6 +49,13 @@ add_definitions(${PURPLE_CFLAGS_OTHER})
 link_directories(${PURPLE_LIBRARY_DIRS})
 list(APPEND EXTRA_LIBRARIES ${PURPLE_LIBRARIES})
 
+# Store path to libpurple plugins directory for later install() command.
+if (UNIX AND NOT APPLE)
+  execute_process(COMMAND pkg-config purple --variable=plugindir
+                  OUTPUT_VARIABLE PURPLE_PLUGIN_DIR
+                  OUTPUT_STRIP_TRAILING_WHITESPACE)
+endif()
+
 # Gio
 pkg_check_modules(GIO REQUIRED gio-2.0)
 include_directories(${GIO_INCLUDE_DIRS})
@@ -106,6 +113,7 @@ set(SOURCES
   src/contrib/purple/http.h
 )
 
+# Primary plugin library.
 
 add_library(${PROJECT_NAME} SHARED ${SOURCES})
 
@@ -114,3 +122,10 @@ if(APPLE)
 endif()
 
 target_link_libraries(${PROJECT_NAME} ${EXTRA_LIBRARIES})
+
+# Install target for Linux (not tested on BSD)
+
+if (UNIX AND NOT APPLE)
+  install(TARGETS ${PROJECT_NAME} DESTINATION ${PURPLE_PLUGIN_DIR})
+  install(DIRECTORY "data/protocols" DESTINATION "/usr/share/pixmaps/pidgin")
+endif()
