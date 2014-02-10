@@ -6,6 +6,21 @@ Purple-vk-plugin is a plugin for Pidgin, which supports Vk.com messaging.
 Currently only Pidgin on Linux is actively supported, however Windows version
 is planned (any development help on this front is greatly appreciated!).
 
+Installing
+==========
+
+Arch Linux
+==========
+
+purple-vk-plugin is maintained (or at least seems to be :-) in AUR: https://aur.archlinux.org/packages/purple-vk-plugin/
+
+In order to build the package execute the following commands:
+  curl -O https://aur.archlinux.org/packages/pu/purple-vk-plugin/purple-vk-plugin.tar.gz
+  tar xvfz purple-vk-plugin.tar.gz
+  cd purple-vk-plugin
+  makepkg -s
+  pacman -U purple-vk-plugin-*.pkg.tar.xz
+
 Building
 ========
 
@@ -38,14 +53,11 @@ Linux distributions.
      make
    It should finish without errors and warnings, like:
      [100%] Built target purple-vk-plugin
-6. A file libpurple-vk-plugin.so should be generated and located in the build subdirectory.
-   Copy it to ~/.purple/plugins (create this directory if it does not exist). If you want to
-   install system-wide, copy it to /usr/lib/purple-2
-7. The most hassle is installing protocol icons. You can actually skip it, but then protocol
-   icons (Vk symbol) will not be shown.
-
-   Copy all contents from data/protocols subdirectory to /usr/share/pixmaps/pidgin/protocols, run:
-     cp -r protocols /usr/share/pixmaps/pidgin
+6. For system-wide installation run
+     make install
+7. For manual installation copy libpurple-vk-plugin.so either to ~/.purple/plugins (create this directory
+   if it does not exist) or to /usr/lib/purple-2. Copy all contents from data/protocols subdirectory to
+   /usr/share/pixmaps/pidgin/protocols.
 
 Future development
 ==================
