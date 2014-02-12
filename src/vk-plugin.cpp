@@ -358,6 +358,8 @@ void vk_add_buddy_with_invite(PurpleConnection* gc, PurpleBuddy* buddy, PurpleGr
 
     // Store alias and group name, as buddy will be removed momentarily and readded later.
     string alias = purple_buddy_get_alias(buddy);
+    if (alias == purple_buddy_get_name(buddy))
+        alias.clear();
     string group_name = purple_group_get_name(group);
 
     resolve_screen_name(gc, buddy_name.data(), [=](const string& type, uint64 user_id) {
