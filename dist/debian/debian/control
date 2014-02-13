@@ -1,0 +1,13 @@
+Source: purple-vk-plugin
+Section: net
+Priority: optional
+Maintainer: Oleg Andreev <olegoandreev@yandex.ru>
+Build-Depends: debhelper (>= 9.0.0), cmake, libpurple-dev, libxml2-dev, zlib1g-dev
+Standards-Version: 3.9.4
+Homepage: http://bitbucket.org/olegoandreev/purple-vk-plugin
+
+Package: purple-vk-plugin
+Architecture: any
+Depends: ${shlibs:Depends}, ${misc:Depends}
+Description: plugin for pidgin adding Vk.com support
+ purple-vk-plugin is a plugin for Pidgin, which supports Vk.com messaging.
