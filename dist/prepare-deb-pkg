@@ -1,0 +1,29 @@
+#!/bin/bash
+
+# Prepares debian packgaging ready for uploading to PPA (not the package itself).
+#
+# It prepares debian/build directory, containing source code and runs debuild -S
+# The output is a bunch of purple-vk-plugin_VERSION* files in debian/, which
+# can be uploaded to the PPA with
+# dput ppa:purple-vk-plugin/dev purple-vk-plugin_VERSION_source.changes .
+
+. version
+
+if head -n 1 debian/debian/changelog | grep -Fq $PACKAGEVERSION ; then
+    echo "Changelog has the latest version $PACKAGEVERSION"
+else
+    echo "Update debian/debian/changelog with the new version $PACKAGEVERSION"
+    exit 1
+fi
+
+rm -rf debian/build
+
+./make-source-dir
+tar cvzf debian/$PACKAGENAME\_$PACKAGEVERSION.orig.tar.gz $PACKAGENAME-$PACKAGEVERSION
+rm -rf $PACKAGENAME-$PACKAGEVERSION
+
+mkdir debian/build
+cp -r debian/debian debian/build
+
+cd debian/build
+debuild -S
