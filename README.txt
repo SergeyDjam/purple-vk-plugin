@@ -9,6 +9,16 @@ is planned (any development help on this front is greatly appreciated!).
 Installing
 ==========
 
+Ubuntu Linux
+============
+
+purple-vk-plugin development releases are maintained in PPA: https://launchpad.net/~purple-vk-plugin/+archive/dev
+
+In order to install the package execute the following commands:
+  apt-add-repository ppa:purple-vk-plugin/dev
+  apt-get update
+  apt-get install purple-vk-plugin
+
 Arch Linux
 ==========
 
