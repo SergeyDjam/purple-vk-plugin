@@ -40,7 +40,7 @@ namespace
 {
 
 // Returns string, containing md5sum of contents.
-string compute_md5sum(const char* contents, size_t size)
+string compute_md5sum(const char* contents, gsize size)
 {
     char* str = g_compute_checksum_for_data(G_CHECKSUM_MD5, (const unsigned char*)contents, size);
     string ret = str;
@@ -205,7 +205,7 @@ void xfer_init(PurpleXfer* xfer)
 
     // Load all contents in memory.
     char* contents;
-    size_t size;
+    gsize size;
     if (!g_file_get_contents(filepath, &contents, &size, nullptr)) {
         purple_debug_error("prpl-vkcom", "Unable to read file %s\n", filepath);
         return;
