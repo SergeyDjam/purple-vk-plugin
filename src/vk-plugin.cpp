@@ -66,6 +66,16 @@ char* vk_status_text(PurpleBuddy* buddy)
     }
 }
 
+#if !PURPLE_VERSION_CHECK(2, 8, 0)
+void purple_notify_user_info_add_pair_plaintext(PurpleNotifyUserInfo *user_info, const char *label, const char *value)
+{
+    gchar *escaped;
+    escaped = g_markup_escape_text(value, -1);
+    purple_notify_user_info_add_pair(user_info, label, escaped);
+    g_free(escaped);
+}
+#endif
+
 // Returns text, which is shown when mouse hovers over list.
 void vk_tooltip_text(PurpleBuddy* buddy, PurpleNotifyUserInfo* info, gboolean)
 {
@@ -243,6 +253,14 @@ void vk_set_status(PurpleAccount* account, PurpleStatus* status)
     if (primitive_status == PURPLE_STATUS_AVAILABLE)
         mark_deferred_messages_as_read(purple_account_get_connection(account), true);
     vk_update_status(purple_account_get_connection(account));
+}
+
+void vk_add_buddy_with_invite(PurpleConnection* gc, PurpleBuddy* buddy, PurpleGroup* group, const char*);
+
+// We need this method in order to be compatible with Pidgin < 2.8
+void vk_add_buddy(PurpleConnection* gc, PurpleBuddy* buddy, PurpleGroup* group)
+{
+    vk_add_buddy_with_invite(gc, buddy, group, "");
 }
 
 void vk_remove_buddy(PurpleConnection* gc, PurpleBuddy* buddy, PurpleGroup*)
@@ -430,7 +448,7 @@ PurplePluginProtocolInfo prpl_info = {
     vk_set_status, /* set_status */
     nullptr, /* set_idle */
     nullptr, /* change_passwd */
-    nullptr, /* add_buddy */
+    vk_add_buddy, /* add_buddy */
     nullptr, /* add_buddies */
     vk_remove_buddy, /* remove_buddy */
     nullptr, /* remove_buddies */
@@ -481,8 +499,10 @@ PurplePluginProtocolInfo prpl_info = {
     nullptr, /* get_moods */
     nullptr, /* set_public_alias */
     nullptr, /* get_public_alias */
+#if PURPLE_VERSION_CHECK(2, 8, 0)
     vk_add_buddy_with_invite, /* add_buddy_with_invite */
     nullptr /* add_buddies_with_invite */
+#endif // PURPLE_VERSION_CHECK(2, 8, 0)
 };
 
 gboolean load_plugin(PurplePlugin*)
