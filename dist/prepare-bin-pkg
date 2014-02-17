@@ -1,0 +1,26 @@
+#!/bin/bash
+
+# This trivial script prepares binary package (two plugin versions and a simple installer),
+# which is suitable for older systems (e.g. RHEL 6.5).
+#
+# The binaries must be already built (I use CentOS 6.5 with devtoolset 1.1) and be located
+# in bin/i386 and bin/x86_64.
+#
+# The output is a purple-vk-plugin-VERSION-bin.tar.gz file, which contains both binaries,
+# data file and install.sh script.
+
+cd `dirname $0`
+
+. version
+
+FULLNAME=$PACKAGENAME-$PACKAGEVERSION
+
+mkdir $FULLNAME
+mkdir $FULLNAME/bin
+cp -r bin/i386 $FULLNAME/bin
+cp -r bin/x86_64 $FULLNAME/bin
+cp -r ../data $FULLNAME
+cp bin/install.sh $FULLNAME
+
+tar cvzf $FULLNAME-bin.tar.gz $FULLNAME
+rm -rf $FULLNAME

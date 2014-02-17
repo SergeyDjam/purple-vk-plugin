@@ -31,6 +31,15 @@ In order to build the package execute the following commands:
   makepkg -s
   pacman -U purple-vk-plugin-*.pkg.tar.xz
 
+General Linux
+=============
+
+Plugin binaries can be downloaded from https://bitbucket.org/olegoandreev/purple-vk-plugin/downloads (binary builds are
+named purple-vk-plugin-VERSION-bin.tar.gz). The archive contains both i386 and x86-64 builds. Install script copies
+plugin .so file and data files into required directories.
+
+Binaries were built on CentOS 6.5, so should be compatible with rather old distros.
+
 Building
 ========
 

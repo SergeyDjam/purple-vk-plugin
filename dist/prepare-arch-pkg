@@ -3,7 +3,7 @@
 # This script prepares PKGBUILD, tar.gz for AUR and source tar.gz for uploading to Bitbucket. 
 #
 # The output is:
-#  1) source code archive purple-vk-plugin-VERSION.tar.gz in arch subdirectory
+#  1) source code archive purple-vk-plugin-VERSION.tar.gz in this directory
 #  2) source package archive purple-vk-plugin-VERSION-1.src.tar.gz in arch subdirectory
 
 . version
@@ -15,8 +15,6 @@ tar cvzf $FULLNAME.tar.gz $FULLNAME
 rm -rf $FULLNAME
 
 SRCSHA512SUM=`sha512sum $FULLNAME.tar.gz | cut -d ' ' -f 1`
-
-mv $FULLNAME.tar.gz arch/
 
 cat arch/PKGBUILD.template | sed "s/PACKAGENAME/$PACKAGENAME/" \
     | sed "s/PACKAGEVERSION/$PACKAGEVERSION/g" | sed "s/SRCSHA512SUM/$SRCSHA512SUM/g" > arch/PKGBUILD

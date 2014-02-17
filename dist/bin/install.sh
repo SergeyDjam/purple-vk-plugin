@@ -1,0 +1,21 @@
+#!/bin/bash
+
+if [ `uname -m` == x86_64 ]; then
+  if [ -d /usr/lib64/purple-2 ]; then
+    cp bin/x86_64/*.so /usr/lib64/purple-2
+  else
+    if [ -d /usr/lib/purple-2 ]; then
+      cp bin/x86_64/*.so /usr/lib/purple-2
+    else
+      echo "ERROR: Either pidgin is not installed or is installed in unknown location"
+    fi
+  fi
+else
+  if [ ! -d /usr/lib/purple-2 ]; then
+    echo "ERROR: Either pidgin is not installed or is installed in unknown location"
+    exit 1
+  fi
+  cp bin/i386/*.so /usr/lib/purple-2
+fi
+
+cp -r data/protocols /usr/share/pixmaps/pidgin
