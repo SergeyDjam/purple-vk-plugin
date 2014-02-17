@@ -724,8 +724,8 @@ static void purple_http_headers_free(PurpleHttpHeaders *hdrs)
 		return;
 
 	g_hash_table_destroy(hdrs->by_name);
-	g_list_free_full(hdrs->list,
-		(GDestroyNotify)purple_http_headers_free_kvp);
+    g_list_foreach(hdrs->list, (GFunc)purple_http_headers_free_kvp, NULL);
+    g_list_free(hdrs->list);
 	g_free(hdrs);
 }
 
@@ -1971,6 +1971,17 @@ void purple_http_conn_set_progress_watcher(PurpleHttpConnection *http_conn,
 	http_conn->watcher_interval_threshold = interval_threshold;
 }
 
+#if !GLIB_CHECK_VERSION(2, 28, 0)
+
+gint64 g_get_monotonic_time(void)
+{
+    struct timespec ts;
+    clock_gettime(CLOCK_MONOTONIC, &ts);
+    return (((gint64)ts.tv_sec) * 1000000) + (ts.tv_nsec / 1000);
+}
+
+#endif // !GLIB_CHECK_VERSION(2, 28, 0)
+
 static void purple_http_conn_notify_progress_watcher(
 	PurpleHttpConnection *hc)
 {
@@ -2252,10 +2263,10 @@ purple_http_keepalive_host_free(gpointer _host)
 
 	g_free(host->host);
 
-	g_slist_free_full(host->queue,
-		(GDestroyNotify)purple_http_keepalive_pool_request_cancel);
-	g_slist_free_full(host->sockets,
-		(GDestroyNotify)purple_http_socket_close_free);
+    g_slist_foreach(host->queue, (GFunc)purple_http_keepalive_pool_request_cancel, NULL);
+    g_slist_free(host->queue);
+    g_slist_foreach(host->sockets, (GFunc)purple_http_socket_close_free, NULL);
+    g_slist_free(host->sockets);
 
 	if (host->process_queue_timeout > 0) {
 		purple_timeout_remove(host->process_queue_timeout);
