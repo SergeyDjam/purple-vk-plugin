@@ -40,7 +40,7 @@ void start_long_poll_internal(PurpleConnection* gc, uint64 last_msg_id);
 void start_long_poll(PurpleConnection* gc)
 {
     uint64 last_msg_id = load_last_msg_id(gc);
-    purple_debug_info("prpl-vkcom", "Starting Long Poll with last msg id %lld\n", (long long)last_msg_id);
+    purple_debug_info("prpl-vkcom", "Starting Long Poll with last msg id %" PRIu64 "\n", last_msg_id);
     start_long_poll_internal(gc, last_msg_id);
 }
 
@@ -319,7 +319,7 @@ void process_message(PurpleConnection* gc, const picojson::value& v, LastMsg& la
                 conn_data->sent_msg_ids.erase(mid);
             } else {
                 purple_debug_warning("prpl-vkcom", "We have sent a message not long ago, but not all msg id"
-                                     "are belong to us (msg id %lld)\n", (long long)mid);
+                                     "are belong to us (msg id %" PRIu64 ")\n", mid);
                 process_outgoing_message_internal(gc, mid, flags, uid, move(text), timestamp);
             }
             return false;

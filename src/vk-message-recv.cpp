@@ -148,8 +148,8 @@ void receive_messages_range_internal(const MessagesDataPtr& data, uint64 last_ms
         params.emplace_back("filters", "1");
     } else {
         // We've logged in before, let's download all messages since last time, including read ones.
-        purple_debug_info("prpl-vkcom", "Receiving %s messages starting from %llu\n",
-                          outgoing ? "outgoing" : "incoming", (long long unsigned)last_msg_id + 1);
+        purple_debug_info("prpl-vkcom", "Receiving %s messages starting from %" PRIu64 "\n",
+                          outgoing ? "outgoing" : "incoming", last_msg_id + 1);
         params.emplace_back("last_message_id", to_string(last_msg_id));
     }
 
@@ -185,9 +185,7 @@ string cleanup_message_body(const string& body)
 // Converts timestamp, received from server, to string in local time.
 string timestamp_to_long_format(time_t timestamp)
 {
-    struct tm tm;
-    localtime_r(&timestamp, &tm);
-    return purple_date_format_long(&tm);
+    return purple_date_format_long(localtime(&timestamp));
 }
 
 void process_message(const MessagesDataPtr& data, const picojson::value& fields)
@@ -327,7 +325,7 @@ void process_photo_attachment(const picojson::value& fields, Message& message)
         else
             url = thumbnail;
     } else {
-        url = str_format("http://vk.com/photo%lld_%llu", (long long)owner_id, (unsigned long long)id);
+        url = str_format("http://vk.com/photo%" PRId64 "_%" PRIu64, owner_id, id);
     }
 
     if (!photo_text.empty())
@@ -350,8 +348,8 @@ void process_video_attachment(const picojson::value& fields, Message& message)
     const string& title = fields.get("title").get<string>();
     const string& thumbnail = fields.get("photo_320").get<string>();
 
-    message.text += str_format("<a href='http://vk.com/video%lld_%llu'>%s</a>", (long long)owner_id,
-                               (unsigned long long)id, title.data());
+    message.text += str_format("<a href='http://vk.com/video%" PRId64 "_%" PRIu64 "'>%s</a>", owner_id,
+                               id, title.data());
 
     append_thumbnail_placeholder(thumbnail, message);
 }

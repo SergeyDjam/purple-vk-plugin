@@ -10,6 +10,7 @@
 #include <algorithm>
 #include <cassert>
 #include <chrono>
+#include <cinttypes>
 #include <cstdarg>
 #include <cstring>
 #include <functional>
@@ -41,7 +42,6 @@ typedef uint64_t uint64;
 typedef vector<uint64> uint64_vec;
 typedef set<uint64> uint64_set;
 
-using std::to_string;
 
 // GCC 4.6 supported only pre-C++11 monotonic_clock
 #if __GNUC__ != 4 || __GNUC_MINOR__ != 6
@@ -139,7 +139,7 @@ string str_concat_int(Sep sep, It first, It last)
         if (!s.empty())
             s += sep;
         char buf[128];
-        sprintf(buf, "%lld", (long long)*it);
+        sprintf(buf, "%" PRId64, *it);
         s += buf;
     }
     return s;
@@ -175,6 +175,35 @@ inline string str_rsplit(const char* s, char sep)
         return string(last + 1);
     else
         return string(s);
+}
+
+// Unfortunately, MinGW does not support std::to_string, so we have to emulate it.
+inline string to_string(int i)
+{
+    char buf[128];
+    sprintf(buf, "%d", i);
+    return buf;
+}
+
+inline string to_string(uint i)
+{
+    char buf[128];
+    sprintf(buf, "%u", i);
+    return buf;
+}
+
+inline string to_string(int64 i)
+{
+    char buf[128];
+    sprintf(buf, "%" PRId64, i);
+    return buf;
+}
+
+inline string to_string(uint64 i)
+{
+    char buf[128];
+    sprintf(buf, "%" PRIu64, i);
+    return buf;
 }
 
 // Miscellaneous container functions

@@ -151,7 +151,7 @@ void VkConnData::authenticate(const SuccessCb& success_cb, const ErrorCb& error_
         [=](const string& access_token, const string& uid) {
             m_access_token = access_token;
             try {
-                m_uid = stoi(uid);
+                m_uid = atoll(uid.data());
 #if defined(__GNUC__) && !defined(__clang__)
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-fpermissive" // catch (...) makes GCC 4.7.2 return strange error, fixed in later GCCs
@@ -171,7 +171,7 @@ void VkConnData::authenticate(const SuccessCb& success_cb, const ErrorCb& error_
 
 string buddy_name_from_uid(uint64 uid)
 {
-    return str_format("id%llu", (unsigned long long)uid);
+    return str_format("id%" PRIu64, uid);
 }
 
 uint64 uid_from_buddy_name(const char* name)
@@ -183,7 +183,7 @@ uint64 uid_from_buddy_name(const char* name)
 
 string chat_name_from_id(uint64 chat_id)
 {
-    return str_format("chat%llu", (unsigned long long)chat_id);
+    return str_format("chat%" PRIu64, chat_id);
 }
 
 uint64 chat_id_from_name(const char* name)

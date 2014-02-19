@@ -152,9 +152,9 @@ void find_or_upload_doc(PurpleConnection* gc, PurpleXfer* xfer, const VkUploaded
     VkConnData* conn_data = get_conn_data(gc);
     for (const VkUploadedDoc& uploaded: conn_data->uploaded_docs) {
         if (uploaded.filename == doc.filename && uploaded.size == doc.size && uploaded.md5sum == uploaded.md5sum) {
-            purple_debug_info("prpl-vkcom", "Filename, size and md5sum matches the doc %lld\n", (long long)uploaded.id);
+            purple_debug_info("prpl-vkcom", "Filename, size and md5sum matches the doc %" PRIu64 "\n", uploaded.id);
 
-            string doc_id = str_format("%lld_%lld", (long long)conn_data->uid(), (long long)uploaded.id);
+            string doc_id = str_format("%" PRIu64 "_%" PRIu64, conn_data->uid(), uploaded.id);
             CallParams params = { {"docs", doc_id} };
             vk_call_api(gc, "docs.getById", params, [=](const picojson::value& v) {
                 if (!v.is<picojson::array>() || !v.contains(0)) {
@@ -176,7 +176,7 @@ void find_or_upload_doc(PurpleConnection* gc, PurpleXfer* xfer, const VkUploaded
                     return;
                 }
 
-                purple_debug_info("prpl-vkcom", "Document %lld is unchanged, resending it\n", (long long)uploaded.id);
+                purple_debug_info("prpl-vkcom", "Document %" PRIu64 " is unchanged, resending it\n", uploaded.id);
                 uint64 user_id = *(uint64*)xfer->data;
                 const string& doc_url = d.get("url").get<string>();
                 send_doc_url(gc, user_id, doc_url, true);

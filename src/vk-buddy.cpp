@@ -255,9 +255,9 @@ uint64 on_update_user_info(PurpleConnection* gc, const picojson::value& fields, 
         info.online_mobile = online_mobile;
     } else {
         if (info.online != online || info.online_mobile != online_mobile)
-            purple_debug_error("prpl-vkcom", "Strange, got different online status for %lld"
+            purple_debug_error("prpl-vkcom", "Strange, got different online status for %" PRIu64
                                " in friends.get vs Long Poll: %d, %d vs %d, %d\n",
-                               (long long)uid, online, online_mobile, info.online, info.online_mobile);
+                               uid, online, online_mobile, info.online, info.online_mobile);
     }
 
     if (field_is_present<picojson::object>(fields, "last_seen"))
@@ -525,7 +525,7 @@ void update_buddies_presence_only(PurpleConnection* gc, const uint64_vec user_id
             uint64 user_id = v.get("id").get<double>();
             bool online = v.get("online").get<double>() == 1;
             bool online_mobile = field_is_present<double>(v, "online_mobile");
-            purple_debug_info("prpl-vkcom", "Got status %d, %d for %lld\n", online, online_mobile, (long long)user_id);
+            purple_debug_info("prpl-vkcom", "Got status %d, %d for %" PRIu64 "\n", online, online_mobile, user_id);
 
             VkUserInfo& info = conn_data->user_infos[user_id];
             if (info.online == online && info.online_mobile == online_mobile)
@@ -585,7 +585,7 @@ void remove_buddy_if_needed(PurpleConnection* gc, uint64 user_id)
 
 void set_account_alias(PurpleConnection* gc, uint64 uid)
 {
-    purple_debug_info("prpl-vkcom", "Getting full name for %llu\n", (unsigned long long)uid);
+    purple_debug_info("prpl-vkcom", "Getting full name for %" PRIu64 "\n", uid);
 
     CallParams params = { {"user_ids", to_string(uid)}, {"fields", "first_name,last_name"} };
     vk_call_api(gc, "users.get", params, [=](const picojson::value& result) {
