@@ -2,11 +2,6 @@ cmake_minimum_required(VERSION 2.6)
 
 project(purple-vk-plugin)
 
-# Configure-time options
-
-include(FindLibXml2)
-include(FindPkgConfig)
-
 # Set default build type
 
 if(NOT CMAKE_BUILD_TYPE)
@@ -43,9 +38,17 @@ endif()
 
 # Set library-specific flags
 
+if(UNIX)
+  include(FindPkgConfig)
+endif()
+
 # Libpurple
 add_definitions(-DPURPLE_PLUGINS)
-pkg_check_modules(PURPLE REQUIRED purple)
+
+# When compiling on Windows, specify PURPLE_INCLUDE_DIRS, PURPLE_LIBRARY_DIRS and PURPLE_LIBRARIES when calling CMake.
+if(UNIX)
+  pkg_check_modules(PURPLE REQUIRED purple)
+endif()
 include_directories(${PURPLE_INCLUDE_DIRS})
 add_definitions(${PURPLE_CFLAGS_OTHER})
 link_directories(${PURPLE_LIBRARY_DIRS})
@@ -58,23 +61,38 @@ if (UNIX AND NOT APPLE)
                   OUTPUT_STRIP_TRAILING_WHITESPACE)
 endif()
 
+# Configure-time options
+
 # Gio
-pkg_check_modules(GIO REQUIRED gio-2.0)
+if(UNIX)
+  pkg_check_modules(GIO REQUIRED gio-2.0)
+endif()
 include_directories(${GIO_INCLUDE_DIRS})
 add_definitions(${GIO_CFLAGS_OTHER})
 link_directories(${GIO_LIBRARY_DIRS})
 list(APPEND EXTRA_LIBRARIES ${GIO_LIBRARIES})
 
-# zlib 
-find_package(ZLIB REQUIRED)
+# zlib
+# 
+# When compiling on Windows, specify ZLIB_INCLUDE_DIRS, ZLIB_LIBRARY_DIRS and ZLIB_LIBRARIES when calling CMake.
+if(UNIX)
+  find_package(ZLIB REQUIRED)
+endif()
 include_directories(${ZLIB_INCLUDE_DIRS})
 add_definitions(${ZLIB_CFLAGS_OTHER})
 link_directories(${ZLIB_LIBRARY_DIRS})
 list(APPEND EXTRA_LIBRARIES ${ZLIB_LIBRARIES})
 
 # Libxml2
+# 
+# When compiling on Windows, specify LIBXML2_INCLUDE_DIR, LIBXML2_LIBRARY_DIRS and LIBXML2_LIBRARIES when calling CMake.
+if(UNIX)
+  include(FindLibXml2)
+endif()
 include_directories(${LIBXML2_INCLUDE_DIR})
 add_definitions(${LIBXML2_DEFINITIONS})
+# FindLibXml2 does not set LIBXML2_LIBRARY_DIRS, but it must be specified when compiling on Windows
+link_directories(${LIBXML2_LIBRARY_DIRS})
 list(APPEND EXTRA_LIBRARIES ${LIBXML2_LIBRARIES})
 
 include_directories(src)
