@@ -41,6 +41,10 @@
 // NOTE: Added in purple-vk-plugin to fix build.
 #include <errno.h>
 #include <string.h>
+// For read, write and close on MinGW
+#ifdef _WIN32
+#include <io.h>
+#endif
 
 // NOTE: Added in purple-vk-plugin to clean build warnings.
 #pragma GCC diagnostic ignored "-Wshadow"
