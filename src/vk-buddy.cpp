@@ -476,10 +476,28 @@ PurpleGroup* get_default_group(PurpleConnection* gc)
         return nullptr;
 }
 
-void fetch_buddy_icon(PurpleConnection* gc, const string& buddy_name, const string& icon_url)
+// We do not want to download more than one icon at once, so we have a queue. Fortunately, there
+// is no need for locks, as we run everything from the main thread.
+struct FetchBuddyIcon
 {
-    http_get(gc, icon_url, [=](PurpleHttpConnection* http_conn, PurpleHttpResponse* response) {
-        purple_debug_info("prpl-vkcom", "Updating buddy icon for %s\n", buddy_name.data());
+    PurpleConnection* gc;
+    string buddy_name;
+    string icon_url;
+};
+
+vector<FetchBuddyIcon> fetch_queue;
+// Number of currently running HTTP requests.
+int fetches_running = 0;
+// Maximum number of concurrently running HTTP requests
+const int MAX_FETCHES_RUNNING = 4;
+
+void fetch_next_buddy_icon()
+{
+    FetchBuddyIcon fetch = fetch_queue.back();
+    fetch_queue.pop_back();
+    fetches_running++;
+    http_get(fetch.gc, fetch.icon_url, [=](PurpleHttpConnection* http_conn, PurpleHttpResponse* response) {
+        purple_debug_info("prpl-vkcom", "Updating buddy icon for %s\n", fetch.buddy_name.data());
         if (!purple_http_response_is_successful(response)) {
             purple_debug_error("prpl-vkcom", "Error while fetching buddy icon: %s\n",
                                purple_http_response_get_error(response));
@@ -491,9 +509,20 @@ void fetch_buddy_icon(PurpleConnection* gc, const string& buddy_name, const stri
         const char* icon_url = purple_http_request_get_url(purple_http_conn_get_request(http_conn));
         // This should be synchronized with code in update_buddy_in_blist.
         string checksum = str_rsplit(icon_url, '/');
-        purple_buddy_icons_set_for_user(purple_connection_get_account(gc), buddy_name.data(),
+        purple_buddy_icons_set_for_user(purple_connection_get_account(fetch.gc), fetch.buddy_name.data(),
                                         g_memdup(icon_data, icon_len), icon_len, checksum.data());
+
+        fetches_running--;
+        if (!fetch_queue.empty())
+            fetch_next_buddy_icon();
     });
+}
+
+void fetch_buddy_icon(PurpleConnection* gc, const string& buddy_name, const string& icon_url)
+{
+    fetch_queue.push_back(FetchBuddyIcon({ gc, buddy_name, icon_url }));
+    if (fetches_running < MAX_FETCHES_RUNNING)
+        fetch_next_buddy_icon();
 }
 
 } // End anonymous namespace
