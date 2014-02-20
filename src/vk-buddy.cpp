@@ -211,7 +211,10 @@ uint64 on_update_user_info(PurpleConnection* gc, const picojson::value& fields, 
         info.photo_min = fields.get("photo_50").get<string>();
         static const char empty_photo_a[] = "http://vkontakte.ru/images/camera_a.gif";
         static const char empty_photo_b[] = "http://vkontakte.ru/images/camera_b.gif";
-        if (info.photo_min == empty_photo_a || info.photo_min == empty_photo_b)
+        static const char empty_photo_c[] = "http://vk.com/images/camera_c.gif";
+        printf(" prpl-vkcom: %s\n", info.photo_min.data());
+        if (info.photo_min == empty_photo_a || info.photo_min == empty_photo_b
+                || info.photo_min == empty_photo_c)
             info.photo_min.clear();
     }
 
