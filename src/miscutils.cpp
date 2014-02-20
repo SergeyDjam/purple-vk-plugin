@@ -159,3 +159,11 @@ string unescape_html(const string& text)
 {
     return unescape_html(text.data());
 }
+
+string ensure_https_url(const string& url)
+{
+    if (strncmp(url.data(), "http:", 5) == 0)
+        return "https:" + url.substr(5);
+    else
+        return url;
+}

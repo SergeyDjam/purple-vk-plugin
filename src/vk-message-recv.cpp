@@ -311,7 +311,7 @@ void process_photo_attachment(const picojson::value& fields, Message& message)
     const string& thumbnail = fields.get("photo_604").get<string>();
 
     // Apparently, there is no URL for private photos (such as the one for docs:
-    // http://vk.com/docXXX_XXX?hash="access_key". If we've got "access_key" as a parameter, it means
+    // https://vk.com/docXXX_XXX?hash="access_key". If we've got "access_key" as a parameter, it means
     // that the photo is private, so we should rather link to the biggest version of the photo.
     string url;
     if (field_is_present<string>(fields, "access_key")) {
@@ -325,7 +325,7 @@ void process_photo_attachment(const picojson::value& fields, Message& message)
         else
             url = thumbnail;
     } else {
-        url = str_format("http://vk.com/photo%" PRId64 "_%" PRIu64, owner_id, id);
+        url = str_format("https://vk.com/photo%" PRId64 "_%" PRIu64, owner_id, id);
     }
 
     if (!photo_text.empty())
@@ -348,7 +348,7 @@ void process_video_attachment(const picojson::value& fields, Message& message)
     const string& title = fields.get("title").get<string>();
     const string& thumbnail = fields.get("photo_320").get<string>();
 
-    message.text += str_format("<a href='http://vk.com/video%" PRId64 "_%" PRIu64 "'>%s</a>", owner_id,
+    message.text += str_format("<a href='https://vk.com/video%" PRId64 "_%" PRIu64 "'>%s</a>", owner_id,
                                id, title.data());
 
     append_thumbnail_placeholder(thumbnail, message);
@@ -415,7 +415,7 @@ void process_wall_attachment(PurpleConnection* gc, const picojson::value& fields
         message.text += get_group_placeholder(-to_id, message);
     }
 
-    string wall_url = str_format("http://vk.com/wall%" PRIi64 "_%" PRIu64, to_id, id);
+    string wall_url = str_format("https://vk.com/wall%" PRIi64 "_%" PRIu64, to_id, id);
     const char* verb = (fields.contains("copy_text") || fields.contains("copy_history"))
                         ? "reposted" : "posted";
     string date = timestamp_to_long_format(fields.get("date").get<double>());
@@ -486,7 +486,7 @@ void process_album_attachment(const picojson::value& fields, Message& message)
     string owner_id = fields.get("owner_id").to_str();
     const string& title = fields.get("title").get<string>();
 
-    string url = str_format("http://vk.com/album%s_%s", owner_id.data(), id.data());
+    string url = str_format("https://vk.com/album%s_%s", owner_id.data(), id.data());
 
     message.text += str_format("Album: <a href='%s'>%s</a>", url.data(), title.data());
 }

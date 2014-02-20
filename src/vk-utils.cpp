@@ -298,25 +298,25 @@ void get_groups_info(PurpleConnection* gc, uint64_vec group_ids, const GroupInfo
 string get_user_href(uint64 user_id, const VkUserInfo& info)
 {
     if (!info.domain.empty())
-        return str_format("<a href='http://vk.com/%s'>%s</a>", info.domain.data(), info.name.data());
+        return str_format("<a href='https://vk.com/%s'>%s</a>", info.domain.data(), info.name.data());
     else
-        return str_format("<a href='http://vk.com/id%" PRIu64 "'>%s</a>", user_id, info.name.data());
+        return str_format("<a href='https://vk.com/id%" PRIu64 "'>%s</a>", user_id, info.name.data());
 }
 
 string get_group_href(uint64 group_id, const VkGroupInfo& info)
 {
     if (!info.screen_name.empty())
-        return str_format("<a href='http://vk.com/%s'>%s</a>", info.screen_name.data(), info.name.data());
+        return str_format("<a href='https://vk.com/%s'>%s</a>", info.screen_name.data(), info.name.data());
     // How the fuck am I supposed to learn these URL patterns?
     if (info.type == "group") {
-        return str_format("<a href='http://vk.com/club%" PRIu64 "'>%s</a>", group_id, info.name.data());
+        return str_format("<a href='https://vk.com/club%" PRIu64 "'>%s</a>", group_id, info.name.data());
     } else if (info.type == "page") {
-        return str_format("<a href='http://vk.com/public%" PRIu64 "'>%s</a>", group_id, info.name.data());
+        return str_format("<a href='https://vk.com/public%" PRIu64 "'>%s</a>", group_id, info.name.data());
     } else if (info.type == "event") {
-        return str_format("<a href='http://vk.com/event%" PRIu64 "'>%s</a>", group_id, info.name.data());
+        return str_format("<a href='https://vk.com/event%" PRIu64 "'>%s</a>", group_id, info.name.data());
     } else {
         purple_debug_error("prpl-vkcom", "Unknown group types %s\n", info.type.data());
-        return "http://vk.com";
+        return "https://vk.com";
     }
 }
 

@@ -148,7 +148,7 @@ void process_error(PurpleHttpConnection* http_conn, const picojson::value& error
         // to re-login.
         string message_text;
         if (!field_is_present<string>(error, "redirect_uri"))
-            message_text = "Please open http://vk.com in your browser and validate yourself";
+            message_text = "Please open https://vk.com in your browser and validate yourself";
         else
             message_text = str_format("Please open the following link in your browser:\n%s",
                                       error.get("redirect_uri").get<string>().data());

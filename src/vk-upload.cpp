@@ -110,7 +110,8 @@ void start_upload(PurpleConnection* gc, const string& upload_url, const char* pa
                   const void* contents, size_t size, const UploadedCb& uploaded_cb, const ErrorCb& error_cb,
                   const UploadProgressCb& upload_progress_cb)
 {
-    PurpleHttpRequest* request = prepare_upload_request(upload_url, partname, contents, size, name);
+    string url = ensure_https_url(upload_url);
+    PurpleHttpRequest* request = prepare_upload_request(url, partname, contents, size, name);
     UploadProgressCb* progress_data = nullptr;
     if (upload_progress_cb)
         progress_data = new UploadProgressCb(upload_progress_cb);

@@ -45,3 +45,6 @@ void timeout_remove_all(PurpleConnection* gc);
 // A tiny wrapper around purple_unescape_html, accepting and returning string.
 string unescape_html(const char* text);
 string unescape_html(const string& text);
+
+// Checks if url starts with http:// and replaces it with https://
+string ensure_https_url(const string& url);

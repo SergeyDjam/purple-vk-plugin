@@ -1,6 +1,7 @@
 #include "vk-common.h"
 
 #include "httputils.h"
+#include "miscutils.h"
 
 using std::bind;
 using std::move;
@@ -29,7 +30,8 @@ void destroy_keepalive_pool(PurpleConnection* gc)
 
 PurpleHttpConnection* http_get(PurpleConnection* gc, const string& url, HttpCallback callback)
 {
-    PurpleHttpRequest* request = purple_http_request_new(url.data());
+    string https_url = ensure_https_url(url);
+    PurpleHttpRequest* request = purple_http_request_new(https_url.data());
     PurpleHttpConnection* hc = http_request(gc, request, move(callback));
     purple_http_request_unref(request);
     return hc;

@@ -201,9 +201,9 @@ unsigned int vk_send_typing(PurpleConnection* gc, const char* name, PurpleTyping
 string get_user_page(const char* name, const VkUserInfo* info)
 {
     if (info && !info->domain.empty())
-        return str_format("http://vk.com/%s", info->domain.data());
+        return str_format("https://vk.com/%s", info->domain.data());
     else
-        return str_format("http://vk.com/%s", name);
+        return str_format("https://vk.com/%s", name);
 }
 
 // Called when user chooses "Get Info".
@@ -386,7 +386,7 @@ void vk_add_buddy_with_invite(PurpleConnection* gc, PurpleBuddy* buddy, PurpleGr
         if (type != "user") {
             string title = str_format("Unable to find user %s", buddy_name.data());
             const char* message = "User name should be either idXXXXXX or nickname"
-                    " (i.e. the last part of http://vk.com/nickname)";
+                    " (i.e. the last part of https://vk.com/nickname)";
             purple_notify_error(gc, title.data(), title.data(), message);
             return;
         }
