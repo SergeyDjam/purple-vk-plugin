@@ -41,9 +41,9 @@
 // NOTE: Added in purple-vk-plugin to fix build.
 #include <errno.h>
 #include <string.h>
-// For read, write and close on MinGW
+// For recv, send and closesocket on MinGW
 #ifdef _WIN32
-#include <io.h>
+#include <winsock2.h>
 #endif
 
 // NOTE: Added in purple-vk-plugin to clean build warnings.
@@ -606,7 +606,11 @@ purple_http_socket_read(PurpleHttpSocket *hs, gchar *buf, size_t len)
 	if (hs->is_ssl)
 		return purple_ssl_read(hs->ssl_connection, buf, len);
 	else
+#ifndef _WIN32
 		return read(hs->fd, buf, len);
+#else
+		return recv(hs->fd, buf, len, 0);
+#endif
 }
 
 static int
@@ -618,7 +622,11 @@ purple_http_socket_write(PurpleHttpSocket *hs, const gchar *buf, size_t len)
 	if (hs->is_ssl)
 		return purple_ssl_write(hs->ssl_connection, buf, len);
 	else
+#ifndef _WIN32
 		return write(hs->fd, buf, len);
+#else
+		return send(hs->fd, buf, len, 0);
+#endif
 }
 
 static void _purple_http_socket_watch_recv_ssl(gpointer _hs,
@@ -682,7 +690,11 @@ purple_http_socket_close_free(PurpleHttpSocket *hs)
 		if (hs->raw_connection != NULL)
 			purple_proxy_connect_cancel(hs->raw_connection);
 		if (hs->fd > 0)
+#ifndef _WIN32
 			close(hs->fd);
+#else
+			closesocket(hs->fd);
+#endif
 	}
 
 	g_free(hs);
