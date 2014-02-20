@@ -1,6 +1,8 @@
-:: Path to unpacked sources of Pidgin
+:: Path to unpacked sources of Pidgin. There is no need to compile Pidgin, only headers
+:: are needed.
 set PIDGINSRCPATH=c:\src\pidgin-2.10.9
-:: Path to unpacked sources of Glib-2.28. Copy glib/glibconfig.h.win32 to glib/glibconfig.h
+:: Path to unpacked sources of Glib-2.28. Copy glib\glibconfig.h.win32 to glib\glibconfig.h
+:: There is no need to compile Glib, only headers are needed.
 set GLIBSRCPATH=c:\src\glib-2.28.8
 
 :: Path to directory, containing libpurple.dll, libglib-2.0-0.dll and libgio-2.0-0.dll
@@ -9,10 +11,9 @@ set GLIBSRCPATH=c:\src\glib-2.28.8
 set PIDGINBINPATH=c:\src\pidgin-bin\
 
 :: The following mingw packages must be additionally installed:
+::   mingw32-libiconv
 ::   mingw32-libz
 ::
-:: Libxml2 must be installed from ftp://ftp.zlatkovic.com/libxml/
-:: 
 :: Please check that msys-zlib is not installed, as it fucks up the linking process.
 ::
 :: Please check that mingw/msys/1.0/bin is not in PATH, or cmake will fail
@@ -20,11 +21,18 @@ set PIDGINBINPATH=c:\src\pidgin-bin\
 
 :: Path to mingw installation
 set MINGWPATH=C:\mingw
-set LIBXML2PATH=C:\mingw\msys\1.0
+
+:: I had no luck with using pre-built libxml2, so I compiled it myself and installed into
+:: MinGW path. It is really easy if you do not go the MSYS/configure route, but run:
+::   cd win32
+::   cscript configure.js compiler=mingw prefix=C:\mingw debug=no static=yes
+::   mingw32-make -f Makefile.mingw install
+set LIBXML2PATH=C:\mingw
 
 set PATH=%PATH%;C:\Program Files (x86)\CMake 2.8\bin\;C:\Program Files\CMake 2.8\bin\
 set PATH=%PATH%;%MINGWPATH%\bin
 
+# libxml2, libz, libgcc and libstdc++ are all linked in statically to ease deployment
 
 cmake -G "MinGW Makefiles" ^
       -DPURPLE_INCLUDE_DIRS=%PIDGINSRCPATH%\libpurple;%GLIBSRCPATH%;%GLIBSRCPATH%\glib;%GLIBSRCPATH%\gmodule ^
@@ -34,6 +42,6 @@ cmake -G "MinGW Makefiles" ^
       -DLIBXML2_DEFINITIONS=-DLIBXML_STATIC ^
       -DLIBXML2_INCLUDE_DIR=%LIBXML2PATH%\include\libxml2 ^
       -DLIBXML2_LIBRARY_DIRS=%LIBXML2PATH%\lib ^
-      -DLIBXML2_LIBRARIES=xml2 ^
+      -DLIBXML2_LIBRARIES=xml2.a;iconv.a;ws2_32 ^
       -DZLIB_LIBRARIES=z.a ^
       ..
