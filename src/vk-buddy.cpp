@@ -496,21 +496,21 @@ void fetch_next_buddy_icon()
     FetchBuddyIcon fetch = fetch_queue.back();
     fetch_queue.pop_back();
     fetches_running++;
+    purple_debug_info("prpl-vkcom", "Load buddy icon from %s\n", fetch.icon_url.data());
     http_get(fetch.gc, fetch.icon_url, [=](PurpleHttpConnection* http_conn, PurpleHttpResponse* response) {
         purple_debug_info("prpl-vkcom", "Updating buddy icon for %s\n", fetch.buddy_name.data());
         if (!purple_http_response_is_successful(response)) {
             purple_debug_error("prpl-vkcom", "Error while fetching buddy icon: %s\n",
                                purple_http_response_get_error(response));
-            return;
+        } else {
+            size_t icon_len;
+            const void* icon_data = purple_http_response_get_data(response, &icon_len);
+            const char* icon_url = purple_http_request_get_url(purple_http_conn_get_request(http_conn));
+            // This should be synchronized with code in update_buddy_in_blist.
+            string checksum = str_rsplit(icon_url, '/');
+            purple_buddy_icons_set_for_user(purple_connection_get_account(fetch.gc), fetch.buddy_name.data(),
+                                            g_memdup(icon_data, icon_len), icon_len, checksum.data());
         }
-
-        size_t icon_len;
-        const void* icon_data = purple_http_response_get_data(response, &icon_len);
-        const char* icon_url = purple_http_request_get_url(purple_http_conn_get_request(http_conn));
-        // This should be synchronized with code in update_buddy_in_blist.
-        string checksum = str_rsplit(icon_url, '/');
-        purple_buddy_icons_set_for_user(purple_connection_get_account(fetch.gc), fetch.buddy_name.data(),
-                                        g_memdup(icon_data, icon_len), icon_len, checksum.data());
 
         fetches_running--;
         if (!fetch_queue.empty())
