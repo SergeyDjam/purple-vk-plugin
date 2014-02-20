@@ -30,8 +30,7 @@ void destroy_keepalive_pool(PurpleConnection* gc)
 
 PurpleHttpConnection* http_get(PurpleConnection* gc, const string& url, HttpCallback callback)
 {
-    string https_url = ensure_https_url(url);
-    PurpleHttpRequest* request = purple_http_request_new(https_url.data());
+    PurpleHttpRequest* request = purple_http_request_new(url.data());
     PurpleHttpConnection* hc = http_request(gc, request, move(callback));
     purple_http_request_unref(request);
     return hc;
