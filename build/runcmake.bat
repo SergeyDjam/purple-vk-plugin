@@ -32,7 +32,7 @@ set LIBXML2PATH=C:\mingw
 set PATH=%PATH%;C:\Program Files (x86)\CMake 2.8\bin\;C:\Program Files\CMake 2.8\bin\
 set PATH=%PATH%;%MINGWPATH%\bin
 
-# libxml2, libz, libgcc and libstdc++ are all linked in statically to ease deployment
+:: libxml2, libz, libgcc and libstdc++ are all linked in statically to ease deployment
 
 cmake -G "MinGW Makefiles" ^
       -DPURPLE_INCLUDE_DIRS=%PIDGINSRCPATH%\libpurple;%GLIBSRCPATH%;%GLIBSRCPATH%\glib;%GLIBSRCPATH%\gmodule ^
