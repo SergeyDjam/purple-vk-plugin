@@ -609,7 +609,15 @@ purple_http_socket_read(PurpleHttpSocket *hs, gchar *buf, size_t len)
 #ifndef _WIN32
 		return read(hs->fd, buf, len);
 #else
-		return recv(hs->fd, buf, len, 0);
+	{
+		int ret = recv(hs->fd, buf, len, 0);
+		if (ret == SOCKET_ERROR) {
+			errno = WSAGetLastError();
+			if (errno == WSAEINPROGRESS || errno == WSAEWOULDBLOCK)
+				errno = EAGAIN;
+		}
+		return ret;
+	}
 #endif
 }
 
@@ -625,7 +633,15 @@ purple_http_socket_write(PurpleHttpSocket *hs, const gchar *buf, size_t len)
 #ifndef _WIN32
 		return write(hs->fd, buf, len);
 #else
-		return send(hs->fd, buf, len, 0);
+	{
+		int ret = send(hs->fd, buf, len, 0);
+		if (ret == SOCKET_ERROR) {
+			errno = WSAGetLastError();
+			if (errno == WSAEINPROGRESS || errno == WSAEWOULDBLOCK)
+				errno = EAGAIN;
+		}
+		return ret;
+	}
 #endif
 }
 
