@@ -95,9 +95,12 @@ add_definitions(${LIBXML2_DEFINITIONS})
 link_directories(${LIBXML2_LIBRARY_DIRS})
 list(APPEND EXTRA_LIBRARIES ${LIBXML2_LIBRARIES})
 
-# Link with libgcc and libstdc++ statically on Windows to ease the deployment.
+# A bunch of Windows-specific settings.
 if(WIN32)
+  # Link with libgcc and libstdc++ statically on Windows to ease the deployment.
   set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -static-libgcc -static-libstdc++")
+
+  list(APPEND EXTRA_LIBRARIES "ws2_32")
 endif()
 
 include_directories(src)

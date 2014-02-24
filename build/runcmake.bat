@@ -22,12 +22,10 @@ set PIDGINBINPATH=c:\src\pidgin-bin\
 :: Path to mingw installation
 set MINGWPATH=C:\mingw
 
-:: I had no luck with using pre-built libxml2, so I compiled it myself and installed into
-:: MinGW path. It is really easy if you do not go the MSYS/configure route, but run:
-::   cd win32
-::   cscript configure.js compiler=mingw prefix=C:\mingw debug=no static=yes
-::   mingw32-make -f Makefile.mingw install
-set LIBXML2PATH=C:\mingw
+:: Get libxml2 from http://ftp.gnome.org/pub/GNOME/binaries/win32/dependencies/libxml2-dev_2.9.0-1_win32.zip
+:: and http://ftp.gnome.org/pub/GNOME/binaries/win32/dependencies/libxml2_2.9.0-1_win32.zip (or whatever
+:: current Pidgin Windows install guide says) and unpack into the directory.
+set LIBXML2PATH=C:\mingw\libxml2
 
 set PATH=%PATH%;C:\Program Files (x86)\CMake 2.8\bin\;C:\Program Files\CMake 2.8\bin\
 set PATH=%PATH%;%MINGWPATH%\bin
@@ -42,6 +40,6 @@ cmake -G "MinGW Makefiles" ^
       -DLIBXML2_DEFINITIONS=-DLIBXML_STATIC ^
       -DLIBXML2_INCLUDE_DIR=%LIBXML2PATH%\include\libxml2 ^
       -DLIBXML2_LIBRARY_DIRS=%LIBXML2PATH%\lib ^
-      -DLIBXML2_LIBRARIES=xml2.a;iconv.a;ws2_32 ^
+      -DLIBXML2_LIBRARIES=xml2 ^
       -DZLIB_LIBRARIES=z.a ^
       ..
