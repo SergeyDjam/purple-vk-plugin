@@ -41,5 +41,5 @@ cmake -G "MinGW Makefiles" ^
       -DLIBXML2_INCLUDE_DIR=%LIBXML2PATH%\include\libxml2 ^
       -DLIBXML2_LIBRARY_DIRS=%LIBXML2PATH%\lib ^
       -DLIBXML2_LIBRARIES=xml2 ^
-      -DZLIB_LIBRARIES=z.a ^
+      -DZLIB_LIBRARIES=z ^
       ..
