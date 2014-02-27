@@ -238,15 +238,17 @@ void upload_imgstore_images_internal(PurpleConnection* gc, const UploadImgstoreI
 // processed is CAPTCHA request.
 void process_im_error(const picojson::value& error, PurpleConnection* gc, const SendMessage& message);
 
-// We cannot send large messages at once due to URL limits (message is encoded in URL). The limit of 1200
-// characters is rather arbitrary, testing shows that it is usually ok.
-const uint MESSAGE_TEXT_LIMIT = 1200;
-
 void send_message_internal(PurpleConnection* gc, const SendMessage& message, const string& captcha_sid,
                            const string& captcha_key)
 {
-    string text = message.text.substr(0, MESSAGE_TEXT_LIMIT);
-    CallParams params = { {"message", text}, {"attachment", message.attachments }, {"type", "1"} };
+    CallParams params = { {"attachment", message.attachments }, {"type", "1"} };
+
+    // We cannot send large messages at once due to URL limits (message is encoded in URL).
+    size_t text_len = max_urlencoded_prefix(message.text.data());
+    if (text_len == message.text.length())
+        params.emplace_back("message", message.text);
+    else
+        params.emplace_back("message", message.text.substr(0, text_len));
     if (message.uid > 0)
         params.emplace_back("user_id", to_string(message.uid));
     else
@@ -261,16 +263,6 @@ void send_message_internal(PurpleConnection* gc, const SendMessage& message, con
     assert(conn_data->last_msg_sent_time <= current_time);
     conn_data->last_msg_sent_time = current_time;
 
-    // Next part of message, if message is long enough.
-    SendMessage next_message;
-    if (message.text.length() > MESSAGE_TEXT_LIMIT) {
-        next_message.uid = message.uid;
-        next_message.chat_id = message.chat_id;
-        next_message.success_cb = message.success_cb;
-        next_message.error_cb = message.error_cb;
-        next_message.text = message.text.substr(MESSAGE_TEXT_LIMIT);
-    }
-
     vk_call_api(gc, "messages.send", params, [=](const picojson::value& v) {
         if (!v.is<double>()) {
             purple_debug_error("prpl-vkcom", "Wrong response from message.send: %s\n", v.serialize().data());
@@ -284,11 +276,18 @@ void send_message_internal(PurpleConnection* gc, const SendMessage& message, con
         uint64 msg_id = v.get<double>();
         conn_data->sent_msg_ids.insert(msg_id);
 
-        // We have sent the whole message.
-        if (next_message.text.empty()) {
+        // Check if we have sent the whole message.
+        if (text_len == message.text.length()) {
             if (message.success_cb)
                 message.success_cb();
         } else {
+            // Send next part of message.
+            SendMessage next_message;
+            next_message.uid = message.uid;
+            next_message.chat_id = message.chat_id;
+            next_message.success_cb = std::move(message.success_cb);
+            next_message.error_cb = std::move(message.error_cb);
+            next_message.text = message.text.substr(text_len);
             send_message_internal(gc, next_message, captcha_sid, captcha_key);
         }
     }, [=](const picojson::value& error) {
