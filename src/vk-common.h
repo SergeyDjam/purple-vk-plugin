@@ -62,6 +62,7 @@ struct VkUploadedDoc
     string filename;
     uint64 size;
     string md5sum;
+    string url;
 };
 
 // Data, associated with account. It contains all information, required for connecting and executing
