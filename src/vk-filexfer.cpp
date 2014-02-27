@@ -101,9 +101,11 @@ bool send_doc(PurpleConnection* gc, uint64 user_id, const VkUploadedDoc& doc, co
     send_doc_url(gc, user_id, doc_url, false);
 
     // Store the uploaded document.
+    uint64 doc_id = d.get("id").get<double>();
     VkConnData* conn_data = get_conn_data(gc);
     conn_data->uploaded_docs.push_back(doc);
-    conn_data->uploaded_docs.back().id = d.get("id").get<double>();
+    conn_data->uploaded_docs.back().id = doc_id;
+    conn_data->uploaded_docs.back().url = doc_url;
 
     return true;
 }
@@ -145,54 +147,81 @@ void start_uploading_doc(PurpleConnection* gc, PurpleXfer* xfer, const VkUploade
     });
 }
 
+// Calls docs.get for the current user and removes all the docs from uploaded_docs, which do not exist
+// or do not match the stored parameters.
+void clean_nonexisting_docs(PurpleConnection* gc, const SuccessCb& success_cb)
+{
+    struct Helper {
+        vector<VkUploadedDoc> existing_docs;
+    };
+    shared_ptr<Helper> helper{ new Helper() };
+
+    VkConnData* conn_data = get_conn_data(gc);
+
+    vk_call_api_items(gc, "docs.get", CallParams(), true, [=](const picojson::value& v) {
+        if (!field_is_present<double>(v, "id") || !field_is_present<string>(v, "title")
+                || !field_is_present<double>(v, "size") || !field_is_present<string>(v, "url")) {
+            purple_debug_error("prpl-vkcom", "Strange response from docs.get: %s\n", v.serialize().data());
+            return;
+        }
+
+        uint64 id = v.get("id").get<double>();
+        const string& title = v.get("title").get<string>();
+        uint64 size = v.get("size").get<double>();
+        const string& url = v.get("url").get<string>();
+
+        for (const VkUploadedDoc& doc: conn_data->uploaded_docs) {
+            if (doc.id == id) {
+                if (doc.filename == title && doc.size == size && doc.url == url)
+                    helper->existing_docs.push_back(doc);
+                else
+                    purple_debug_info("prpl-vkcom", "Document %" PRIu64 " changed either title, size or url, "
+                                      "removing from uploaded\n", id);
+            }
+        }
+    }, [=]() {
+        int size_diff = conn_data->uploaded_docs.size() - helper->existing_docs.size();
+        if (size_diff > 0)
+            purple_debug_info("prpl-vkcom", "%d docs removed from uploaded\n", size_diff);
+        conn_data->uploaded_docs = helper->existing_docs;
+
+        if (success_cb)
+            success_cb();
+    }, [=](const picojson::value& v) {
+        purple_debug_warning("prpl-vkcom", "Error in docs.get: %s, removing all docs\n", v.serialize().data());
+        conn_data->uploaded_docs = helper->existing_docs;
+
+        if (success_cb)
+            success_cb();
+    });
+}
 
 // Either finds matching doc, checks that it exists and sends it or uploads new doc.
 void find_or_upload_doc(PurpleConnection* gc, PurpleXfer* xfer, const VkUploadedDoc& doc, char* contents)
 {
-    VkConnData* conn_data = get_conn_data(gc);
-    for (const VkUploadedDoc& uploaded: conn_data->uploaded_docs) {
-        if (uploaded.filename == doc.filename && uploaded.size == doc.size && uploaded.md5sum == uploaded.md5sum) {
-            purple_debug_info("prpl-vkcom", "Filename, size and md5sum matches the doc %" PRIu64 "\n", uploaded.id);
+    // We have a concurrency problem here: if the document is uploaded and added during the
+    // call to clean_nonexisting_docs (between calling docs.get and parsing the results) it will
+    // not be added to uploaded_docs. It is a minor problem (the document will be reuploaded
+    // the next time it is added) and all this "check if doc still exists" approach is
+    // non-concurrency-proof already.
+    clean_nonexisting_docs(gc, [=] {
+        VkConnData* conn_data = get_conn_data(gc);
+        for (const VkUploadedDoc& up: conn_data->uploaded_docs) {
+            if (up.filename == doc.filename && up.size == doc.size && up.md5sum == doc.md5sum) {
+                purple_debug_info("prpl-vkcom", "Filename, size and md5sum matches the doc %" PRIu64 ", resending it.\n", up.id);
 
-            string doc_id = str_format("%" PRIu64 "_%" PRIu64, conn_data->uid(), uploaded.id);
-            CallParams params = { {"docs", doc_id} };
-            vk_call_api(gc, "docs.getById", params, [=](const picojson::value& v) {
-                if (!v.is<picojson::array>() || !v.contains(0)) {
-                    purple_debug_error("prpl-vkcom", "Strange response from docs.getById: %s\n", v.serialize().data());
-                    start_uploading_doc(gc, xfer, doc, contents);
-                    return;
-                }
-                const picojson::value& d = v.get(0);
-                if (!field_is_present<string>(d, "title") || !field_is_present<double>(d, "size")
-                        || !field_is_present<string>(d, "url")) {
-                    purple_debug_error("prpl-vkcom", "Strange response from docs.getById: %s\n", d.serialize().data());
-                    start_uploading_doc(gc, xfer, doc, contents);
-                    return;
-                }
-
-                if (doc.filename != d.get("title").get<string>() || doc.size != d.get("size").get<double>()) {
-                    purple_debug_warning("prpl-vkcom", "Document has either title or size mismatch, reuploading doc\n");
-                    start_uploading_doc(gc, xfer, doc, contents);
-                    return;
-                }
-
-                purple_debug_info("prpl-vkcom", "Document %" PRIu64 " is unchanged, resending it\n", uploaded.id);
                 uint64 user_id = *(uint64*)xfer->data;
-                const string& doc_url = d.get("url").get<string>();
-                send_doc_url(gc, user_id, doc_url, true);
+                send_doc_url(gc, user_id, up.url, true);
 
                 purple_xfer_set_completed(xfer, true);
                 purple_xfer_end(xfer);
                 xfer_fini(xfer, contents);
-            }, [=](const picojson::value& v) {
-                purple_debug_warning("prpl-vkcom", "Error in docs.getById: %s, reuploading doc\n", v.serialize().data());
-                start_uploading_doc(gc, xfer, doc, contents);
-            });
-            return;
+                return;
+            }
         }
-    }
 
-    start_uploading_doc(gc, xfer, doc, contents);
+        start_uploading_doc(gc, xfer, doc, contents);
+    });
 }
 
 void xfer_init(PurpleXfer* xfer)

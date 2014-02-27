@@ -90,6 +90,54 @@ string_map parse_urlencoded_form(const char* encoded)
     return params;
 }
 
+size_t max_urlencoded_prefix(const char *s, size_t max_urlencoded_len)
+{
+    const char* pos;
+    // We preferrably split on: a) line break, b) punctuation and c) spaces.
+    const char* last_break_pos = nullptr;
+    const char* last_punct_pos = nullptr;
+    const char* last_space_pos = nullptr;
+    size_t len = 0;
+
+    for (pos = s; *pos; pos = g_utf8_next_char(pos)) {
+        int char_len = g_utf8_next_char(pos) - pos;
+        if (char_len == 1) {
+            char c = *pos;
+            if (isalnum(c) || c == '-' || c == '.' || c == '_' || c == '~')
+                len++;
+            else
+                len += 3;
+            if (len > max_urlencoded_len)
+                break;
+
+            // We want to include the break/space/punctuation character in the prefix.
+            if (c == '\n')
+                last_break_pos = pos + 1;
+            else if (ispunct(c))
+                last_punct_pos = pos + 1;
+            else if (isspace(c))
+                last_space_pos = pos + 1;
+        } else {
+            len += char_len * 3;
+            if (len > max_urlencoded_len)
+                break;
+        }
+    }
+
+    if (*pos) {
+        if (last_break_pos)
+            return last_break_pos - s;
+        else if (last_punct_pos)
+            return last_punct_pos - s;
+        else if (last_space_pos)
+            return last_space_pos - s;
+        else
+            return pos - s;
+    } else {
+        // The whole string can be urlencoded in less than max_urlencoded_len.
+        return pos - s;
+    }
+}
 
 namespace
 {

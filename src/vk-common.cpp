@@ -80,12 +80,19 @@ vector<VkUploadedDoc> uploaded_docs_from_string(const char* str)
     vector<VkUploadedDoc> ret;
     const picojson::array& a = v.get<picojson::array>();
     for (const picojson::value& d: a) {
+        // Compatibility with older releases.
+        if (!field_is_present<double>(d, "id") || !field_is_present<string>(d, "filename")
+                || !field_is_present<double>(d, "size") || !field_is_present<string>(d, "md5sum")
+                || !field_is_present<string>(d, "url"))
+            continue;
+
         ret.push_back(VkUploadedDoc());
         VkUploadedDoc& doc = ret.back();
         doc.id = d.get("id").get<double>();
         doc.filename = d.get("filename").get<string>();
         doc.size = d.get("size").get<double>();
         doc.md5sum = d.get("md5sum").get<string>();
+        doc.url = d.get("url").get<string>();
     }
     return ret;
 }
@@ -99,7 +106,8 @@ string uploaded_docs_to_string(const vector<VkUploadedDoc>& docs)
             {"id",  picojson::value((double)doc.id)},
             {"filename", picojson::value(doc.filename)},
             {"size", picojson::value((double)doc.size)},
-            {"md5sum", picojson::value(doc.md5sum)}
+            {"md5sum", picojson::value(doc.md5sum)},
+            {"url", picojson::value(doc.url)}
         };
         a.push_back(picojson::value(d));
     }
