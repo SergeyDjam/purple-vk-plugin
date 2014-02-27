@@ -96,7 +96,7 @@ size_t max_urlencoded_prefix(const char *s, size_t max_urlencoded_len)
     // We preferrably split on: a) line break, b) punctuation and c) spaces.
     const char* last_break_pos = nullptr;
     const char* last_punct_pos = nullptr;
-    const char* last_blank_pos = nullptr;
+    const char* last_space_pos = nullptr;
     size_t len = 0;
 
     for (pos = s; *pos; pos = g_utf8_next_char(pos)) {
@@ -115,8 +115,8 @@ size_t max_urlencoded_prefix(const char *s, size_t max_urlencoded_len)
                 last_break_pos = pos + 1;
             else if (ispunct(c))
                 last_punct_pos = pos + 1;
-            else if (isblank(c))
-                last_blank_pos = pos + 1;
+            else if (isspace(c))
+                last_space_pos = pos + 1;
         } else {
             len += char_len * 3;
             if (len > max_urlencoded_len)
@@ -129,8 +129,8 @@ size_t max_urlencoded_prefix(const char *s, size_t max_urlencoded_len)
             return last_break_pos - s;
         else if (last_punct_pos)
             return last_punct_pos - s;
-        else if (last_blank_pos)
-            return last_blank_pos - s;
+        else if (last_space_pos)
+            return last_space_pos - s;
         else
             return pos - s;
     } else {
