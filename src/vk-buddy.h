@@ -41,7 +41,7 @@ void remove_buddy_if_needed(PurpleConnection* gc, uint64 user_id);
 // Adds or updated information on buddies in VkConnData::user_infos.
 //
 // NOTE: uids must contain only non-friend uids.
-void add_or_update_user_infos(PurpleConnection* gc, const uint64_vec& uids, const SuccessCb& on_update_cb = nullptr);
+void add_or_update_user_infos(PurpleConnection* gc, const uint64_vec& user_ids, const SuccessCb& on_update_cb = nullptr);
 
 
 // Updates only presence status of the given buddy in buddy list according to information in VkConnData::user_infos.

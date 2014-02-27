@@ -111,7 +111,10 @@ void receive_messages_range(PurpleConnection* gc, uint64 last_msg_id, const Rece
     receive_messages_range_internal(data, last_msg_id, false);
 }
 
-void receive_messages(PurpleConnection* gc, const uint64_vec& message_ids, const ReceivedCb& received_cb)
+namespace
+{
+
+void receive_messages_impl(PurpleConnection* gc, const uint64_vec& message_ids, size_t offset, const ReceivedCb& received_cb)
 {
     if (message_ids.empty()) {
         if (received_cb)
@@ -123,7 +126,8 @@ void receive_messages(PurpleConnection* gc, const uint64_vec& message_ids, const
     data->gc = gc;
     data->received_cb = received_cb;
 
-    string ids_str = str_concat_int(',', message_ids);
+    size_t num = max_urlencoded_int(message_ids.begin() + offset, message_ids.end());
+    string ids_str = str_concat_int(',', message_ids.begin() + offset, message_ids.begin() + offset + num);
     CallParams params = { {"message_ids", ids_str} };
     vk_call_api_items(data->gc, "messages.getById", params, false, [=](const picojson::value& message) {
         process_message(data, message);
@@ -131,7 +135,18 @@ void receive_messages(PurpleConnection* gc, const uint64_vec& message_ids, const
         download_thumbnail(data, 0, 0);
     }, [=](const picojson::value&) {
         finish_receiving(data);
+
+        size_t next_offset = offset + num;
+        if (next_offset < message_ids.size())
+            receive_messages_impl(gc, message_ids, next_offset, received_cb);
     });
+}
+
+}
+
+void receive_messages(PurpleConnection* gc, const uint64_vec& message_ids, const ReceivedCb& received_cb)
+{
+    receive_messages_impl(gc, message_ids, 0, received_cb);
 }
 
 namespace
@@ -729,10 +744,7 @@ void mark_messages_as_read_impl(PurpleConnection* gc, const Cont& message_ids)
     if (message_ids.empty())
         return;
 
-    string ids_str = str_concat_int(',', message_ids);
-
-    CallParams params = { {"message_ids", ids_str} };
-    vk_call_api(gc, "messages.markAsRead", params);
+    vk_call_api_ids(gc, "messages.markAsRead", CallParams(), "message_ids", message_ids);
 }
 
 } // namespace

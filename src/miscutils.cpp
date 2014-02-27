@@ -215,3 +215,15 @@ string ensure_https_url(const string& url)
     else
         return url;
 }
+
+
+size_t max_urlencoded_int(uint64_vec::const_iterator start, uint64_vec::const_iterator end, size_t max_urlencoded_len)
+{
+    size_t len = 0;
+    for (uint64_vec::const_iterator it = start; it != end; ++it) {
+        len += int(log10(*it) + 1) + 3; // Comma is URLencoded
+        if (len > max_urlencoded_len)
+            return it - start;
+    }
+    return end - start;
+}

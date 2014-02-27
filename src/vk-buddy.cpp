@@ -66,24 +66,25 @@ void update_buddies(PurpleConnection* gc, bool update_presence, const SuccessCb&
     });
 }
 
-void add_or_update_user_infos(PurpleConnection* gc, const uint64_vec& uids, const SuccessCb& on_update_cb)
+void add_or_update_user_infos(PurpleConnection* gc, const uint64_vec& user_ids, const SuccessCb& on_update_cb)
 {
-    if (uids.empty()) {
+    if (user_ids.empty()) {
         if (on_update_cb)
             on_update_cb();
         return;
     }
 
-    for (uint64 uid: uids) {
+    for (uint64 uid: user_ids) {
         assert(!is_friend(gc, uid));
     }
 
-    string ids_str = str_concat_int(',', uids);
-    purple_debug_info("prpl-vkcom", "Updating information for buddies %s\n", ids_str.data());
+    string user_ids_str = str_concat_int(',', user_ids);
+    purple_debug_info("prpl-vkcom", "Updating information for buddies %s\n", user_ids_str.data());
 
-    CallParams params = { {"user_ids", ids_str}, {"fields", user_fields_param} };
-    vk_call_api(gc, "users.get", params, [=](const picojson::value& result) {
+    CallParams params = { {"fields", user_fields_param} };
+    vk_call_api_ids(gc, "users.get", params, "user_ids", user_ids, [=](const picojson::value& result) {
         on_update_user_infos(gc, result, false, true);
+    }, [=] {
         if (on_update_cb)
             on_update_cb();
     });
@@ -530,12 +531,13 @@ void fetch_buddy_icon(PurpleConnection* gc, const string& buddy_name, const stri
 namespace
 {
 
-void update_buddies_presence_only(PurpleConnection* gc, const uint64_vec user_ids)
+void update_buddies_presence_only(PurpleConnection* gc, const uint64_vec& user_ids)
 {
-    string ids_str = str_concat_int(',', user_ids);
-    CallParams params = { {"user_ids", ids_str}, {"fields", "online,online_mobile"} };
-    purple_debug_info("prpl-vkcom", "Updating online status for buddies %s\n", ids_str.data());
-    vk_call_api(gc, "users.get", params, [=](const picojson::value& result) {
+    string user_ids_str = str_concat_int(',', user_ids);
+    purple_debug_info("prpl-vkcom", "Updating online status for buddies %s\n", user_ids_str.data());
+
+    CallParams params = { {"fields", "online,online_mobile"} };
+    vk_call_api_ids(gc, "users.get", params, "user_ids", user_ids, [=](const picojson::value& result) {
         if (!result.is<picojson::array>()) {
             purple_debug_error("prpl-vkcom", "Wrong type returned as users.get call result\n");
             return;
@@ -569,7 +571,7 @@ void update_buddies_presence_only(PurpleConnection* gc, const uint64_vec user_id
     });
 }
 
-} // Anonymous namespace
+} // anonymous namespace
 
 void update_open_conversation_presence(PurpleConnection *gc)
 {

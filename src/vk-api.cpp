@@ -238,4 +238,38 @@ void vk_call_api_items_internal(PurpleConnection* gc, const char* method_name, c
     }
 }
 
-} // End of anonymous namespace
+void vk_call_api_ids_impl(PurpleConnection* gc, const char* method_name, const CallParams& params,
+                          const char* id_param_name, const uint64_vec& id_values, size_t offset,
+                          const CallSuccessCb& success_cb, const CallFinishedCb& call_finished_cb,
+                          const CallErrorCb& error_cb)
+{
+    CallParams new_params = params;
+    size_t num = max_urlencoded_int(id_values.begin() + offset, id_values.end());
+    string ids_str = str_concat_int(',', id_values.begin() + offset, id_values.begin() + offset + num);
+    new_params.emplace_back(id_param_name, ids_str);
+
+    vk_call_api(gc, method_name, new_params, [=](const picojson::value& v) {
+        if (success_cb)
+            success_cb(v);
+
+        size_t next_offset = offset + num;
+        if (next_offset < id_values.size()) {
+            vk_call_api_ids_impl(gc, method_name, params, id_param_name, id_values, next_offset, success_cb,
+                                 call_finished_cb, error_cb);
+        } else {
+            if (call_finished_cb)
+                call_finished_cb();
+        }
+    }, error_cb);
+}
+
+} // anonymous namespace
+
+
+void vk_call_api_ids(PurpleConnection* gc, const char* method_name, const CallParams& params,
+                     const char* id_param_name, const uint64_vec& id_values, const CallSuccessCb& success_cb,
+                     const CallFinishedCb& call_finished_cb, const CallErrorCb& error_cb)
+{
+    vk_call_api_ids_impl(gc, method_name, params, id_param_name, id_values, 0, success_cb,
+                         call_finished_cb, error_cb);
+}

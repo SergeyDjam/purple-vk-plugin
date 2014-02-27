@@ -26,6 +26,9 @@ string_map parse_urlencoded_form(const char* encoded);
 const size_t MAX_URLENCODED_STRING = 1900;
 size_t max_urlencoded_prefix(const char* s, size_t max_urlencoded_len = MAX_URLENCODED_STRING);
 
+// Returns the maximum amount of numbers, which can fit into one URL, being separated by comma.
+size_t max_urlencoded_int(uint64_vec::const_iterator start, uint64_vec::const_iterator end,
+                          size_t max_urlencoded_len = MAX_URLENCODED_STRING);
 
 // Checks if JSON value is an object, contains key and the type of value for that key is T.
 template<typename T>
