@@ -34,6 +34,7 @@ void vk_call_api(PurpleConnection* gc, const char* method_name, const CallParams
         method_url += "&";
         method_url += params_str;
     }
+
     PurpleHttpRequest* req = purple_http_request_new(method_url.data());
     purple_http_request_set_method(req, "POST");
     http_request(gc, req, [=](PurpleHttpConnection* http_conn, PurpleHttpResponse* response) {
@@ -186,9 +187,60 @@ namespace
 {
 
 // Helper function for vk_call_api_items.
-void vk_call_api_items_internal(PurpleConnection* gc, const char* method_name, const CallParams& params,
-                                int offset, bool pagination, const CallProcessItemCb& call_process_item_cb,
-                                const CallFinishedCb& call_finished_cb, const CallErrorCb& error_cb);
+struct VkCallApiItemsHelper
+{
+    PurpleConnection* gc;
+    const char* method_name;
+    CallParams params;
+    bool pagination;
+    CallProcessItemCb call_process_item_cb;
+    CallFinishedCb call_finished_cb;
+    CallErrorCb error_cb;
+};
+typedef shared_ptr<VkCallApiItemsHelper> VkCallApiItemsHelper_ptr;
+
+// Adds or replaces existing parameter value in CallParams.
+void add_or_replace_call_param(CallParams& params, const char* name, const char* value)
+{
+    for (string_pair& pair: params) {
+        if (pair.first == name) {
+            pair.second = value;
+            return;
+        }
+    }
+    params.emplace_back(name, value);
+}
+
+void vk_call_api_items_impl(VkCallApiItemsHelper_ptr helper, uint offset)
+{
+    auto process_items_cb = [=] (const picojson::value& result) {
+        if (!field_is_present<picojson::array>(result, "items")
+                || !field_is_present<double>(result, "count")) {
+            purple_debug_error("prpl-vkcom", "Strange response, no 'count' and/or 'items' are present: %s\n",
+                               result.serialize().data());
+            if (helper->error_cb)
+                helper->error_cb(picojson::value());
+            return;
+        }
+
+        const picojson::array& items = result.get("items").get<picojson::array>();
+        for (const picojson::value& v: items)
+            helper->call_process_item_cb(v);
+
+        uint64 count = result.get("count").get<double>();
+
+        // Either we've received all items or method does not have pagination.
+        if (offset + items.size() >= count || items.size() == 0 || !helper->pagination)
+            helper->call_finished_cb();
+        else
+            vk_call_api_items_impl(helper, offset + items.size());
+    };
+
+    if (offset > 0)
+        add_or_replace_call_param(helper->params, "offset", to_string(offset).data());
+
+    vk_call_api(helper->gc, helper->method_name, helper->params, process_items_cb, helper->error_cb);
+}
 
 } // End of anonymous namespace
 
@@ -196,71 +248,52 @@ void vk_call_api_items(PurpleConnection* gc, const char* method_name, const Call
                        const CallProcessItemCb& call_process_item_cb, const CallFinishedCb& call_finished_cb,
                        const CallErrorCb& error_cb)
 {
-    vk_call_api_items_internal(gc, method_name, params, 0, pagination, call_process_item_cb, call_finished_cb,
-                               error_cb);
+    VkCallApiItemsHelper_ptr helper{ new VkCallApiItemsHelper() };
+    helper->gc = gc;
+    helper->method_name = method_name;
+    helper->params = params;
+    helper->pagination = pagination;
+    helper->call_process_item_cb = call_process_item_cb;
+    helper->call_finished_cb = call_finished_cb;
+    helper->error_cb = error_cb;
+    vk_call_api_items_impl(helper, 0);
 }
 
 namespace
 {
 
-void vk_call_api_items_internal(PurpleConnection* gc, const char* method_name, const CallParams& params,
-                                int offset, bool pagination, const CallProcessItemCb& call_process_item_cb,
-                                const CallFinishedCb& call_finished_cb, const CallErrorCb& error_cb)
+struct VkCallApiIdsHelper
 {
-    auto process_items_cb = [=] (const picojson::value& result) {
-        if (!field_is_present<picojson::array>(result, "items")) {
-            purple_debug_error("prpl-vkcom", "Strange response, no 'count' and/or 'items' are present: %s\n",
-                               result.serialize().data());
-            if (error_cb)
-                error_cb(picojson::value());
-            return;
-        }
+    PurpleConnection* gc;
+    const char* method_name;
+    CallParams params;
+    const char* id_param_name;
+    uint64_vec id_values;
+    CallSuccessCb success_cb;
+    CallFinishedCb call_finished_cb;
+    CallErrorCb error_cb;
+};
+typedef shared_ptr<VkCallApiIdsHelper> VkCallApiIdsHelper_ptr;
 
-        const picojson::array& items = result.get("items").get<picojson::array>();
-        for (const picojson::value& v: items)
-            call_process_item_cb(v);
-
-        // Either we've received all items or method does not have pagination.
-        if (!pagination || items.size() == 0)
-            call_finished_cb();
-        else
-            vk_call_api_items_internal(gc, method_name, params, offset + items.size(), true,
-                                       call_process_item_cb, call_finished_cb, error_cb);
-    };
-
-    if (!pagination || offset == 0) {
-        vk_call_api(gc, method_name, params, process_items_cb, error_cb);
-    } else {
-        CallParams new_params = params;
-        new_params.emplace_back("offset", to_string(offset));
-
-        vk_call_api(gc, method_name, new_params, process_items_cb, error_cb);
-    }
-}
-
-void vk_call_api_ids_impl(PurpleConnection* gc, const char* method_name, const CallParams& params,
-                          const char* id_param_name, const uint64_vec& id_values, size_t offset,
-                          const CallSuccessCb& success_cb, const CallFinishedCb& call_finished_cb,
-                          const CallErrorCb& error_cb)
+void vk_call_api_ids_impl(VkCallApiIdsHelper_ptr helper, size_t offset)
 {
-    CallParams new_params = params;
-    size_t num = max_urlencoded_int(id_values.begin() + offset, id_values.end());
-    string ids_str = str_concat_int(',', id_values.begin() + offset, id_values.begin() + offset + num);
-    new_params.emplace_back(id_param_name, ids_str);
+    size_t num = max_urlencoded_int(helper->id_values.begin() + offset, helper->id_values.end());
+    string ids_str = str_concat_int(',', helper->id_values.begin() + offset,
+                                    helper->id_values.begin() + offset + num);
+    add_or_replace_call_param(helper->params, helper->id_param_name, ids_str.data());
 
-    vk_call_api(gc, method_name, new_params, [=](const picojson::value& v) {
-        if (success_cb)
-            success_cb(v);
+    vk_call_api(helper->gc, helper->method_name, helper->params, [=](const picojson::value& v) {
+        if (helper->success_cb)
+            helper->success_cb(v);
 
         size_t next_offset = offset + num;
-        if (next_offset < id_values.size()) {
-            vk_call_api_ids_impl(gc, method_name, params, id_param_name, id_values, next_offset, success_cb,
-                                 call_finished_cb, error_cb);
+        if (next_offset < helper->id_values.size()) {
+            vk_call_api_ids_impl(helper, next_offset);
         } else {
-            if (call_finished_cb)
-                call_finished_cb();
+            if (helper->call_finished_cb)
+                helper->call_finished_cb();
         }
-    }, error_cb);
+    }, helper->error_cb);
 }
 
 } // anonymous namespace
@@ -270,6 +303,15 @@ void vk_call_api_ids(PurpleConnection* gc, const char* method_name, const CallPa
                      const char* id_param_name, const uint64_vec& id_values, const CallSuccessCb& success_cb,
                      const CallFinishedCb& call_finished_cb, const CallErrorCb& error_cb)
 {
-    vk_call_api_ids_impl(gc, method_name, params, id_param_name, id_values, 0, success_cb,
-                         call_finished_cb, error_cb);
+    VkCallApiIdsHelper_ptr helper{ new VkCallApiIdsHelper() };
+    helper->gc = gc;
+    helper->method_name = method_name;
+    helper->params = params;
+    helper->id_param_name = id_param_name;
+    helper->id_values = id_values;
+    helper->success_cb = success_cb;
+    helper->call_finished_cb = call_finished_cb;
+    helper->error_cb = error_cb;
+
+    vk_call_api_ids_impl(helper, 0);
 }
