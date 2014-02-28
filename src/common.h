@@ -257,6 +257,13 @@ inline void remove_all(C& cont, Pred pred)
     cont.erase(std::remove_if(cont.begin(), cont.end(), pred), cont.end());
 }
 
+// A simple wrapper over std::unique and erase, usable for std::vector/std::string/std::deque.
+template<typename C, typename Pred>
+inline void unique(C& cont, Pred pred)
+{
+    cont.erase(std::unique(cont.begin(), cont.end(), pred), cont.end());
+}
+
 // Time functions
 
 // Converts the given duration to milliseconds.
