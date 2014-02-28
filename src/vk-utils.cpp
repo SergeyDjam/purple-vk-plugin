@@ -292,6 +292,8 @@ void get_groups_info(PurpleConnection* gc, uint64_vec group_ids, const GroupInfo
                 info.screen_name = v.get("screen_name").get<string>();
         }
         fetched_cb(infos);
+    }, [=](const picojson::value&) {
+        fetched_cb(map<uint64, VkGroupInfo>());
     });
 }
 

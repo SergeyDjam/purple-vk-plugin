@@ -266,8 +266,7 @@ void send_message_internal(PurpleConnection* gc, const SendMessage& message, con
     vk_call_api(gc, "messages.send", params, [=](const picojson::value& v) {
         if (!v.is<double>()) {
             purple_debug_error("prpl-vkcom", "Wrong response from message.send: %s\n", v.serialize().data());
-            if (message.error_cb)
-                message.error_cb();
+            show_error(gc, message);
             return;
         }
 
@@ -351,7 +350,7 @@ unsigned send_typing_notification(PurpleConnection* gc, uint64 uid)
         return 0;
 
     CallParams params = { {"user_id", to_string(uid)}, {"type", "typing"} };
-    vk_call_api(gc, "messages.setActivity", params);
+    vk_call_api(gc, "messages.setActivity", params, nullptr, nullptr);
 
     add_buddy_if_needed(gc, uid);
 

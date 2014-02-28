@@ -88,7 +88,7 @@ void upload_file(PurpleConnection* gc, const char* get_upload_server, const char
                  const void* contents, size_t size, const UploadedCb& uploaded_cb, const ErrorCb& error_cb,
                  const UploadProgressCb& upload_progress_cb)
 {
-    vk_call_api(gc, get_upload_server, {}, [=](const picojson::value& result) {
+    vk_call_api(gc, get_upload_server, CallParams(), [=](const picojson::value& result) {
         if (!field_is_present<string>(result, "upload_url")) {
             purple_debug_error("prpl-vkcom", "Strange response from docs.getWallUploadServer: %s\n",
                                result.serialize().data());

@@ -50,7 +50,7 @@ void update_presence_in_buddy_list(PurpleConnection* gc, uint64 user_id);
 
 
 // Set account alias to user full name (first name + second name).
-void set_account_alias(PurpleConnection* gc, uint64 uid);
+void set_account_alias(PurpleConnection* gc);
 
 // Finds user by "screen name" i.e. nickname.
 typedef std::function<void(uint64 uid)> UidFetchedCb;

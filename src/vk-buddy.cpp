@@ -63,6 +63,8 @@ void update_buddies(PurpleConnection* gc, bool update_presence, const SuccessCb&
                     on_update_cb();
             });
         });
+    }, [=](const picojson::value&) {
+        purple_connection_error_reason(gc, PURPLE_CONNECTION_ERROR_OTHER_ERROR, "Unable to retrieve buddy list");
     });
 }
 
@@ -87,6 +89,8 @@ void add_or_update_user_infos(PurpleConnection* gc, const uint64_vec& user_ids, 
     }, [=] {
         if (on_update_cb)
             on_update_cb();
+    }, [=](const picojson::value&) {
+        purple_connection_error_reason(gc, PURPLE_CONNECTION_ERROR_OTHER_ERROR, "Unable to retrieve user info");
     });
 }
 
@@ -292,7 +296,7 @@ void get_users_from_dialogs(PurpleConnection* gc, ReceivedUsersCb received_users
     }, [=] {
         helper->received_users_cb(helper->uids);
     }, [=](const picojson::value&) {
-        helper->received_users_cb(uint64_set());
+        purple_connection_error_reason(gc, PURPLE_CONNECTION_ERROR_OTHER_ERROR, "Unable to retrieve dialogs list");
     });
 }
 
@@ -568,7 +572,7 @@ void update_buddies_presence_only(PurpleConnection* gc, const uint64_vec& user_i
             info.online_mobile = online_mobile;
             update_buddy_presence_internal(gc, buddy_name_from_uid(user_id), info);
         }
-    });
+    }, nullptr, nullptr);
 }
 
 } // anonymous namespace
@@ -616,8 +620,9 @@ void remove_buddy_if_needed(PurpleConnection* gc, uint64 user_id)
 }
 
 
-void set_account_alias(PurpleConnection* gc, uint64 uid)
+void set_account_alias(PurpleConnection* gc)
 {
+    uint64 uid = get_conn_data(gc)->uid();
     purple_debug_info("prpl-vkcom", "Getting full name for %" PRIu64 "\n", uid);
 
     CallParams params = { {"user_ids", to_string(uid)}, {"fields", "first_name,last_name"} };
@@ -646,7 +651,7 @@ void set_account_alias(PurpleConnection* gc, uint64 uid)
         string full_name = first_name + " " + last_name;
         PurpleAccount* account = purple_connection_get_account(gc);
         purple_account_set_alias(account, full_name.data());
-    });
+    }, nullptr);
 }
 
 

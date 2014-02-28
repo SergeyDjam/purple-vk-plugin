@@ -33,10 +33,10 @@ void vk_update_status(PurpleConnection* gc)
 
 void vk_set_online(PurpleConnection* gc)
 {
-    vk_call_api(gc, "account.setOnline", {});
+    vk_call_api(gc, "account.setOnline", CallParams(), nullptr, nullptr);
 }
 
 void vk_set_offline(PurpleConnection* gc)
 {
-    vk_call_api(gc, "account.setOffline", {});
+    vk_call_api(gc, "account.setOffline", CallParams(), nullptr, nullptr);
 }

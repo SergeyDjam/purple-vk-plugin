@@ -744,7 +744,8 @@ void mark_messages_as_read_impl(PurpleConnection* gc, const Cont& message_ids)
     if (message_ids.empty())
         return;
 
-    vk_call_api_ids(gc, "messages.markAsRead", CallParams(), "message_ids", message_ids);
+    vk_call_api_ids(gc, "messages.markAsRead", CallParams(), "message_ids", message_ids,
+                    nullptr, nullptr, nullptr);
 }
 
 } // namespace

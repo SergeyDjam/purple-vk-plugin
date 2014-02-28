@@ -128,7 +128,7 @@ void vk_login(PurpleAccount* acct)
         PurpleAccount* account = purple_connection_get_account(gc);
         const char* alias = purple_account_get_alias(account);
         if (!alias || !alias[0]) {
-            set_account_alias(gc, data->uid());
+            set_account_alias(gc);
         }
 
         // Start Long Poll event processing. Buddy list and unread messages will be retrieved there.
