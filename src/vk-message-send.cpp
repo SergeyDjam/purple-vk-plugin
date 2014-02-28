@@ -42,10 +42,11 @@ struct SendMessage
     SuccessCb success_cb;
     ErrorCb error_cb;
 };
+typedef shared_ptr<SendMessage> SendMessage_ptr;
 
 // Helper function, used in send_im_message and request_captcha.
-void send_message_internal(PurpleConnection* gc, const SendMessage& message, const string& captcha_sid = "",
-                              const string& captcha_key = "");
+void send_message_internal(PurpleConnection* gc, const SendMessage_ptr& message,
+                           const string& captcha_sid = "", const string& captcha_key = "");
 
 // Add error message to debug log, message window and call error_cb
 void show_error(PurpleConnection* gc, const SendMessage& message);
@@ -70,7 +71,8 @@ int send_chat_message(PurpleConnection* gc, uint64 chat_id, const char* raw_mess
 
 void send_im_attachment(PurpleConnection* gc, uint64 uid, const string& attachment)
 {
-    send_message_internal(gc, { uid, 0, "", attachment, nullptr, nullptr });
+    SendMessage_ptr message_ptr{ new SendMessage({ uid, 0, "", attachment, nullptr, nullptr }) };
+    send_message_internal(gc, message_ptr);
 }
 
 namespace
@@ -89,19 +91,26 @@ int send_message(PurpleConnection* gc, uint64 uid, uint64 chat_id, const char* r
     pair<string, int_vec> p = remove_img_tags(unescaped_message);
     g_free(unescaped_message);
 
-    const string& message = p.first;
+    SendMessage_ptr message{ new SendMessage() };
+    message->uid = uid;
+    message->chat_id = chat_id;
+    message->text = move(p.first);
+    message->success_cb = success_cb;
+    message->error_cb = error_cb;
+
     const int_vec& img_ids = p.second;
     upload_imgstore_images(gc, img_ids, [=](const string& img_attachments) {
-        string attachments = parse_vkcom_attachments(message);
+        message->attachments = parse_vkcom_attachments(message->text);
         // Append attachments for in-body images to other attachments.
         if (!img_attachments.empty()) {
-            if (!attachments.empty())
-                attachments += ',';
-            attachments += img_attachments;
+            if (!message->attachments.empty())
+                message->attachments += ',';
+            message->attachments += img_attachments;
         }
-        send_message_internal(gc, { uid, chat_id, message, attachments, success_cb, error_cb });
+
+        send_message_internal(gc, message);
     }, [=] {
-        show_error(gc, { uid, chat_id, message, {}, success_cb, error_cb });
+        show_error(gc, *message);
     });
 
     add_buddy_if_needed(gc, uid);
@@ -164,7 +173,7 @@ struct UploadImgstoreImages
 typedef shared_ptr<UploadImgstoreImages> UploadImgstoreImages_ptr;
 
 // Helper function for upload_imgstore_images.
-void upload_imgstore_images_internal(PurpleConnection* gc, const UploadImgstoreImages_ptr& helper,
+void upload_imgstore_images_internal(PurpleConnection* gc, const UploadImgstoreImages_ptr& images,
                                      const ImagesUploadedCb& uploaded_cb, const ErrorCb& error_cb);
 
 void upload_imgstore_images(PurpleConnection* gc, const int_vec& img_ids, const ImagesUploadedCb& uploaded_cb,
@@ -176,17 +185,17 @@ void upload_imgstore_images(PurpleConnection* gc, const int_vec& img_ids, const 
     }
 
     // GCC 4.6 crashes here if we try to use uniform intialization.
-    UploadImgstoreImages_ptr data{ new UploadImgstoreImages() };
-    data->img_ids = img_ids;
+    UploadImgstoreImages_ptr images{ new UploadImgstoreImages() };
+    images->img_ids = img_ids;
     // Reverse data->img_ids as we start pop the items from the back of the img_ids.
-    std::reverse(data->img_ids.begin(), data->img_ids.end());
-    upload_imgstore_images_internal(gc, data, uploaded_cb, error_cb);
+    std::reverse(images->img_ids.begin(), images->img_ids.end());
+    upload_imgstore_images_internal(gc, images, uploaded_cb, error_cb);
 }
 
-void upload_imgstore_images_internal(PurpleConnection* gc, const UploadImgstoreImages_ptr& helper,
+void upload_imgstore_images_internal(PurpleConnection* gc, const UploadImgstoreImages_ptr& images,
                                      const ImagesUploadedCb& uploaded_cb, const ErrorCb& error_cb)
 {
-    int img_id = helper->img_ids.back();
+    int img_id = images->img_ids.back();
     PurpleStoredImage* img = purple_imgstore_find_by_id(img_id);
     const char* filename = purple_imgstore_get_filename(img);
     const void* contents = purple_imgstore_get_data(img);
@@ -209,20 +218,20 @@ void upload_imgstore_images_internal(PurpleConnection* gc, const UploadImgstoreI
             return;
         }
 
-        if (!helper->attachments.empty())
-            helper->attachments += ',';
+        if (!images->attachments.empty())
+            images->attachments += ',';
         // NOTE: We do not receive "access_key" from photos.saveMessagesPhoto, but it seems it does not matter,
         // vk.com will automatically add access_key to your private photos.
         int64 owner_id = int64(fields.get("owner_id").get<double>());
         uint64 id = uint64(fields.get("id").get<double>());
-        helper->attachments += str_format("photo%" PRId64 "_%" PRIu64, owner_id, id);
+        images->attachments += str_format("photo%" PRId64 "_%" PRIu64, owner_id, id);
 
-        helper->img_ids.pop_back();
-        if (helper->img_ids.empty()) {
-            uploaded_cb(helper->attachments);
+        images->img_ids.pop_back();
+        if (images->img_ids.empty()) {
+            uploaded_cb(images->attachments);
             return;
         } else {
-            upload_imgstore_images_internal(gc, helper, uploaded_cb, error_cb);
+            upload_imgstore_images_internal(gc, images, uploaded_cb, error_cb);
         }
     }, [=] {
         if (error_cb)
@@ -233,23 +242,23 @@ void upload_imgstore_images_internal(PurpleConnection* gc, const UploadImgstoreI
 
 // Process error and call either success_cb or error_cb. The only error which is meaningfully
 // processed is CAPTCHA request.
-void process_im_error(const picojson::value& error, PurpleConnection* gc, const SendMessage& message);
+void process_im_error(const picojson::value& error, PurpleConnection* gc, const SendMessage_ptr& message);
 
-void send_message_internal(PurpleConnection* gc, const SendMessage& message, const string& captcha_sid,
+void send_message_internal(PurpleConnection* gc, const SendMessage_ptr& message, const string& captcha_sid,
                            const string& captcha_key)
 {
-    CallParams params = { {"attachment", message.attachments }, {"type", "1"} };
+    CallParams params = { {"attachment", message->attachments }, {"type", "1"} };
 
     // We cannot send large messages at once due to URL limits (message is encoded in URL).
-    size_t text_len = max_urlencoded_prefix(message.text.data());
-    if (text_len == message.text.length())
-        params.emplace_back("message", message.text);
+    size_t text_len = max_urlencoded_prefix(message->text.data());
+    if (text_len == message->text.length())
+        params.emplace_back("message", message->text);
     else
-        params.emplace_back("message", message.text.substr(0, text_len));
-    if (message.uid > 0)
-        params.emplace_back("user_id", to_string(message.uid));
+        params.emplace_back("message", message->text.substr(0, text_len));
+    if (message->uid > 0)
+        params.emplace_back("user_id", to_string(message->uid));
     else
-        params.emplace_back("chat_id", to_string(message.chat_id));
+        params.emplace_back("chat_id", to_string(message->chat_id));
     if (!captcha_sid.empty())
         params.emplace_back("captcha_sid", captcha_sid);
     if (!captcha_key.empty())
@@ -263,7 +272,7 @@ void send_message_internal(PurpleConnection* gc, const SendMessage& message, con
     vk_call_api(gc, "messages.send", params, [=](const picojson::value& v) {
         if (!v.is<double>()) {
             purple_debug_error("prpl-vkcom", "Wrong response from message.send: %s\n", v.serialize().data());
-            show_error(gc, message);
+            show_error(gc, *message);
             return;
         }
 
@@ -273,39 +282,34 @@ void send_message_internal(PurpleConnection* gc, const SendMessage& message, con
         conn_data->sent_msg_ids.insert(msg_id);
 
         // Check if we have sent the whole message.
-        if (text_len == message.text.length()) {
-            if (message.success_cb)
-                message.success_cb();
+        if (text_len == message->text.length()) {
+            if (message->success_cb)
+                message->success_cb();
         } else {
             // Send next part of message.
-            SendMessage next_message;
-            next_message.uid = message.uid;
-            next_message.chat_id = message.chat_id;
-            next_message.success_cb = message.success_cb;
-            next_message.error_cb = message.error_cb;
-            next_message.text = message.text.substr(text_len);
-            send_message_internal(gc, next_message, captcha_sid, captcha_key);
+            message->text.erase(0, text_len);
+            send_message_internal(gc, message, captcha_sid, captcha_key);
         }
     }, [=](const picojson::value& error) {
         process_im_error(error, gc, message);
     });
 }
 
-void process_im_error(const picojson::value& error, PurpleConnection* gc, const SendMessage& message)
+void process_im_error(const picojson::value& error, PurpleConnection* gc, const SendMessage_ptr& message)
 {
     if (!error.is<picojson::object>() || !field_is_present<double>(error, "error_code")) {
         // Most probably, network timeout.
-        show_error(gc, message);
+        show_error(gc, *message);
         return;
     }
     int error_code = error.get("error_code").get<double>();
     if (error_code != VK_CAPTCHA_NEEDED) {
-        show_error(gc, message);
+        show_error(gc, *message);
         return;
     }
     if (!field_is_present<string>(error, "captcha_sid") || !field_is_present<string>(error, "captcha_img")) {
         purple_debug_error("prpl-vkcom", "Captcha request does not contain captcha_sid or captcha_img");
-        show_error(gc, message);
+        show_error(gc, *message);
         return;
     }
 
@@ -316,7 +320,7 @@ void process_im_error(const picojson::value& error, PurpleConnection* gc, const 
     request_captcha(gc, captcha_img, [=](const string& captcha_key) {
         send_message_internal(gc, message, captcha_sid, captcha_key);
     }, [=] {
-        show_error(gc, message);
+        show_error(gc, *message);
     });
 }
 
