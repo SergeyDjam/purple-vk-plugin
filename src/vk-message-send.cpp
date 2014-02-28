@@ -71,8 +71,11 @@ int send_chat_message(PurpleConnection* gc, uint64 chat_id, const char* raw_mess
 
 void send_im_attachment(PurpleConnection* gc, uint64 uid, const string& attachment)
 {
-    SendMessage_ptr message_ptr{ new SendMessage({ uid, 0, "", attachment, nullptr, nullptr }) };
-    send_message_internal(gc, message_ptr);
+    SendMessage_ptr message{ new SendMessage() };
+    message->uid = uid;
+    message->chat_id = 0;
+    message->attachments = attachment;
+    send_message_internal(gc, message);
 }
 
 namespace
