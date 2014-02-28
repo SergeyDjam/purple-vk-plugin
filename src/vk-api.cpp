@@ -228,12 +228,12 @@ void vk_call_api_items_impl(VkCallApiItemsHelper_ptr helper, uint offset)
             helper->call_process_item_cb(v);
 
         uint64 count = result.get("count").get<double>();
-
+        uint next_offset = offset + items.size();
         // Either we've received all items or method does not have pagination.
-        if (offset + items.size() >= count || items.size() == 0 || !helper->pagination)
+        if (next_offset >= count || items.size() == 0 || !helper->pagination)
             helper->call_finished_cb();
         else
-            vk_call_api_items_impl(helper, offset + items.size());
+            vk_call_api_items_impl(helper, next_offset);
     };
 
     if (offset > 0)

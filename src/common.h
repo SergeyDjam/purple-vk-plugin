@@ -237,11 +237,17 @@ inline bool contains_key(const C& cont, const K& key)
     return cont.find(key) != cont.end();
 }
 
-// Appends one container to another.
+// Appends one vector, deque or list container to another.
 template<typename D, typename S>
 inline void append(D& dst, const S& src)
 {
     dst.insert(dst.end(), src.begin(), src.end());
+}
+
+template<typename D, typename S, typename Pred>
+inline void append_if(D& dst, const S& src, Pred pred)
+{
+    std::copy_if(src.begin(), src.end(), std::back_inserter(dst), pred);
 }
 
 // A simple wrapper over std::remove_if and erase, usable for std::vector/std::string/std::deque.
