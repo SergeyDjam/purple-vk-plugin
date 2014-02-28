@@ -151,10 +151,7 @@ void start_uploading_doc(PurpleConnection* gc, PurpleXfer* xfer, const VkUploade
 // or do not match the stored parameters.
 void clean_nonexisting_docs(PurpleConnection* gc, const SuccessCb& success_cb)
 {
-    struct Helper {
-        vector<VkUploadedDoc> existing_docs;
-    };
-    shared_ptr<Helper> helper{ new Helper() };
+    shared_ptr<vector<VkUploadedDoc>> existing_docs{ new vector<VkUploadedDoc>() };
 
     VkConnData* conn_data = get_conn_data(gc);
 
@@ -173,23 +170,23 @@ void clean_nonexisting_docs(PurpleConnection* gc, const SuccessCb& success_cb)
         for (const VkUploadedDoc& doc: conn_data->uploaded_docs) {
             if (doc.id == id) {
                 if (doc.filename == title && doc.size == size && doc.url == url)
-                    helper->existing_docs.push_back(doc);
+                    existing_docs->push_back(doc);
                 else
                     purple_debug_info("prpl-vkcom", "Document %" PRIu64 " changed either title, size or url, "
                                       "removing from uploaded\n", id);
             }
         }
     }, [=]() {
-        int size_diff = conn_data->uploaded_docs.size() - helper->existing_docs.size();
+        int size_diff = conn_data->uploaded_docs.size() - existing_docs->size();
         if (size_diff > 0)
             purple_debug_info("prpl-vkcom", "%d docs removed from uploaded\n", size_diff);
-        conn_data->uploaded_docs = helper->existing_docs;
+        conn_data->uploaded_docs = *existing_docs;
 
         if (success_cb)
             success_cb();
     }, [=](const picojson::value& v) {
         purple_debug_warning("prpl-vkcom", "Error in docs.get: %s, removing all docs\n", v.serialize().data());
-        conn_data->uploaded_docs = helper->existing_docs;
+        conn_data->uploaded_docs = *existing_docs;
 
         if (success_cb)
             success_cb();

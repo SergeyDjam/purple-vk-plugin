@@ -21,7 +21,7 @@ uint64_set on_update_user_infos(PurpleConnection* gc, const picojson::value& res
                                 bool update_presence);
 
 // Returns a set of uids of all non-friends, which a user had a dialog with.
-typedef std::function<void(const uint64_vec&)> ReceivedUsersCb;
+typedef function_ptr<void(const uint64_vec&)> ReceivedUsersCb;
 void get_users_from_dialogs(PurpleConnection* gc, const ReceivedUsersCb& received_users_cb);
 
 // Updates buddy list according to friend_uids and user_infos stored in VkConnData. Adds new buddies, removes
@@ -273,27 +273,22 @@ uint64 on_update_user_info(PurpleConnection* gc, const picojson::value& fields, 
     return uid;
 }
 
-struct GetUsersFromDialogsHelper
-{
-    PurpleConnection* gc;
-    ReceivedUsersCb received_users_cb;
+// We store gathered user ids in shared_ptr, so that we do not do unnecessary copies.
+typedef shared_ptr<uint64_vec> UserIds_ptr;
 
-    uint64_vec user_ids;
-};
-typedef shared_ptr<GetUsersFromDialogsHelper> GetUsersFromDialogsHelper_ptr;
-
-void get_users_from_dialogs_impl(GetUsersFromDialogsHelper_ptr helper, uint offset)
+void get_users_from_dialogs_impl(PurpleConnection* gc, const ReceivedUsersCb& received_users_cb,
+                                 const UserIds_ptr& user_ids, uint offset)
 {
     string code = str_format(
                 "var v = API.messages.getDialogs({\"count\": 200, \"offset\": %u});"
                 "return { \"count\": v.count, \"ids\": v.items@.user_id };",
                 offset);
     CallParams params = { {"code", code }};
-    vk_call_api(helper->gc, "execute", params, [=](const picojson::value& v) {
+    vk_call_api(gc, "execute", params, [=](const picojson::value& v) {
         if (!field_is_present<double>(v, "count") || !field_is_present<picojson::array>(v, "ids")) {
             purple_debug_error("prpl-vkcom", "Strange response from our getDialogs: %s\n",
                                v.serialize().data());
-            purple_connection_error_reason(helper->gc, PURPLE_CONNECTION_ERROR_OTHER_ERROR,
+            purple_connection_error_reason(gc, PURPLE_CONNECTION_ERROR_OTHER_ERROR,
                                            "Unable to retrieve dialogs list");
             return;
         }
@@ -301,27 +296,23 @@ void get_users_from_dialogs_impl(GetUsersFromDialogsHelper_ptr helper, uint offs
         uint64 count = v.get("count").get<double>();
         const picojson::array& ids = v.get("ids").get<picojson::array>();
         for (const picojson::value& id: ids)
-            helper->user_ids.push_back(id.get<double>());
+            user_ids->push_back(id.get<double>());
 
         uint next_offset = offset + ids.size();
 
         if (next_offset < count)
-            get_users_from_dialogs_impl(helper, next_offset);
+            get_users_from_dialogs_impl(gc, received_users_cb, user_ids, next_offset);
         else
-            helper->received_users_cb(helper->user_ids);
+            received_users_cb(*user_ids);
     }, [=](const picojson::value&) {
-        purple_connection_error_reason(helper->gc, PURPLE_CONNECTION_ERROR_OTHER_ERROR,
-                                       "Unable to retrieve dialogs list");
+        purple_connection_error_reason(gc, PURPLE_CONNECTION_ERROR_OTHER_ERROR, "Unable to retrieve dialogs list");
     });
 }
 
 void get_users_from_dialogs(PurpleConnection* gc, const ReceivedUsersCb& received_users_cb)
 {
-    GetUsersFromDialogsHelper_ptr helper{ new GetUsersFromDialogsHelper() };
-    helper->gc = gc;
-    helper->received_users_cb = received_users_cb;
-
-    get_users_from_dialogs_impl(helper, 0);
+    UserIds_ptr user_ids{ new uint64_vec() };
+    get_users_from_dialogs_impl(gc, received_users_cb, user_ids, 0);
 }
 
 // Returns true if buddy with given user id should be shown in buddy list, false otherwise.

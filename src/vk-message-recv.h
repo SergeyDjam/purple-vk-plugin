@@ -8,7 +8,7 @@
 
 // Callback called when messages are received. max_msg_id is the max id of received messages if any have been
 // received, zero otherwise.
-typedef std::function<void(uint64 max_msg_id)> ReceivedCb;
+typedef function_ptr<void(uint64 max_msg_id)> ReceivedCb;
 
 // Receives all messages starting after from_msg_id. If last_msg_id is zero only unread incoming messages
 // are received, otherwise all messages (both sent and received) since last_msg_id are received, not including

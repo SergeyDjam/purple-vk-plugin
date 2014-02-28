@@ -186,18 +186,8 @@ void repeat_vk_call(PurpleConnection* gc, PurpleHttpRequest* req, const CallSucc
 namespace
 {
 
-// Helper function for vk_call_api_items.
-struct VkCallApiItemsHelper
-{
-    PurpleConnection* gc;
-    const char* method_name;
-    CallParams params;
-    bool pagination;
-    CallProcessItemCb call_process_item_cb;
-    CallFinishedCb call_finished_cb;
-    CallErrorCb error_cb;
-};
-typedef shared_ptr<VkCallApiItemsHelper> VkCallApiItemsHelper_ptr;
+// We do not want to copy CallParams when storing in lambda, the easiest way is storing them in shared_ptr.
+typedef shared_ptr<CallParams> CallParams_ptr;
 
 // Adds or replaces existing parameter value in CallParams.
 void add_or_replace_call_param(CallParams& params, const char* name, const char* value)
@@ -211,35 +201,36 @@ void add_or_replace_call_param(CallParams& params, const char* name, const char*
     params.emplace_back(name, value);
 }
 
-void vk_call_api_items_impl(VkCallApiItemsHelper_ptr helper, uint offset)
+void vk_call_api_items_impl(PurpleConnection* gc, const char* method_name, const CallParams_ptr& params,
+                            bool pagination, const CallProcessItemCb& call_process_item_cb,
+                            const CallFinishedCb& call_finished_cb, const CallErrorCb& error_cb, uint offset)
 {
-    auto process_items_cb = [=] (const picojson::value& result) {
+    if (offset > 0)
+        add_or_replace_call_param(*params, "offset", to_string(offset).data());
+
+    vk_call_api(gc, method_name, *params, [=] (const picojson::value& result) {
         if (!field_is_present<picojson::array>(result, "items")
                 || !field_is_present<double>(result, "count")) {
             purple_debug_error("prpl-vkcom", "Strange response, no 'count' and/or 'items' are present: %s\n",
                                result.serialize().data());
-            if (helper->error_cb)
-                helper->error_cb(picojson::value());
+            if (error_cb)
+                error_cb(picojson::value());
             return;
         }
 
         const picojson::array& items = result.get("items").get<picojson::array>();
         for (const picojson::value& v: items)
-            helper->call_process_item_cb(v);
+            call_process_item_cb(v);
 
         uint64 count = result.get("count").get<double>();
         uint next_offset = offset + items.size();
         // Either we've received all items or method does not have pagination.
-        if (next_offset >= count || items.size() == 0 || !helper->pagination)
-            helper->call_finished_cb();
+        if (next_offset >= count || items.size() == 0 || !pagination)
+            call_finished_cb();
         else
-            vk_call_api_items_impl(helper, next_offset);
-    };
-
-    if (offset > 0)
-        add_or_replace_call_param(helper->params, "offset", to_string(offset).data());
-
-    vk_call_api(helper->gc, helper->method_name, helper->params, process_items_cb, helper->error_cb);
+            vk_call_api_items_impl(gc, method_name, params, pagination, call_process_item_cb,
+                                   call_finished_cb, error_cb, next_offset);
+    }, error_cb);
 }
 
 } // End of anonymous namespace
@@ -248,52 +239,38 @@ void vk_call_api_items(PurpleConnection* gc, const char* method_name, const Call
                        const CallProcessItemCb& call_process_item_cb, const CallFinishedCb& call_finished_cb,
                        const CallErrorCb& error_cb)
 {
-    VkCallApiItemsHelper_ptr helper{ new VkCallApiItemsHelper() };
-    helper->gc = gc;
-    helper->method_name = method_name;
-    helper->params = params;
-    helper->pagination = pagination;
-    helper->call_process_item_cb = call_process_item_cb;
-    helper->call_finished_cb = call_finished_cb;
-    helper->error_cb = error_cb;
-    vk_call_api_items_impl(helper, 0);
+    CallParams_ptr params_ptr{ new CallParams(params) };
+    vk_call_api_items_impl(gc, method_name, params_ptr, pagination, call_process_item_cb,
+                           call_finished_cb, error_cb, 0);
 }
 
 namespace
 {
 
-struct VkCallApiIdsHelper
-{
-    PurpleConnection* gc;
-    const char* method_name;
-    CallParams params;
-    const char* id_param_name;
-    uint64_vec id_values;
-    CallSuccessCb success_cb;
-    CallFinishedCb call_finished_cb;
-    CallErrorCb error_cb;
-};
-typedef shared_ptr<VkCallApiIdsHelper> VkCallApiIdsHelper_ptr;
+// We do not want to copy id_values when storing in lambda, the easiest way is storing them in shared_ptr.
+typedef shared_ptr<uint64_vec> IdValues_ptr;
 
-void vk_call_api_ids_impl(VkCallApiIdsHelper_ptr helper, size_t offset)
+void vk_call_api_ids_impl(PurpleConnection* gc, const char* method_name, const CallParams_ptr& params,
+                          const char* id_param_name, const IdValues_ptr& id_values, const CallSuccessCb& success_cb,
+                          const CallFinishedCb& call_finished_cb, const CallErrorCb& error_cb, size_t offset)
 {
-    size_t num = max_urlencoded_int(helper->id_values.begin() + offset, helper->id_values.end());
-    string ids_str = str_concat_int(',', helper->id_values.begin() + offset,
-                                    helper->id_values.begin() + offset + num);
-    add_or_replace_call_param(helper->params, helper->id_param_name, ids_str.data());
+    size_t num = max_urlencoded_int(id_values->begin() + offset, id_values->end());
+    string ids_str = str_concat_int(',', id_values->begin() + offset, id_values->begin() + offset + num);
+    add_or_replace_call_param(*params, id_param_name, ids_str.data());
 
-    vk_call_api(helper->gc, helper->method_name, helper->params, [=](const picojson::value& v) {
-        if (helper->success_cb)
-            helper->success_cb(v);
+    vk_call_api(gc, method_name, *params, [=](const picojson::value& v) {
+        if (success_cb)
+            success_cb(v);
 
         size_t next_offset = offset + num;
-        if (next_offset < helper->id_values.size()) {
-            vk_call_api_ids_impl(helper, next_offset);
+        if (next_offset < id_values->size()) {
+            vk_call_api_ids_impl(gc, method_name, params, id_param_name, id_values, success_cb, call_finished_cb,
+                                 error_cb, next_offset);
         } else {
-            if (helper->call_finished_cb)
-                helper->call_finished_cb();
+            if (call_finished_cb)
+                call_finished_cb();
         }
-    }, helper->error_cb);
+    }, error_cb);
 }
 
 } // anonymous namespace
@@ -303,15 +280,9 @@ void vk_call_api_ids(PurpleConnection* gc, const char* method_name, const CallPa
                      const char* id_param_name, const uint64_vec& id_values, const CallSuccessCb& success_cb,
                      const CallFinishedCb& call_finished_cb, const CallErrorCb& error_cb)
 {
-    VkCallApiIdsHelper_ptr helper{ new VkCallApiIdsHelper() };
-    helper->gc = gc;
-    helper->method_name = method_name;
-    helper->params = params;
-    helper->id_param_name = id_param_name;
-    helper->id_values = id_values;
-    helper->success_cb = success_cb;
-    helper->call_finished_cb = call_finished_cb;
-    helper->error_cb = error_cb;
+    CallParams_ptr params_ptr{ new CallParams(params) };
+    IdValues_ptr id_values_ptr{ new uint64_vec(id_values) };
 
-    vk_call_api_ids_impl(helper, 0);
+    vk_call_api_ids_impl(gc, method_name, params_ptr, id_param_name, id_values_ptr, success_cb,
+                         call_finished_cb, error_cb, 0);
 }

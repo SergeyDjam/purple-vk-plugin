@@ -10,8 +10,8 @@
 
 // Calls method with params.
 typedef vector<string_pair> CallParams;
-typedef std::function<void(const picojson::value& result)> CallSuccessCb;
-typedef std::function<void(const picojson::value& error)> CallErrorCb;
+typedef function_ptr<void(const picojson::value& result)> CallSuccessCb;
+typedef function_ptr<void(const picojson::value& error)> CallErrorCb;
 void vk_call_api(PurpleConnection* gc, const char* method_name, const CallParams& params,
                  const CallSuccessCb& success_cb, const CallErrorCb& error_cb);
 
@@ -22,8 +22,8 @@ void vk_call_api(PurpleConnection* gc, const char* method_name, const CallParams
 // call_process_item_cb is called for each item in the array,
 // call_finished_cb is called upon completion,
 // error_cb is called upon error.
-typedef std::function<void(const picojson::value&)> CallProcessItemCb;
-typedef std::function<void()> CallFinishedCb;
+typedef function_ptr<void(const picojson::value&)> CallProcessItemCb;
+typedef function_ptr<void()> CallFinishedCb;
 void vk_call_api_items(PurpleConnection* gc, const char* method_name, const CallParams& params,
                        bool pagination, const CallProcessItemCb& call_process_item_cb,
                        const CallFinishedCb& call_finished_cb, const CallErrorCb& error_cb);

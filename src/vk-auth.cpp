@@ -100,25 +100,21 @@ struct AuthData
     ErrorCb error_cb;
 };
 
-typedef std::shared_ptr<AuthData> AuthDataPtr;
-
-//    void on_success(const string& access_token, const string& uid);
-//    // Called upon failure, destroys this.
-//    void on_error(PurpleConnectionError error, const string& error_string);
+typedef std::shared_ptr<AuthData> AuthData_ptr;
 
 // Starts authentication process.
-void start_auth(const AuthDataPtr& data);
+void start_auth(const AuthData_ptr& data);
 
 // First part of auth process: retrieves login page, finds relevant form with username (email) and password
 // and submits it.
-void on_fetch_vk_oauth_form(const AuthDataPtr& data, PurpleHttpConnection* http_conn,
+void on_fetch_vk_oauth_form(const AuthData_ptr& data, PurpleHttpConnection* http_conn,
                             PurpleHttpResponse* response);
 // Second part of auth process: retrieves "confirm access" page and submits form. This part may be skipped.
-void on_fetch_vk_confirmation_form(const AuthDataPtr& data, PurpleHttpConnection* http_conn,
+void on_fetch_vk_confirmation_form(const AuthData_ptr& data, PurpleHttpConnection* http_conn,
                                    PurpleHttpResponse* response);
 // Last part of auth process: retrieves access token. We either arrive here upon success from confirmation
 // page or upon error (when url starts with "https://oauth.vk.com/blank.html").
-void on_fetch_vk_access_token(const AuthDataPtr& data, PurpleHttpConnection* http_conn,
+void on_fetch_vk_access_token(const AuthData_ptr& data, PurpleHttpConnection* http_conn,
                               PurpleHttpResponse*);
 
 // Replaces '\n' with ' ' (purple_debug_* functions output only the first line).
@@ -130,7 +126,7 @@ string replace_br(const char* str)
 }
 
 // Called upon auth error.
-void on_error(const AuthDataPtr& data, PurpleConnectionError error, const string& error_string)
+void on_error(const AuthData_ptr& data, PurpleConnectionError error, const string& error_string)
 {
     purple_connection_error_reason(data->gc, error, error_string.data());
     if (data->error_cb)
@@ -141,7 +137,7 @@ const char api_version[] = "5.8";
 const char mobile_user_agent[] = "Mozilla/5.0 (Mobile; rv:17.0) Gecko/17.0 Firefox/17.0";
 const char desktop_user_agent[] = "Mozilla/5.0 (Windows NT 6.1; Win64; x64; rv:25.0) Firefox/25.0";
 
-void start_auth(const AuthDataPtr& data)
+void start_auth(const AuthData_ptr& data)
 {
     assert(data->success_cb);
     purple_connection_update_progress(data->gc, "Connecting", 0, 4);
@@ -155,7 +151,7 @@ void start_auth(const AuthDataPtr& data)
     });
 }
 
-void on_fetch_vk_oauth_form(const AuthDataPtr& data, PurpleHttpConnection* http_conn,
+void on_fetch_vk_oauth_form(const AuthData_ptr& data, PurpleHttpConnection* http_conn,
                             PurpleHttpResponse* response)
 {
     purple_connection_update_progress(data->gc, "Connecting", 1, 4);
@@ -207,7 +203,7 @@ void on_fetch_vk_oauth_form(const AuthDataPtr& data, PurpleHttpConnection* http_
     purple_http_request_unref(request);
 }
 
-void on_fetch_vk_confirmation_form(const AuthDataPtr& data, PurpleHttpConnection* http_conn,
+void on_fetch_vk_confirmation_form(const AuthData_ptr& data, PurpleHttpConnection* http_conn,
                                    PurpleHttpResponse* response)
 {
     purple_connection_update_progress(data->gc, "Connecting", 2, 4);
@@ -259,7 +255,7 @@ void on_fetch_vk_confirmation_form(const AuthDataPtr& data, PurpleHttpConnection
 
 // Last part of auth process: retrieves access token. We either arrive here upon success from confirmation
 // page or upon error (when url starts with "https://oauth.vk.com/blank.html").
-void on_fetch_vk_access_token(const AuthDataPtr& data, PurpleHttpConnection* http_conn, PurpleHttpResponse*)
+void on_fetch_vk_access_token(const AuthData_ptr& data, PurpleHttpConnection* http_conn, PurpleHttpResponse*)
 {
     purple_connection_update_progress(data->gc, "Connecting", 3, 4);
     purple_debug_info("prpl-vkcom", "Fetched access token URL\n");
@@ -290,7 +286,7 @@ void on_fetch_vk_access_token(const AuthDataPtr& data, PurpleHttpConnection* htt
 void vk_auth_user(PurpleConnection* gc, const string& email, const string& password, const string& client_id, const string& scope,
                   const AuthSuccessCb& success_cb, const ErrorCb& error_cb)
 {
-    AuthDataPtr data{ new AuthData };
+    AuthData_ptr data{ new AuthData() };
     data->gc = gc;
     data->email = email;
     data->password = password;

@@ -3,10 +3,6 @@
 #include "httputils.h"
 #include "miscutils.h"
 
-using std::bind;
-using std::move;
-using namespace std::placeholders;
-
 namespace
 {
 
@@ -28,10 +24,10 @@ void destroy_keepalive_pool(PurpleConnection* gc)
         purple_http_keepalive_pool_unref(data->keepalive_pool);
 }
 
-PurpleHttpConnection* http_get(PurpleConnection* gc, const string& url, HttpCallback callback)
+PurpleHttpConnection* http_get(PurpleConnection* gc, const string& url, const HttpCallback& callback)
 {
     PurpleHttpRequest* request = purple_http_request_new(url.data());
-    PurpleHttpConnection* hc = http_request(gc, request, move(callback));
+    PurpleHttpConnection* hc = http_request(gc, request, callback);
     purple_http_request_unref(request);
     return hc;
 }
@@ -49,10 +45,11 @@ void http_cb(PurpleHttpConnection* http_conn, PurpleHttpResponse* response, void
 
 } // End anonymous namespace
 
-PurpleHttpConnection* http_request(PurpleConnection* gc, PurpleHttpRequest* request, HttpCallback callback)
+PurpleHttpConnection* http_request(PurpleConnection* gc, PurpleHttpRequest* request,
+                                   const HttpCallback& callback)
 {
     purple_http_request_set_keepalive_pool(request, get_keepalive_pool(gc));
-    HttpCallback* user_data = new HttpCallback(move(callback));
+    HttpCallback* user_data = new HttpCallback(callback);
     PurpleHttpConnection* hc = purple_http_request(gc, request, http_cb, user_data);
     return hc;
 }
@@ -61,14 +58,17 @@ namespace
 {
 
 // A helper callback for purple_http_request_update_on_redirect. TODO: check for infinite loops.
-void http_request_redirect_cb(PurpleHttpConnection* http_conn, PurpleHttpResponse* response, HttpCallback callback)
+void http_request_redirect_cb(PurpleHttpConnection* http_conn, PurpleHttpResponse* response,
+                              const HttpCallback& callback)
 {
     if (purple_http_response_get_code(response) == 302) {
         PurpleConnection* gc = purple_http_conn_get_purple_connection(http_conn);
         PurpleHttpRequest* request = purple_http_conn_get_request(http_conn);
         const char* new_url = purple_http_response_get_header(response, "Location");
         purple_http_request_set_url(request, new_url);
-        http_request(gc, request, bind(http_request_redirect_cb, _1, _2, move(callback)));
+        http_request(gc, request, [=](PurpleHttpConnection* http_conn, PurpleHttpResponse* response) {
+            http_request_redirect_cb(http_conn, response, callback);
+        });
     } else {
         callback(http_conn, response);
     }
@@ -77,11 +77,13 @@ void http_request_redirect_cb(PurpleHttpConnection* http_conn, PurpleHttpRespons
 } // End anonymous namespace
 
 PurpleHttpConnection* http_request_update_on_redirect(PurpleConnection* gc, PurpleHttpRequest* request,
-                                                      HttpCallback callback)
+                                                      const HttpCallback& callback)
 {
     purple_http_request_set_max_redirects(request, 0);
 
-    return http_request(gc, request, bind(http_request_redirect_cb, _1, _2, move(callback)));
+    return http_request(gc, request, [=](PurpleHttpConnection* http_conn, PurpleHttpResponse* response) {
+        http_request_redirect_cb(http_conn, response, callback);
+    });
 }
 
 

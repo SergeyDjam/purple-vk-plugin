@@ -27,7 +27,7 @@ int send_message(PurpleConnection* gc, uint64 uid, uint64 chat_id, const char* r
 pair<string, int_vec> remove_img_tags(const char* message);
 // Uploads a number of images, stored in imgstore and returns the list of attachments to be added
 // to the message which contained the images.
-typedef std::function<void(const string& attachments)> ImagesUploadedCb;
+typedef function_ptr<void(const string& attachments)> ImagesUploadedCb;
 void upload_imgstore_images(PurpleConnection* gc, const int_vec& img_ids, const ImagesUploadedCb& uploaded_cb,
                             const ErrorCb& error_cb);
 
@@ -160,14 +160,12 @@ struct UploadImgstoreImages
     int_vec img_ids;
     // attachments from all the uploaded img_ids.
     string attachments;
-
-    ImagesUploadedCb uploaded_cb;
-    ErrorCb error_cb;
 };
-typedef shared_ptr<UploadImgstoreImages> UploadImgstoreImagesPtr;
+typedef shared_ptr<UploadImgstoreImages> UploadImgstoreImages_ptr;
 
 // Helper function for upload_imgstore_images.
-void upload_imgstore_images_internal(PurpleConnection* gc, const UploadImgstoreImagesPtr& data);
+void upload_imgstore_images_internal(PurpleConnection* gc, const UploadImgstoreImages_ptr& helper,
+                                     const ImagesUploadedCb& uploaded_cb, const ErrorCb& error_cb);
 
 void upload_imgstore_images(PurpleConnection* gc, const int_vec& img_ids, const ImagesUploadedCb& uploaded_cb,
                             const ErrorCb& error_cb)
@@ -178,18 +176,17 @@ void upload_imgstore_images(PurpleConnection* gc, const int_vec& img_ids, const 
     }
 
     // GCC 4.6 crashes here if we try to use uniform intialization.
-    UploadImgstoreImagesPtr data{ new UploadImgstoreImages() };
+    UploadImgstoreImages_ptr data{ new UploadImgstoreImages() };
     data->img_ids = img_ids;
-    data->uploaded_cb = uploaded_cb;
-    data->error_cb  = error_cb;
     // Reverse data->img_ids as we start pop the items from the back of the img_ids.
     std::reverse(data->img_ids.begin(), data->img_ids.end());
-    upload_imgstore_images_internal(gc, data);
+    upload_imgstore_images_internal(gc, data, uploaded_cb, error_cb);
 }
 
-void upload_imgstore_images_internal(PurpleConnection* gc, const UploadImgstoreImagesPtr& data)
+void upload_imgstore_images_internal(PurpleConnection* gc, const UploadImgstoreImages_ptr& helper,
+                                     const ImagesUploadedCb& uploaded_cb, const ErrorCb& error_cb)
 {
-    int img_id = data->img_ids.back();
+    int img_id = helper->img_ids.back();
     PurpleStoredImage* img = purple_imgstore_find_by_id(img_id);
     const char* filename = purple_imgstore_get_filename(img);
     const void* contents = purple_imgstore_get_data(img);
@@ -200,36 +197,36 @@ void upload_imgstore_images_internal(PurpleConnection* gc, const UploadImgstoreI
         purple_debug_info("prpl-vkcom", "Sucessfully uploaded img %d\n", img_id);
         if (!v.is<picojson::array>() || !v.contains(0)) {
             purple_debug_error("prpl-vkcom", "Unknown photos.saveMessagesPhoto result: %s\n", v.serialize().data());
-            if (data->error_cb)
-                data->error_cb();
+            if (error_cb)
+                error_cb();
             return;
         }
         const picojson::value& fields = v.get(0);
         if (!field_is_present<double>(fields, "owner_id") || !field_is_present<double>(fields, "id")) {
             purple_debug_error("prpl-vkcom", "Unknown photos.saveMessagesPhoto result: %s\n", v.serialize().data());
-            if (data->error_cb)
-                data->error_cb();
+            if (error_cb)
+                error_cb();
             return;
         }
 
-        if (!data->attachments.empty())
-            data->attachments += ',';
+        if (!helper->attachments.empty())
+            helper->attachments += ',';
         // NOTE: We do not receive "access_key" from photos.saveMessagesPhoto, but it seems it does not matter,
         // vk.com will automatically add access_key to your private photos.
         int64 owner_id = int64(fields.get("owner_id").get<double>());
         uint64 id = uint64(fields.get("id").get<double>());
-        data->attachments += str_format("photo%" PRId64 "_%" PRIu64, owner_id, id);
+        helper->attachments += str_format("photo%" PRId64 "_%" PRIu64, owner_id, id);
 
-        data->img_ids.pop_back();
-        if (data->img_ids.empty()) {
-            data->uploaded_cb(data->attachments);
+        helper->img_ids.pop_back();
+        if (helper->img_ids.empty()) {
+            uploaded_cb(helper->attachments);
             return;
         } else {
-            upload_imgstore_images_internal(gc, data);
+            upload_imgstore_images_internal(gc, helper, uploaded_cb, error_cb);
         }
     }, [=] {
-        if (data->error_cb)
-            data->error_cb();
+        if (error_cb)
+            error_cb();
     });
 
 }
@@ -284,8 +281,8 @@ void send_message_internal(PurpleConnection* gc, const SendMessage& message, con
             SendMessage next_message;
             next_message.uid = message.uid;
             next_message.chat_id = message.chat_id;
-            next_message.success_cb = std::move(message.success_cb);
-            next_message.error_cb = std::move(message.error_cb);
+            next_message.success_cb = message.success_cb;
+            next_message.error_cb = message.error_cb;
             next_message.text = message.text.substr(text_len);
             send_message_internal(gc, next_message, captcha_sid, captcha_key);
         }

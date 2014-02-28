@@ -53,13 +53,13 @@ struct MessagesHelper
 
     vector<Message> messages;
 };
-typedef shared_ptr<MessagesHelper> MessagesHelperPtr;
+typedef shared_ptr<MessagesHelper> MessagesHelper_ptr;
 
 // Receives all messages starting after last_msg_id.
-void receive_messages_range_internal(const MessagesHelperPtr& helper, uint64 last_msg_id, bool outgoing);
+void receive_messages_range_internal(const MessagesHelper_ptr& helper, uint64 last_msg_id, bool outgoing);
 
 // Processes one item from the result of messages.get and messages.getById.
-void process_message(const MessagesHelperPtr& helper, const picojson::value& fields);
+void process_message(const MessagesHelper_ptr& helper, const picojson::value& fields);
 // Processes attachments: appends urls to message text, adds thumbnail_urls.
 void process_attachments(PurpleConnection* gc, const picojson::array& items, Message& message);
 // Processes forwarded messages: appends message text and processes attachments.
@@ -90,20 +90,20 @@ string get_group_placeholder(uint64 group_id, Message& message);
 // Downloads the given thumbnail for given message, modifies corresponding message text
 // and calls either next download_thumbnail() or finish(). message is index into m_messages,
 // thumbnail is index into thumbnail_urls.
-void download_thumbnail(const MessagesHelperPtr& helper, size_t message, size_t thumbnail);
+void download_thumbnail(const MessagesHelper_ptr& helper, size_t message, size_t thumbnail);
 // Replaces all placeholder texts for user/group ids in messages with user/group names
 // and hrefs. Gets information on users, which are not present in user_infos, and groups
 // from vk.com
-void replace_user_ids(const MessagesHelperPtr& helper);
-void replace_group_ids(const MessagesHelperPtr& helper);
+void replace_user_ids(const MessagesHelper_ptr& helper);
+void replace_group_ids(const MessagesHelper_ptr& helper);
 // Sorts received messages, sends them to libpurple client and destroys this.
-void finish_receiving(const MessagesHelperPtr& helper);
+void finish_receiving(const MessagesHelper_ptr& helper);
 
 } // End of anonymous namespace
 
 void receive_messages_range(PurpleConnection* gc, uint64 last_msg_id, const ReceivedCb& received_cb)
 {
-    MessagesHelperPtr data{ new MessagesHelper };
+    MessagesHelper_ptr data{ new MessagesHelper };
     data->gc = gc;
     data->received_cb = received_cb;
 
@@ -121,7 +121,7 @@ void receive_messages_impl(PurpleConnection* gc, const uint64_vec& message_ids, 
         return;
     }
 
-    MessagesHelperPtr data{ new MessagesHelper };
+    MessagesHelper_ptr data{ new MessagesHelper };
     data->gc = gc;
     data->received_cb = received_cb;
 
@@ -151,7 +151,7 @@ void receive_messages(PurpleConnection* gc, const uint64_vec& message_ids, const
 namespace
 {
 
-void receive_messages_range_internal(const MessagesHelperPtr& helper, uint64 last_msg_id, bool outgoing)
+void receive_messages_range_internal(const MessagesHelper_ptr& helper, uint64 last_msg_id, bool outgoing)
 {
     CallParams params = { {"out", outgoing ? "1" : "0"}, {"count", "200"} };
     if (last_msg_id == 0) {
@@ -202,7 +202,7 @@ string timestamp_to_long_format(time_t timestamp)
     return purple_date_format_long(localtime(&timestamp));
 }
 
-void process_message(const MessagesHelperPtr& helper, const picojson::value& fields)
+void process_message(const MessagesHelper_ptr& helper, const picojson::value& fields)
 {
     if (!field_is_present<double>(fields, "user_id") || !field_is_present<double>(fields, "date")
             || !field_is_present<string>(fields, "body") || !field_is_present<double>(fields, "id")
@@ -533,7 +533,7 @@ string get_group_placeholder(uint64 group_id, Message& message)
     return text;
 }
 
-void download_thumbnail(const MessagesHelperPtr& helper, size_t message, size_t thumbnail)
+void download_thumbnail(const MessagesHelper_ptr& helper, size_t message, size_t thumbnail)
 {
     if (message >= helper->messages.size()) {
         replace_user_ids(helper);
@@ -565,7 +565,7 @@ void download_thumbnail(const MessagesHelperPtr& helper, size_t message, size_t 
     });
 }
 
-void replace_user_ids(const MessagesHelperPtr& helper)
+void replace_user_ids(const MessagesHelper_ptr& helper)
 {
     // Get all uids, which are not present in user_infos.
     uint64_vec unknown_uids;
@@ -587,7 +587,7 @@ void replace_user_ids(const MessagesHelperPtr& helper)
     });
 }
 
-void replace_group_ids(const MessagesHelperPtr& helper)
+void replace_group_ids(const MessagesHelper_ptr& helper)
 {
     uint64_vec group_ids;
     for (const Message& m: helper->messages)
@@ -608,7 +608,7 @@ void replace_group_ids(const MessagesHelperPtr& helper)
 }
 
 
-void finish_receiving(const MessagesHelperPtr& helper)
+void finish_receiving(const MessagesHelper_ptr& helper)
 {
     std::sort(helper->messages.begin(), helper->messages.end(), [](const Message& a, const Message& b) {
         return a.mid < b.mid;

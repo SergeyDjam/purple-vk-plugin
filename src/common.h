@@ -54,17 +54,57 @@ typedef std::chrono::monotonic_clock::time_point steady_time_point;
 typedef std::chrono::monotonic_clock::duration steady_duration;
 #endif
 
+// Callbacks are pervasive in the plugin and most of the times we have to copy them (moving is a hassle
+// generally and especially without support for moving into lambdas). This wrapper allocates std::functions
+// on heap, which should be easier to manage and faster.
+template<typename Signature>
+class function_ptr;
+
+template<typename R, typename... ArgTypes>
+class function_ptr<R(ArgTypes...)>
+{
+public:
+    function_ptr()
+        : m_function(new std::function<R(ArgTypes...)>(nullptr))
+    {
+    }
+
+    function_ptr(std::nullptr_t)
+        : m_function(new std::function<R(ArgTypes...)>(nullptr))
+    {
+    }
+
+    template<typename L>
+    function_ptr(L l)
+        : m_function(new std::function<R(ArgTypes...)>(std::move(l)))
+    {
+    }
+
+    explicit operator bool() const
+    {
+        return m_function->operator bool();
+    }
+
+    R operator()(ArgTypes... args) const
+    {
+        return m_function->operator()(std::forward<ArgTypes>(args)...);
+    }
+
+private:
+    shared_ptr<std::function<R(ArgTypes...)>> m_function;
+};
+
 // This function type is used for signalling success if no other information must be passed.
-typedef std::function<void()> SuccessCb;
+typedef function_ptr<void()> SuccessCb;
 // This function type is used for returning errors via callback.
-typedef std::function<void()> ErrorCb;
+typedef function_ptr<void()> ErrorCb;
 
 // A very simple object, which calls given function upon termination.
 class OnExit
 {
 public:
     OnExit(std::function<void()> deleter)
-        : m_deleter(move(deleter))
+        : m_deleter(std::move(deleter))
     {
     }
 
