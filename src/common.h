@@ -87,7 +87,7 @@ public:
 
     R operator()(ArgTypes... args) const
     {
-        return m_function->operator()(std::forward<ArgTypes>(args)...);
+        return m_function->operator()(args...);
     }
 
 private:

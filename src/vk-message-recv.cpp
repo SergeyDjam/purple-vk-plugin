@@ -20,6 +20,14 @@
 namespace
 {
 
+// The amount of messages to synchronize when logging in for the first time.
+const uint MAX_MESSAGES_ON_FIRST_TIME = 5000;
+
+// Function, which returns the last message id, which the user received. It is used to calculate
+// message id, which we start receiving messages from.
+typedef function_ptr<void(uint64 msg_id)> LastMessageIdCb;
+void get_last_message_id(PurpleConnection* gc, LastMessageIdCb last_message_id_cb);
+
 enum MessageStatus {
     MESSAGE_INCOMING_READ,
     MESSAGE_INCOMING_UNREAD,
@@ -107,7 +115,19 @@ void receive_messages_range(PurpleConnection* gc, uint64 last_msg_id, const Rece
     data->gc = gc;
     data->received_cb = received_cb;
 
-    receive_messages_range_internal(data, last_msg_id, false);
+    if (last_msg_id == 0) {
+        // The user has logged in from this computer for the first time. Do not download the
+        // whole history, but get the last message id and download no more than MAX_MESSAGES_ON_FIRST_TIME
+        // before it.
+        get_last_message_id(gc, [=](uint64 real_last_msg_id) {
+            uint64 start_msg_id = 0;
+            if (real_last_msg_id > MAX_MESSAGES_ON_FIRST_TIME)
+                start_msg_id = real_last_msg_id - MAX_MESSAGES_ON_FIRST_TIME;
+            receive_messages_range_internal(data, start_msg_id, false);
+        });
+    } else {
+        receive_messages_range_internal(data, last_msg_id, false);
+    }
 }
 
 namespace
@@ -151,28 +171,36 @@ void receive_messages(PurpleConnection* gc, const uint64_vec& message_ids, const
 namespace
 {
 
+void get_last_message_id(PurpleConnection* gc, LastMessageIdCb last_message_id_cb)
+{
+    CallParams params = { {"code", "return API.messages.get({\"count\": 1}).items[0].id;" } };
+    vk_call_api(gc, "execute", params, [=](const picojson::value& v) {
+        if (!v.is<double>()) {
+            purple_debug_error("prpl-vkcom", "Strange response from messages.get: %s\n",
+                               v.serialize().data());
+            last_message_id_cb(0);
+            return;
+        }
+
+        last_message_id_cb(v.get<double>());
+    }, [=](const picojson::value&) {
+        last_message_id_cb(0);
+    });
+}
+
 void receive_messages_range_internal(const MessagesData_ptr& data, uint64 last_msg_id, bool outgoing)
 {
-    CallParams params = { {"out", outgoing ? "1" : "0"}, {"count", "200"} };
-    if (last_msg_id == 0) {
-        // First-time login, receive only incoming unread messages.
-        assert(!outgoing);
-        purple_debug_info("prpl-vkcom", "First login, receiving only unread %s messages\n",
-                          outgoing ? "outgoing" : "incoming");
-        params.emplace_back("filters", "1");
-    } else {
-        // We've logged in before, let's download all messages since last time, including read ones.
-        purple_debug_info("prpl-vkcom", "Receiving %s messages starting from %" PRIu64 "\n",
-                          outgoing ? "outgoing" : "incoming", last_msg_id + 1);
-        params.emplace_back("last_message_id", to_string(last_msg_id));
-    }
+    purple_debug_info("prpl-vkcom", "Receiving %s messages starting from %" PRIu64 "\n",
+                      outgoing ? "outgoing" : "incoming", last_msg_id + 1);
+
+    CallParams params = { {"out", outgoing ? "1" : "0"}, {"count", "200"},
+                          {"last_message_id", to_string(last_msg_id) } };
 
     vk_call_api_items(data->gc, "messages.get", params, true, [=](const picojson::value& message) {
         process_message(data, message);
     }, [=] {
         purple_debug_info("prpl-vkcom", "Finished processing %s messages\n", outgoing ? "outgoing" : "incoming");
-        // We do not receive outgoing messages on first login as we receive only unread incoming messages.
-        if (!outgoing && last_msg_id != 0)
+        if (!outgoing)
             receive_messages_range_internal(data, last_msg_id, true);
         else
             download_thumbnail(data, 0, 0);
@@ -517,6 +545,9 @@ void append_thumbnail_placeholder(const string& thumbnail_url, Message& message)
 
 string get_user_placeholder(PurpleConnection* gc, uint64 user_id, Message& message)
 {
+    if (user_id == 0)
+        return "";
+
     VkUserInfo* info = get_user_info_for_buddy(gc, user_id);
     if (info)
         return get_user_href(user_id, *info);
@@ -528,6 +559,9 @@ string get_user_placeholder(PurpleConnection* gc, uint64 user_id, Message& messa
 
 string get_group_placeholder(uint64 group_id, Message& message)
 {
+    if (group_id == 0)
+        return "";
+
     string text = str_format("<group-placeholder-%d>", message.unknown_group_ids.size());
     message.unknown_group_ids.push_back(group_id);
     return text;
@@ -614,7 +648,6 @@ void replace_group_ids(const MessagesData_ptr& data)
         finish_receiving(data);
     });
 }
-
 
 void finish_receiving(const MessagesData_ptr& data)
 {
