@@ -517,6 +517,9 @@ void append_thumbnail_placeholder(const string& thumbnail_url, Message& message)
 
 string get_user_placeholder(PurpleConnection* gc, uint64 user_id, Message& message)
 {
+    if (user_id == 0)
+        return "";
+
     VkUserInfo* info = get_user_info_for_buddy(gc, user_id);
     if (info)
         return get_user_href(user_id, *info);
@@ -528,6 +531,9 @@ string get_user_placeholder(PurpleConnection* gc, uint64 user_id, Message& messa
 
 string get_group_placeholder(uint64 group_id, Message& message)
 {
+    if (group_id == 0)
+        return "";
+
     string text = str_format("<group-placeholder-%d>", message.unknown_group_ids.size());
     message.unknown_group_ids.push_back(group_id);
     return text;
@@ -606,7 +612,6 @@ void replace_group_ids(const MessagesData_ptr& data)
         finish_receiving(data);
     });
 }
-
 
 void finish_receiving(const MessagesData_ptr& data)
 {
