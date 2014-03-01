@@ -576,8 +576,12 @@ void replace_user_ids(const MessagesData_ptr& data)
         for (Message& m: data->messages) {
             for (unsigned i = 0; i < m.unknown_user_ids.size(); i++) {
                 uint64 id = m.unknown_user_ids[i];
-                string placeholder = str_format("<user-placeholder-%d>", i);
                 VkUserInfo* info = get_user_info_for_buddy(data->gc, id);
+                // Getting the user info could fail.
+                if (!info)
+                    continue;
+
+                string placeholder = str_format("<user-placeholder-%d>", i);
                 string href = get_user_href(id, *info);
                 str_replace(m.text, placeholder, href);
             }
@@ -598,6 +602,10 @@ void replace_group_ids(const MessagesData_ptr& data)
             for (unsigned i = 0; i < m.unknown_group_ids.size(); i++) {
                 uint64 group_id = m.unknown_group_ids[i];
                 string placeholder = str_format("<group-placeholder-%d>", i);
+                // Getting the group info could fail.
+                if (!contains_key(infos, group_id))
+                    continue;
+
                 string href = get_group_href(group_id, infos.at(group_id));
                 str_replace(m.text, placeholder, href);
             }
