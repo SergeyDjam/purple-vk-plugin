@@ -358,6 +358,6 @@ unsigned send_typing_notification(PurpleConnection* gc, uint64 uid)
 
     add_buddy_if_needed(gc, uid);
 
-    // Resend typing notification in 5 seconds
-    return 5;
+    // Resend typing notification in 10 seconds
+    return 10;
 }
