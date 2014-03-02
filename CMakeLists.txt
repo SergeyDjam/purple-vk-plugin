@@ -97,6 +97,10 @@ list(APPEND EXTRA_LIBRARIES ${LIBXML2_LIBRARIES})
 
 # A bunch of Windows-specific settings.
 if(WIN32)
+  # Pidgin on Windows is built with 32-bit time_t
+  set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -D_USE_32BIT_TIME_T")
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -D_USE_32BIT_TIME_T")
+
   # Link with libgcc and libstdc++ statically on Windows to ease the deployment.
   set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -static-libgcc -static-libstdc++")
 
