@@ -1,3 +1,5 @@
+#include <debug.h>
+
 #include "vk-common.h"
 
 #include "httputils.h"
@@ -35,12 +37,38 @@ PurpleHttpConnection* http_get(PurpleConnection* gc, const string& url, const Ht
 namespace
 {
 
+struct HttpUserData
+{
+    HttpCallback callback;
+    int retries;
+};
+
+const int MAX_HTTP_RETRIES = 3;
+
 // Callback helper for http_request.
 void http_cb(PurpleHttpConnection* http_conn, PurpleHttpResponse* response, void* user_data)
 {
-    HttpCallback* callback = (HttpCallback*)user_data;
-    (*callback)(http_conn, response);
-    delete callback;
+    HttpUserData* data = (HttpUserData*)user_data;
+    if ((purple_http_response_get_code(response) == 0 || purple_http_response_get_code(response) >= 500)
+            && data->retries < MAX_HTTP_RETRIES) {
+        purple_debug_error("prpl-vkcom", "HTTP error %d, retrying %d time\n",
+                           purple_http_response_get_code(response), data->retries);
+
+        // We've got a network error or Vk.com server error and have not given up retrying.
+        PurpleConnection* gc = purple_http_conn_get_purple_connection(http_conn);
+        PurpleHttpRequest* request = purple_http_conn_get_request(http_conn);
+        // Reference the request, so that it does not die with http_conn
+        purple_http_request_ref(request);
+        timeout_add(gc, 1000, [=] {
+            data->retries++;
+            purple_http_request(gc, request, http_cb, data);
+            purple_http_request_unref(request);
+            return false;
+        });
+    } else {
+        data->callback(http_conn, response);
+        delete data;
+    }
 }
 
 } // End anonymous namespace
@@ -49,8 +77,10 @@ PurpleHttpConnection* http_request(PurpleConnection* gc, PurpleHttpRequest* requ
                                    const HttpCallback& callback)
 {
     purple_http_request_set_keepalive_pool(request, get_keepalive_pool(gc));
-    HttpCallback* user_data = new HttpCallback(callback);
-    PurpleHttpConnection* hc = purple_http_request(gc, request, http_cb, user_data);
+    HttpUserData* data = new HttpUserData();
+    data->callback = callback;
+    data->retries = 0;
+    PurpleHttpConnection* hc = purple_http_request(gc, request, http_cb, data);
     return hc;
 }
 
