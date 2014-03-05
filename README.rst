@@ -10,6 +10,12 @@ Purple-vk-plugin --- это плагин для Pidgin, который позв�
 Установка
 =========
 
+Windows
+-------
+
+Нестабильные девелоперские релизы purple-vk-plugin выкладываются на https://bitbucket.org/olegoandreev/purple-vk-plugin/downloads.
+Файл инсталлятора называется purple-vk-plugin-НОМЕРВЕРСИИ-win32.exe 
+
 Ubuntu Linux
 ------------
 
@@ -40,7 +46,7 @@ https://aur.archlinux.org/packages/purple-vk-plugin/
 -------------------------
 
 Бинарные сборки плагина выкладываются на https://bitbucket.org/olegoandreev/purple-vk-plugin/downloads.
-Файл называется purple-vk-plugin-НОМЕРВЕРСИИ-bin.tar.gz. Архив содержит как i386, так и x86-64 версию.
+Файл с бинарной сборкой называется purple-vk-plugin-НОМЕРВЕРСИИ-bin.tar.gz. Архив содержит как i386, так и x86-64 версию.
 Входящий в состав архива установочный скрипт копирует сам плагин и файлы данных в требуемые директории.
 
 Бинарники собираются на CentOS 6.5, так что должны быть совместимы с достаточно старыми дистрибутивами
@@ -107,6 +113,12 @@ is being developed.
 Installing
 ==========
 
+Windows
+-------
+
+Unstable windows binaries can be downloaded from https://bitbucket.org/olegoandreev/purple-vk-plugin/downloads
+Installer file is named purple-vk-plugin-VERSION-win32.exe
+
 Ubuntu Linux
 ------------
 
@@ -138,7 +150,7 @@ Other Linux distro
 ------------------
 
 Plugin binaries can be downloaded from https://bitbucket.org/olegoandreev/purple-vk-plugin/downloads
-binary builds are named purple-vk-plugin-VERSION-bin.tar.gz). The archive contains both i386 and x86-64
+Binary builds are named purple-vk-plugin-VERSION-bin.tar.gz. The archive contains both i386 and x86-64
 builds. Included install script copies plugin .so file and data files into required directories.
 
 Binaries were built on CentOS 6.5, so should be compatible with rather old distros (since 2009-2010).
