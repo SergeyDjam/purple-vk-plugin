@@ -19,8 +19,9 @@ mkdir $FULLNAME
 mkdir $FULLNAME/bin
 cp -r bin/i386 $FULLNAME/bin
 cp -r bin/x86_64 $FULLNAME/bin
+strip $FULLNAME/bin/*/*.so
 cp -r ../data $FULLNAME
 cp bin/install.sh $FULLNAME
 
-tar cvzf $FULLNAME-bin.tar.gz $FULLNAME
+tar cvzf $FULLNAME-linux-bin.tar.gz $FULLNAME
 rm -rf $FULLNAME
