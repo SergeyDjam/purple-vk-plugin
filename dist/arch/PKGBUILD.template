@@ -16,7 +16,7 @@ sha512sums=(SRCSHA512SUM)
 build() {
   cd $pkgname-$pkgver
 
-  mkdir build && cd build
+  cd build
   cmake -DCMAKE_INSTALL_PREFIX=/usr ..
   make
 }
