@@ -49,13 +49,14 @@ const int MAX_HTTP_RETRIES = 3;
 void http_cb(PurpleHttpConnection* http_conn, PurpleHttpResponse* response, void* user_data)
 {
     HttpUserData* data = (HttpUserData*)user_data;
+    PurpleConnection* gc = purple_http_conn_get_purple_connection(http_conn);
+    VkConnData* conn_data = get_conn_data(gc);
     if ((purple_http_response_get_code(response) == 0 || purple_http_response_get_code(response) >= 500)
-            && data->retries < MAX_HTTP_RETRIES) {
+            && data->retries < MAX_HTTP_RETRIES && !conn_data->is_closing()) {
         purple_debug_error("prpl-vkcom", "HTTP error %d, retrying %d time\n",
                            purple_http_response_get_code(response), data->retries);
 
         // We've got a network error or Vk.com server error and have not given up retrying.
-        PurpleConnection* gc = purple_http_conn_get_purple_connection(http_conn);
         PurpleHttpRequest* request = purple_http_conn_get_request(http_conn);
         // Reference the request, so that it does not die with http_conn
         purple_http_request_ref(request);
