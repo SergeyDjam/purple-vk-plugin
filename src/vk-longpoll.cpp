@@ -450,11 +450,7 @@ void process_typing(PurpleConnection* gc, const picojson::value& v)
 void long_poll_fatal(PurpleConnection* gc)
 {
     purple_debug_error("prpl-vkcom", "Unable to connect to long-poll server, connection will be terminated\n");
-    // We could've added idle_add similar to timeout_add, but why bother?
-    timeout_add(gc, 1, [=] {
-        purple_connection_error_reason(gc, PURPLE_CONNECTION_ERROR_NETWORK_ERROR, "Unable to connect to Long Poll server");
-        return false;
-    });
+    purple_connection_error_reason(gc, PURPLE_CONNECTION_ERROR_NETWORK_ERROR, "Unable to connect to Long Poll server");
 }
 
 } // End of anonymous namespace

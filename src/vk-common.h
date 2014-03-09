@@ -15,6 +15,8 @@ enum VkErrorCodes {
     VK_TOO_MANY_REQUESTS_PER_SECOND = 6,
     // Flood control: message with same guid already sent.
     VK_FLOOD_CONTROL = 9,
+    // Something went horrible wrong
+    VK_INTERNAL_SERVER_ERROR = 10,
     // Captcha needed: user sent too many requests and is required to confirm he is alive
     VK_CAPTCHA_NEEDED = 14,
     // Validation required: currently this is used when the user logins from some unusual place (e.g. another country)
@@ -73,7 +75,7 @@ public:
     VkConnData(PurpleConnection* gc, const string& email, const string& password);
     ~VkConnData();
 
-    void authenticate(const SuccessCb& success_cb, const ErrorCb& error_cb = nullptr);
+    void authenticate(const SuccessCb& success_cb, const ErrorCb &error_cb);
 
     const string& access_token() const
     {

@@ -155,6 +155,7 @@ VkConnData::~VkConnData()
 
 void VkConnData::authenticate(const SuccessCb& success_cb, const ErrorCb& error_cb)
 {
+    m_access_token.clear();
     vk_auth_user(m_gc, m_email, m_password, VK_CLIENT_ID, "friends,photos,audio,video,docs,messages",
         [=](const string& access_token, const string& uid) {
             m_access_token = access_token;
@@ -169,11 +170,15 @@ void VkConnData::authenticate(const SuccessCb& success_cb, const ErrorCb& error_
 #pragma GCC diagnostic pop
 #endif
                 purple_debug_error("prpl-vkcom", "Error converting uid %s to integer\n", uid.data());
-                if (error_cb)
-                    error_cb();
+                purple_connection_error_reason(m_gc, PURPLE_CONNECTION_ERROR_OTHER_ERROR, "Authentication process failed");
+                error_cb();
             }
             success_cb();
-        }, error_cb);
+    }, [=] {
+        purple_debug_error("prpl-vkcom", "Unable authenticate, connection will be terminated\n");
+        purple_connection_error_reason(m_gc, PURPLE_CONNECTION_ERROR_NETWORK_ERROR, "Unable to connect to Long Poll server");
+        error_cb();
+    });
 }
 
 
