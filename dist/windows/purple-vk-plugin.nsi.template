@@ -47,13 +47,13 @@ FunctionEnd
 
 Section
   SetOutPath "$INSTDIR\plugins"
-  File "..\..\build\libpurple-vk-plugin.dll"
+  File "..\..\..\build\libpurple-vk-plugin.dll"
   SetOutPath "$INSTDIR\pixmaps\pidgin\protocols\16"
-  File "..\..\data\protocols\16\vkontakte.png"
+  File "..\..\..\data\protocols\16\vkontakte.png"
   SetOutPath "$INSTDIR\pixmaps\pidgin\protocols\22"
-  File "..\..\data\protocols\22\vkontakte.png"
+  File "..\..\..\data\protocols\22\vkontakte.png"
   SetOutPath "$INSTDIR\pixmaps\pidgin\protocols\48"
-  File "..\..\data\protocols\48\vkontakte.png"
+  File "..\..\..\data\protocols\48\vkontakte.png"
 
   WriteUninstaller "$INSTDIR\purple-vk-plugin-uninstall.exe"
   WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\PACKAGENAME" "DisplayName" "Plugin for Pidgin adding Vk.com support"

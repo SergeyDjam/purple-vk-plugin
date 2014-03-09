@@ -6,7 +6,7 @@
 # The binaries must be already built (I use CentOS 6.5 with devtoolset 1.1) and be located
 # in bin/i386 and bin/x86_64.
 #
-# The output is a purple-vk-plugin-VERSION-bin.tar.gz file, which contains both binaries,
+# The output is a bin\build\purple-vk-plugin-VERSION-bin.tar.gz file, which contains both binaries,
 # data file and install.sh script.
 
 cd `dirname $0`
@@ -23,5 +23,7 @@ strip $FULLNAME/bin/*/*.so
 cp -r ../data $FULLNAME
 cp bin/install.sh $FULLNAME
 
-tar cvzf $FULLNAME-linux-bin.tar.gz $FULLNAME
+mkdir bin/build
+
+tar cvzf bin/build/$FULLNAME-linux-bin.tar.gz $FULLNAME
 rm -rf $FULLNAME

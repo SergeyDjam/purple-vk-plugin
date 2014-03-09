@@ -2,9 +2,9 @@
 
 # Prepares debian packgaging ready for uploading to PPA (not the package itself).
 #
-# It prepares debian/DISTRO directories, containing debian files and orig.tar.gz
+# It prepares debian/build/DISTRO directories, containing debian files and orig.tar.gz
 # and runs debuild -S.
-# The output is a bunch of purple-vk-plugin_VERSION* files in each debian/DISTRO, which
+# The output is a bunch of purple-vk-plugin_VERSION* files in each debian/build/DISTRO, which
 # can be uploaded to the PPA with
 #   dput ppa:purple-vk-plugin/dev purple-vk-plugin_VERSION_source.changes .
 
@@ -17,22 +17,24 @@ else
     exit 1
 fi
 
+mkdir debian/build
+
 ./make-source-dir
-tar cvzf debian/$PACKAGENAME\_$PACKAGEVERSION.orig.tar.gz $PACKAGENAME-$PACKAGEVERSION
+tar cvzf debian/build/$PACKAGENAME\_$PACKAGEVERSION.orig.tar.gz $PACKAGENAME-$PACKAGEVERSION
 rm -rf $PACKAGENAME-$PACKAGEVERSION
 
 for distro in "precise" "saucy"; do
-  mkdir debian/$distro
+  mkdir debian/build/$distro
 
-  ln -sf ../$PACKAGENAME\_$PACKAGEVERSION.orig.tar.gz debian/$distro
+  ln -sf ../$PACKAGENAME\_$PACKAGEVERSION.orig.tar.gz debian/build/$distro
 
-  rm -rf debian/$distro/build
-  mkdir debian/$distro/build
-  cp -r debian/debian debian/$distro/build
-  cat debian/$distro/build/debian/changelog.template | sed "s/DISTRONAME/$distro/g" > debian/$distro/build/debian/changelog
-  rm debian/$distro/build/debian/changelog.template
+  rm -rf debian/build/$distro/build
+  mkdir debian/build/$distro/build
+  cp -r debian/debian debian/build/$distro/build
+  cat debian/build/$distro/build/debian/changelog.template | sed "s/DISTRONAME/$distro/g" > debian/build/$distro/build/debian/changelog
+  rm debian/build/$distro/build/debian/changelog.template
 
-  cd debian/$distro/build
+  cd debian/build/$distro/build
   debuild -S
-  cd ../../..
+  cd ../../../..
 done

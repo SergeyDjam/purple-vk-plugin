@@ -2,25 +2,26 @@
 
 # This script prepares PKGBUILD, tar.gz for AUR and source tar.gz for uploading to Bitbucket. 
 #
-# The output is:
-#  1) source code archive purple-vk-plugin-VERSION.tar.gz in this directory
-#  2) source package archive purple-vk-plugin-VERSION-1.src.tar.gz in arch subdirectory
+# The output is located in arch/build:
+#  1) source code archive purple-vk-plugin-VERSION.tar.gz
+#  2) source package archive for AUR purple-vk-plugin-VERSION-1.src.tar.gz
 
 . version
 
 FULLNAME=$PACKAGENAME-$PACKAGEVERSION
 
+mkdir arch/build
+
 ./make-source-dir
-tar cvzf $FULLNAME.tar.gz $FULLNAME
+tar cvzf arch/build/$FULLNAME.tar.gz $FULLNAME
 rm -rf $FULLNAME
 
-SRCSHA512SUM=`sha512sum $FULLNAME.tar.gz | cut -d ' ' -f 1`
+SRCSHA512SUM=`sha512sum arch/build/$FULLNAME.tar.gz | cut -d ' ' -f 1`
 
+mkdir arch/build/$PACKAGENAME
 cat arch/PKGBUILD.template | sed "s/PACKAGENAME/$PACKAGENAME/" \
-    | sed "s/PACKAGEVERSION/$PACKAGEVERSION/g" | sed "s/SRCSHA512SUM/$SRCSHA512SUM/g" > arch/PKGBUILD
+    | sed "s/PACKAGEVERSION/$PACKAGEVERSION/g" | sed "s/SRCSHA512SUM/$SRCSHA512SUM/g" > arch/build/$PACKAGENAME/PKGBUILD
 
-cd arch
-mkdir $PACKAGENAME
-cp PKGBUILD $PACKAGENAME
+cd arch/build
 tar cvzf $FULLNAME-1.src.tar.gz $PACKAGENAME
 rm -rf $PACKAGENAME
