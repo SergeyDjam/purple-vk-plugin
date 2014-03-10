@@ -158,7 +158,8 @@ void vk_login(PurpleAccount* acct)
 
         purple_signal_connect(purple_conversations_get_handle(), "conversation-updated", gc,
                               PURPLE_CALLBACK(conversation_updated), gc);
-    }, nullptr);
+    }, [=] {
+    });
 }
 
 void vk_close(PurpleConnection* gc)

@@ -175,7 +175,7 @@ void VkConnData::authenticate(const SuccessCb& success_cb, const ErrorCb& error_
             }
             success_cb();
     }, [=] {
-        purple_debug_error("prpl-vkcom", "Unable authenticate, connection will be terminated\n");
+        purple_debug_error("prpl-vkcom", "Unable to authenticate, connection will be terminated\n");
         purple_connection_error_reason(m_gc, PURPLE_CONNECTION_ERROR_NETWORK_ERROR, "Unable to connect to Long Poll server");
         error_cb();
     });
