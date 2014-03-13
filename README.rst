@@ -43,6 +43,32 @@ https://aur.archlinux.org/packages/purple-vk-plugin/
   $ makepkg -s
   $ pacman -U purple-vk-plugin-*.pkg.tar.xz
 
+OpenSUSE
+--------
+
+Релизы доступны в OpenSUSE Build Service:
+https://build.opensuse.org/package/show/home:Dmitry_R:purple-vk-plugin/purple-vk-plugin
+
+Для установки выполните следующие команды:
+::
+  $ zypper ar http://download.opensuse.org/repositories/home:/Dmitry_R:/purple-vk-plugin/<версия openSUSE> purple-vk-plugin
+  $ zypper ref
+  $ zypper in purple-vk-plugin
+
+Спасибо Дмитрию Рощину!
+
+Fedora
+------
+
+Релизы доступны в OpenSUSE Build Service:
+https://build.opensuse.org/package/show/home:Dmitry_R:purple-vk-plugin/purple-vk-plugin
+
+Для установки выполните следующие команды:
+::
+  $ cd /etc/yum.repos.d/
+  $ wget http://download.opensuse.org/repositories/home:/Dmitry_R:/purple-vk-plugin/Fedora_<номер версии>/home:Dmitry_R:purple-vk-plugin.repo
+  $ yum install purple-vk-plugin
+
 Другие дистрибутивы Linux
 -------------------------
 
@@ -147,6 +173,32 @@ In order to build the package execute the following commands:
   $ cd purple-vk-plugin
   $ makepkg -s
   $ pacman -U purple-vk-plugin-*.pkg.tar.xz
+
+OpenSUSE
+--------
+
+Releases are available in OpenSuSE Build Service:
+https://build.opensuse.org/package/show/home:Dmitry_R:purple-vk-plugin/purple-vk-plugin
+
+In order to install the package execute the following commands:
+::
+  $ zypper ar http://download.opensuse.org/repositories/home:/Dmitry_R:/purple-vk-plugin/<openSUSE VERSION> purple-vk-plugin
+  $ zypper ref
+  $ zypper in purple-vk-plugin
+
+Thanks tо Dmitry Roshchin!
+
+Fedora
+------
+
+Releases are available in OpenSuSE Build Service:
+https://build.opensuse.org/package/show/home:Dmitry_R:purple-vk-plugin/purple-vk-plugin
+
+In order to install the package execute the following commands:
+::
+  $ cd /etc/yum.repos.d/
+  $ wget http://download.opensuse.org/repositories/home:/Dmitry_R:/purple-vk-plugin/Fedora_<Fedora VERSION>/home:Dmitry_R:purple-vk-plugin.repo
+  $ yum install purple-vk-plugin
 
 Other Linux distro
 ------------------
