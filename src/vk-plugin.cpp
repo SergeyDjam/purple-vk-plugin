@@ -550,7 +550,7 @@ void vkcom_prpl_init(PurplePlugin*)
 {
     // Options, listed on "Advanced" page when creating or modifying account.
     PurpleAccountOption *option;
-    option = purple_account_option_bool_new("Show only friends in buddy list", "only_friends_in_blist", false);
+    option = purple_account_option_bool_new("Show only friends in buddy list", "only_friends_in_blist", true);
     prpl_info.protocol_options = g_list_append(prpl_info.protocol_options, option);
 
     option = purple_account_option_bool_new("Show chats in buddy list", "chats_in_blist", true);
