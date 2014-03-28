@@ -53,7 +53,7 @@ void http_cb(PurpleHttpConnection* http_conn, PurpleHttpResponse* response, void
     VkConnData* conn_data = get_conn_data(gc);
     if ((purple_http_response_get_code(response) == 0 || purple_http_response_get_code(response) >= 500)
             && data->retries < MAX_HTTP_RETRIES && !conn_data->is_closing()) {
-        purple_debug_error("prpl-vkcom", "HTTP error %d, retrying %d time\n",
+        vkcom_debug_error("HTTP error %d, retrying %d time\n",
                            purple_http_response_get_code(response), data->retries);
 
         // We've got a network error or Vk.com server error and have not given up retrying.

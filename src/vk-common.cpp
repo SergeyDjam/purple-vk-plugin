@@ -5,7 +5,6 @@
 #include "miscutils.h"
 
 #include "vk-auth.h"
-
 #include "vk-common.h"
 
 const char VK_CLIENT_ID[] = "3833170";
@@ -36,25 +35,30 @@ vector<VkReceivedMessage> deferred_mark_as_read_from_string(const char* str)
     picojson::value v;
     string err = picojson::parse(v, str, str + strlen(str));
     if (!err.empty() || !v.is<picojson::array>()) {
-        purple_debug_error("prpl-vkcom", "Error loading uploaded docs: %s\n", err.data());
+        vkcom_debug_error("Error loading uploaded docs: %s\n", err.data());
         return {};
     }
 
-    vector<VkReceivedMessage> ret;
+    vector<VkReceivedMessage> messages;
     const picojson::array& a = v.get<picojson::array>();
     for (const picojson::value& d: a) {
-        ret.push_back(VkReceivedMessage());
-        VkReceivedMessage& msg = ret.back();
+        messages.push_back(VkReceivedMessage());
+        VkReceivedMessage& msg = messages.back();
         msg.msg_id = d.get("msg_id").get<double>();
         msg.user_id = d.get("user_id").get<double>();
         msg.chat_id = d.get("chat_id").get<double>();
     }
-    return ret;
+
+    vkcom_debug_info("%d messages marked as unread\n", (int)messages.size());
+
+    return messages;
 }
 
 // Stores VkReceivedMessages in JSON representation.
 string deferred_mark_as_read_to_string(const vector<VkReceivedMessage>& messages)
 {
+    vkcom_debug_info("%d messages still marked as unread\n", (int)messages.size());
+
     picojson::array a;
     for (const VkReceivedMessage& msg: messages) {
         picojson::object d = {
@@ -73,7 +77,7 @@ vector<VkUploadedDoc> uploaded_docs_from_string(const char* str)
     picojson::value v;
     string err = picojson::parse(v, str, str + strlen(str));
     if (!err.empty() || !v.is<picojson::array>()) {
-        purple_debug_error("prpl-vkcom", "Error loading uploaded docs: %s\n", err.data());
+        vkcom_debug_error("Error loading uploaded docs: %s\n", err.data());
         return {};
     }
 
@@ -124,6 +128,15 @@ VkConnData::VkConnData(PurpleConnection* gc, const string& email, const string& 
       m_closing(false)
 {
     PurpleAccount* account = purple_connection_get_account(m_gc);
+
+    options.only_friends_in_blist = purple_account_get_bool(account, "only_friends_in_blist", false);
+    options.chats_in_blist = purple_account_get_bool(account, "chats_in_blist", true);
+    options.mark_as_read_online_only = purple_account_get_bool(account, "mark_as_read_online_only", true);
+    options.mark_as_read_inactive_tab = purple_account_get_bool(account, "mark_as_read_inactive_tab", false);
+    options.imitate_mobile_client = purple_account_get_bool(account, "imitate_mobile_client", false);
+    options.blist_default_group = purple_account_get_string(account, "blist_default_group", "");
+    options.blist_chat_group = purple_account_get_string(account, "blist_chat_group", "");
+
     const char* str = purple_account_get_string(account, "manually_added_buddies", "");
     manually_added_buddies = str_split_int(str);
 
@@ -157,10 +170,11 @@ void VkConnData::authenticate(const SuccessCb& success_cb, const ErrorCb& error_
 {
     m_access_token.clear();
     vk_auth_user(m_gc, m_email, m_password, VK_CLIENT_ID, "friends,photos,audio,video,docs,messages",
-        [=](const string& access_token, const string& uid) {
+                 options.imitate_mobile_client,
+        [=](const string& access_token, const string& self_user_id) {
             m_access_token = access_token;
             try {
-                m_uid = atoll(uid.data());
+                m_self_user_id = atoll(self_user_id.data());
 #if defined(__GNUC__) && !defined(__clang__)
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-fpermissive" // catch (...) makes GCC 4.7.2 return strange error, fixed in later GCCs
@@ -169,39 +183,56 @@ void VkConnData::authenticate(const SuccessCb& success_cb, const ErrorCb& error_
 #if defined(__GNUC__) && !defined(__clang__)
 #pragma GCC diagnostic pop
 #endif
-                purple_debug_error("prpl-vkcom", "Error converting uid %s to integer\n", uid.data());
+                vkcom_debug_error("Error converting user id %s to integer\n", self_user_id.data());
                 purple_connection_error_reason(m_gc, PURPLE_CONNECTION_ERROR_OTHER_ERROR, "Authentication process failed");
                 error_cb();
             }
             success_cb();
     }, [=] {
-        purple_debug_error("prpl-vkcom", "Unable to authenticate, connection will be terminated\n");
+        vkcom_debug_error("Unable to authenticate, connection will be terminated\n");
         purple_connection_error_reason(m_gc, PURPLE_CONNECTION_ERROR_NETWORK_ERROR, "Unable to connect to Long Poll server");
         error_cb();
     });
 }
 
 
-string buddy_name_from_uid(uint64 uid)
+string user_name_from_id(uint64 user_id)
 {
-    return str_format("id%" PRIu64, uid);
+    return str_format("id%" PRIu64, user_id);
 }
 
-uint64 uid_from_buddy_name(const char* name)
+uint64 user_id_from_name(const char* name, bool quiet)
 {
-    if (strncmp(name, "id", 2) != 0)
+    if (strncmp(name, "id", 2) != 0) {
+        if (!quiet)
+            vkcom_debug_error("Unknown username %s\n", name);
         return 0;
+    }
+
     return atoll(name + 2);
 }
 
+// NOTE: Pidgin employs different schemes of identifying multiuser chats (unlike users where username is the one
+// and only identifier for all operations):
+//   1) chat components --- a hash table string -> string, which is stored in blist;
+//   2) chat name --- a string, which is not stored in blist, but gets computed on the fly (see vk_get_chat_nam
+//      and vk_find_blist_chat);
+//   3) open chat conversation id --- an integer.
+//
+// chat_name_from_id is used as chat name (2) and gets stored in components (1) by the key "id". The open chat
+// conversation id is generated when opening chat conversation window.
 string chat_name_from_id(uint64 chat_id)
 {
     return str_format("chat%" PRIu64, chat_id);
 }
 
-uint64 chat_id_from_name(const char* name)
+uint64 chat_id_from_name(const char* name, bool quiet)
 {
-    if (strncmp(name, "chat", 4) != 0)
+    if (strncmp(name, "chat", 4) != 0) {
+        if (!quiet)
+            vkcom_debug_error("Unknown chatname %s\n", name);
         return 0;
+    }
+
     return atoll(name + 4);
 }

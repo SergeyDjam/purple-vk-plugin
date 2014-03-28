@@ -40,7 +40,7 @@ void start_long_poll_internal(PurpleConnection* gc, uint64 last_msg_id);
 void start_long_poll(PurpleConnection* gc)
 {
     uint64 last_msg_id = load_last_msg_id(gc);
-    purple_debug_info("prpl-vkcom", "Starting Long Poll with last msg id %" PRIu64 "\n", last_msg_id);
+    vkcom_debug_info("Starting Long Poll with last msg id %" PRIu64 "\n", last_msg_id);
     start_long_poll_internal(gc, last_msg_id);
 }
 
@@ -84,7 +84,7 @@ void start_long_poll_internal(PurpleConnection* gc, uint64 last_msg_id)
     vk_call_api(gc, "messages.getLongPollServer", params, [=](const picojson::value& v) {
         if (!v.is<picojson::object>() || !field_is_present<string>(v, "key")
                 || !field_is_present<string>(v, "server") || !field_is_present<double>(v, "ts")) {
-            purple_debug_error("prpl-vkcom", "Strange response from messages.getLongPollServer: %s\n",
+            vkcom_debug_error("Strange response from messages.getLongPollServer: %s\n",
                                v.serialize().data());
             long_poll_fatal(gc);
             return;
@@ -102,7 +102,7 @@ void start_long_poll_internal(PurpleConnection* gc, uint64 last_msg_id)
 
                 if (!field_is_present<string>(v, "server") || !field_is_present<string>(v, "key")
                         || !field_is_present<double>(v, "ts")) {
-                    purple_debug_error("prpl-vkcom", "Wrong response from messages.getLongPollServer: %s\n",
+                    vkcom_debug_error("Wrong response from messages.getLongPollServer: %s\n",
                                        v.serialize().data());
                     long_poll_fatal(gc);
                     return;
@@ -131,7 +131,7 @@ void request_long_poll(PurpleConnection* gc, const string& server, const string&
 
     string server_url = str_format(long_poll_url, server.data(), key.data(), ts);
 #if 0
-    purple_debug_info("prpl-vkcom", "Connecting to Long Poll %s\n", server_url.data());
+    vkcom_debug_info("Connecting to Long Poll %s\n", server_url.data());
 #endif
 
     http_get(gc, server_url, [=](PurpleHttpConnection*, PurpleHttpResponse* response) {
@@ -140,7 +140,7 @@ void request_long_poll(PurpleConnection* gc, const string& server, const string&
             return;
 
         if (purple_http_response_get_code(response) != 200) {
-            purple_debug_error("prpl-vkcom", "Error while reading response from Long Poll server: %s\n",
+            vkcom_debug_error("Error while reading response from Long Poll server: %s\n",
                                purple_http_response_get_error(response));
             request_long_poll(gc, server, key, ts, last_msg);
             return;
@@ -151,24 +151,24 @@ void request_long_poll(PurpleConnection* gc, const string& server, const string&
         picojson::value root;
         string error = picojson::parse(root, response_text, response_text + strlen(response_text));
         if (!error.empty()) {
-            purple_debug_error("prpl-vkcom", "Error parsing %s: %s\n", response_text_copy, error.data());
+            vkcom_debug_error("Error parsing %s: %s\n", response_text_copy, error.data());
             request_long_poll(gc, server, key, ts, last_msg);
             return;
         }
         if (!root.is<picojson::object>()) {
-            purple_debug_error("prpl-vkcom", "Strange response from Long Poll: %s\n", response_text_copy);
+            vkcom_debug_error("Strange response from Long Poll: %s\n", response_text_copy);
             request_long_poll(gc, server, key, ts, last_msg);
             return;
         }
 
         if (root.contains("failed")) {
-            purple_debug_info("prpl-vkcom", "Long Poll got tired, re-requesting Long Poll server address\n");
+            vkcom_debug_info("Long Poll got tired, re-requesting Long Poll server address\n");
             start_long_poll_internal(gc, last_msg.id);
             return;
         }
 
         if (!field_is_present<double>(root, "ts") || !field_is_present<picojson::array>(root, "updates")) {
-            purple_debug_error("prpl-vkcom", "Strange response from Long Poll: %s\n", response_text_copy);
+            vkcom_debug_error("Strange response from Long Poll: %s\n", response_text_copy);
             request_long_poll(gc, server, key, ts, last_msg);
             return;
         }
@@ -225,7 +225,7 @@ void process_typing(PurpleConnection* gc, const picojson::value& v);
 void process_update(PurpleConnection* gc, const picojson::value& v, LastMsg& last_msg)
 {
     if (!v.is<picojson::array>() || !v.contains(0)) {
-        purple_debug_error("prpl-vkcom", "Strange response from Long Poll in updates: %s\n",
+        vkcom_debug_error("Strange response from Long Poll in updates: %s\n",
                            v.serialize().data());
         return;
     }
@@ -262,7 +262,7 @@ void process_message(PurpleConnection* gc, const picojson::value& v, LastMsg& la
 
     if (!v.contains(6) || !v.get(1).is<double>() || !v.get(2).is<double>() || !v.get(3).is<double>()
             || !v.get(4).is<double>() || !v.get(6).is<string>()) {
-        purple_debug_error("prpl-vkcom", "Strange response from Long Poll in updates: %s\n",
+        vkcom_debug_error("Strange response from Long Poll in updates: %s\n",
                            v.serialize().data());
         return;
     }
@@ -279,7 +279,7 @@ void process_message(PurpleConnection* gc, const picojson::value& v, LastMsg& la
 
     int flags = v.get(2).get<double>();
 
-    uint64 uid = v.get(3).get<double>();
+    uint64 user_id = v.get(3).get<double>();
     uint64 timestamp = v.get(4).get<double>();
     // NOTE:
     // * The text is simple UTF-8 text with some HTML leftovers:
@@ -292,43 +292,43 @@ void process_message(PurpleConnection* gc, const picojson::value& v, LastMsg& la
 
     if (!(flags & MESSAGE_FLAGS_OUTBOX)) {
         // Processing incoming message
-        process_incoming_message_internal(gc, mid, flags, uid, move(text), timestamp);
+        vkcom_debug_info("Got incoming message from %" PRIu64 "\n", user_id);
+
+        process_incoming_message_internal(gc, mid, flags, user_id, move(text), timestamp);
     } else {
         // Process outgoing message. This message could've been sent either by us, or by another connected client.
         // See description in vk-common.h of corresponding members of VkConnData for details.
+        vkcom_debug_info("Got outgoing message\n");
 
         VkConnData* conn_data = get_conn_data(gc);
-        if (contains_key(conn_data->sent_msg_ids, mid)) {
-            // The message has been sent by us, ignore it.
-            conn_data->sent_msg_ids.erase(mid);
+        // The message has been sent by us, ignore it.
+        if (conn_data->sent_msg_ids.erase(mid) > 0)
             return;
-        }
 
         steady_duration since_last_msg_sent = steady_clock::now() - conn_data->last_msg_sent_time;
         if (to_milliseconds(since_last_msg_sent) >= 5000) {
             // This is fast path: the message is guaranteed to be sent from someplace else, no need for timeout.
-            process_outgoing_message_internal(gc, mid, flags, uid, move(text), timestamp);
+            process_outgoing_message_internal(gc, mid, flags, user_id, move(text), timestamp);
             return;
         }
 
         // The last message, which has been sent by us, has been sent not long ago (i.e. less than 1 second).
-        purple_debug_warning("prpl-vkcom", "We sent message not long ago, let's have check after timeout\n");
+        purple_debug_warning("prpl-vkcom", "We sent message not long ago, let's have a check after timeout\n");
         timeout_add(gc, 5000, [=] {
             // Check again after 5 seconds, whether we sent the message or not.
-            if (contains_key(conn_data->sent_msg_ids, mid)) {
-                conn_data->sent_msg_ids.erase(mid);
-            } else {
-                purple_debug_warning("prpl-vkcom", "We have sent a message not long ago, but not all msg id"
-                                     "are belong to us (msg id %" PRIu64 ")\n", mid);
-                process_outgoing_message_internal(gc, mid, flags, uid, move(text), timestamp);
-            }
+            if (conn_data->sent_msg_ids.erase(mid) > 0)
+                return false;
+
+            purple_debug_warning("prpl-vkcom", "We have sent a message not long ago, but not all msg id"
+                                 "are belong to us (msg id %" PRIu64 ")\n", mid);
+            process_outgoing_message_internal(gc, mid, flags, user_id, move(text), timestamp);
             return false;
         });
     }
 }
 
-// NOTE: Chat messages are sent with chat_id + CHAT_UID_OFFSET as user id. Unfortunately, we cannot get
-// uid from longpoll updates, so we have to process via receive_messages.
+// NOTE: Chat messages are sent with chat_id + CHAT_ID_OFFSET as user id, unfortunately, no user id
+// is stored, so we have to call messages.get.
 const uint64 CHAT_ID_OFFSET = 2000000000LL;
 
 const uint PLATFORM_WEB = 7;
@@ -352,7 +352,7 @@ void process_incoming_message_internal(PurpleConnection* gc, uint64 msg_id, int 
         replace_emoji_with_text(text);
 
         add_buddy_if_needed(gc, user_id, [=] {
-            serv_got_im(gc, buddy_name_from_uid(user_id).data(), text.data(), PURPLE_MESSAGE_RECV, timestamp);
+            serv_got_im(gc, user_name_from_id(user_id).data(), text.data(), PURPLE_MESSAGE_RECV, timestamp);
             mark_message_as_read(gc, { VkReceivedMessage({ msg_id, user_id, 0 }) });
         });
     }
@@ -375,7 +375,7 @@ void process_outgoing_message_internal(PurpleConnection* gc, uint64 msg_id, int 
             purple_conv_im_write(PURPLE_CONV_IM(conv), from.data(), text.data(), PURPLE_MESSAGE_SEND, timestamp);
         } else {
             PurpleLogCache logs(gc);
-            PurpleLog* log = logs.for_uid(user_id);
+            PurpleLog* log = logs.for_user(user_id);
             purple_log_write(log, PURPLE_MESSAGE_SEND, from.data(), timestamp, text.data());
         }
     }
@@ -384,72 +384,77 @@ void process_outgoing_message_internal(PurpleConnection* gc, uint64 msg_id, int 
 void process_online(PurpleConnection* gc, const picojson::value& v, bool online)
 {
     if (!v.contains(1) || !v.get(1).is<double>()) {
-        purple_debug_error("prpl-vkcom", "Strange response from Long Poll in updates: %s\n",
+        vkcom_debug_error("Strange response from Long Poll in updates: %s\n",
                            v.serialize().data());
         return;
     }
     if (v.get(1).get<double>() > 0) {
-        purple_debug_error("prpl-vkcom", "Strange response from Long Poll in updates: %s\n",
+        vkcom_debug_error("Strange response from Long Poll in updates: %s\n",
                            v.serialize().data());
         return;
     }
-    uint64 uid = -v.get(1).get<double>();
-    string name = buddy_name_from_uid(uid);
+    uint64 user_id = -v.get(1).get<double>();
+    string name = user_name_from_id(user_id);
 
-    purple_debug_info("prpl-vkcom", "User %s changed online to %d\n", name.data(), online);
+    vkcom_debug_info("User %s changed online to %d\n", name.data(), online);
 
-    if (!in_buddy_list(gc, uid)) {
-        purple_debug_info("prpl-vkcom", "User %s has come online, but is not present in buddy list."
+    if (!user_in_buddy_list(gc, user_id)) {
+        vkcom_debug_info("User %s has come online, but is not present in buddy list."
                           "He has probably been added behind our backs.", name.data());
-        add_buddy_if_needed(gc, uid);
+        add_buddy_if_needed(gc, user_id);
         return;
     } else {
-        VkUserInfo& info = get_conn_data(gc)->user_infos[uid];
+        VkUserInfo* info = get_user_info(gc, user_id);
+        if (!info) {
+            vkcom_debug_error("We somehow do not have info on user %s\n", name.data());
+            return;
+        }
+
         if (online) {
             if (!v.contains(2) || !v.get(2).is<double>()) {
-                purple_debug_error("prpl-vkcom", "Strange response from Long Poll in updates: %s\n",
+                vkcom_debug_error("Strange response from Long Poll in updates: %s\n",
                                    v.serialize().data());
                 return;
             }
             uint platform = uint64(v.get(2).get<double>()) % 0x100;
 
             if (platform == PLATFORM_WEB) {
-                info.online = true;
-                info.online_mobile = false;
+                info->online = true;
+                info->online_mobile = false;
             } else {
-                info.online = true;
-                info.online_mobile = true;
+                info->online = true;
+                info->online_mobile = true;
             }
 
             PurpleAccount* account = purple_connection_get_account(gc);
             purple_prpl_got_user_login_time(account, name.data(), time(nullptr));
         } else {
-            info.online = false;
-            info.online_mobile = false;
+            info->online = false;
+            info->online_mobile = false;
         }
-        update_presence_in_buddy_list(gc, uid);
+        update_presence_in_buddy_list(gc, user_id);
     }
 }
 
 void process_typing(PurpleConnection* gc, const picojson::value& v)
 {
     if (!v.contains(1) || !v.get(1).is<double>()) {
-        purple_debug_error("prpl-vkcom", "Strange response from Long Poll in updates: %s\n",
+        vkcom_debug_error("Strange response from Long Poll in updates: %s\n",
                            v.serialize().data());
         return;
     }
-    uint64 uid = v.get(1).get<double>();
+    uint64 user_id = v.get(1).get<double>();
 
-    add_buddy_if_needed(gc, uid, [=] {
+    add_buddy_if_needed(gc, user_id, [=] {
         // Vk.com documentation states, that "user is typing" messages are sent with ~10 second
         // interval between them. Let's make it 11, just to be sure.
-        serv_got_typing(gc, buddy_name_from_uid(uid).data(), 11, PURPLE_TYPING);
+        serv_got_typing(gc, user_name_from_id(user_id).data(), 11, PURPLE_TYPING);
     });
 }
 
 void long_poll_fatal(PurpleConnection* gc)
 {
-    purple_debug_error("prpl-vkcom", "Unable to connect to long-poll server, connection will be terminated\n");
+    vkcom_debug_error("Unable to connect to long-poll server, connection will be terminated\n");
     purple_connection_error_reason(gc, PURPLE_CONNECTION_ERROR_NETWORK_ERROR, "Unable to connect to Long Poll server");
 }
 

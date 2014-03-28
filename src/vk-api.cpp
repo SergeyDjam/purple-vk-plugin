@@ -28,9 +28,11 @@ void on_vk_call_cb(PurpleHttpConnection* http_conn, PurpleHttpResponse* response
 void vk_call_api(PurpleConnection* gc, const char* method_name, const CallParams& params,
                  const CallSuccessCb& success_cb, const CallErrorCb& error_cb)
 {
+    vkcom_debug_info("    API call %s\n", method_name);
+
     VkConnData* conn_data = get_conn_data(gc);
     if (conn_data->is_closing()) {
-        purple_debug_error("prpl-vkcom", "Programming error: API method %s called during logout\n", method_name);
+        vkcom_debug_error("Programming error: API method %s called during logout\n", method_name);
         return;
     }
 
@@ -39,7 +41,7 @@ void vk_call_api(PurpleConnection* gc, const char* method_name, const CallParams
     call.params = params;
 
     string params_str = urlencode_form(params);
-    string method_url = str_format("https://api.vk.com/method/%s?v=5.0&access_token=%s", method_name,
+    string method_url = str_format("https://api.vk.com/method/%s?v=5.14&access_token=%s", method_name,
                                    conn_data->access_token().data());
     if (!params_str.empty()) {
         method_url += "&";
@@ -70,7 +72,7 @@ void on_vk_call_cb(PurpleHttpConnection* http_conn, PurpleHttpResponse* response
                    const CallSuccessCb& success_cb, const CallErrorCb& error_cb)
 {
     if (!purple_http_response_is_successful(response)) {
-        purple_debug_error("prpl-vkcom", "Error while calling API: %s\n", purple_http_response_get_error(response));
+        vkcom_debug_error("Error while calling API: %s\n", purple_http_response_get_error(response));
         if (error_cb)
             error_cb(picojson::value());
         return;
@@ -81,7 +83,7 @@ void on_vk_call_cb(PurpleHttpConnection* http_conn, PurpleHttpResponse* response
     picojson::value root;
     string error = picojson::parse(root, response_text, response_text + strlen(response_text));
     if (!error.empty()) {
-        purple_debug_error("prpl-vkcom", "Error parsing %s: %s\n", response_text_copy, error.data());
+        vkcom_debug_error("Error parsing %s: %s\n", response_text_copy, error.data());
         if (error_cb)
             error_cb(picojson::value());
         return;
@@ -94,7 +96,7 @@ void on_vk_call_cb(PurpleHttpConnection* http_conn, PurpleHttpResponse* response
     }
 
     if (!root.contains("response")) {
-        purple_debug_error("prpl-vkcom", "Root element is neither \"response\" nor \"error\"\n");
+        vkcom_debug_error("Root element is neither \"response\" nor \"error\"\n");
         if (error_cb)
             error_cb(picojson::value());
         return;
@@ -123,14 +125,14 @@ void process_error(PurpleHttpConnection* http_conn, const picojson::value& error
                    const CallSuccessCb& success_cb, const CallErrorCb& error_cb)
 {
     if (!error.is<picojson::object>()) {
-        purple_debug_error("prpl-vkcom", "Unknown error response: %s\n", error.serialize().data());
+        vkcom_debug_error("Unknown error response: %s\n", error.serialize().data());
         if (error_cb)
             error_cb(picojson::value());
         return;
     }
 
     if (!field_is_present<double>(error, "error_code")) {
-        purple_debug_error("prpl-vkcom", "Unknown error response: %s\n", error.serialize().data());
+        vkcom_debug_error("Unknown error response: %s\n", error.serialize().data());
         if (error_cb)
             error_cb(picojson::value());
         return;
@@ -139,7 +141,7 @@ void process_error(PurpleHttpConnection* http_conn, const picojson::value& error
     PurpleConnection* gc = purple_http_conn_get_purple_connection(http_conn);
     int error_code = error.get("error_code").get<double>();
     if (error_code == VK_AUTHORIZATION_FAILED) {
-        purple_debug_info("prpl-vkcom", "Access token expired, doing a reauthorization\n");
+        vkcom_debug_info("Access token expired, doing a reauthorization\n");
 
         // Check if another authentication process has already started
         VkConnData* data = get_conn_data(gc);
@@ -156,7 +158,7 @@ void process_error(PurpleHttpConnection* http_conn, const picojson::value& error
         return;
     } else if (error_code == VK_TOO_MANY_REQUESTS_PER_SECOND) {
         const int RETRY_TIMEOUT = 400; // 400msec is less than 3 requests per second (the current rate limit on Vk.com
-        purple_debug_info("prpl-vkcom", "Call rate limit hit, retrying in %d msec\n", RETRY_TIMEOUT);
+        vkcom_debug_info("Call rate limit hit, retrying in %d msec\n", RETRY_TIMEOUT);
 
         timeout_add(gc, RETRY_TIMEOUT, [=] {
             vk_call_api(gc, call.method_name.data(), call.params, success_cb, error_cb);
@@ -190,7 +192,7 @@ void process_error(PurpleHttpConnection* http_conn, const picojson::value& error
         // Vk.com returns access_token among other error fields, let's remove it from the logs.
         VkConnData* conn_data = get_conn_data(gc);
         str_replace(error_string, conn_data->access_token(), "XXX-ACCESS-TOKEN-XXX");
-        purple_debug_error("prpl-vkcom", "Vk.com call error: %s\n", error_string.data());
+        vkcom_debug_error("Vk.com call error: %s\n", error_string.data());
     }
     if (error_cb)
         error_cb(error);
@@ -221,13 +223,15 @@ void vk_call_api_items_impl(PurpleConnection* gc, const char* method_name, const
                             bool pagination, const CallProcessItemCb& call_process_item_cb,
                             const CallFinishedCb& call_finished_cb, const CallErrorCb& error_cb, uint offset)
 {
-    if (offset > 0)
+    if (offset > 0) {
+        vkcom_debug_info("    API call with offset %d\n", offset);
         add_or_replace_call_param(*params, "offset", to_string(offset).data());
+    }
 
     vk_call_api(gc, method_name, *params, [=] (const picojson::value& result) {
         if (!field_is_present<picojson::array>(result, "items")
                 || !field_is_present<double>(result, "count")) {
-            purple_debug_error("prpl-vkcom", "Strange response, no 'count' and/or 'items' are present: %s\n",
+            vkcom_debug_error("Strange response, no 'count' and/or 'items' are present: %s\n",
                                result.serialize().data());
             if (error_cb)
                 error_cb(picojson::value());

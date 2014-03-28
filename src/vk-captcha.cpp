@@ -29,6 +29,8 @@ void request_captcha_ok(CaptchaRequestData* data, PurpleRequestFields* fields)
         return;
     }
 
+    vkcom_debug_info("Captcha entered\n");
+
     data->captcha_input_cb(captcha_key);
     delete data;
 }
@@ -36,7 +38,7 @@ void request_captcha_ok(CaptchaRequestData* data, PurpleRequestFields* fields)
 // Shows error after user cancelled captcha request
 void request_captcha_cancel(CaptchaRequestData* data, PurpleRequestFields*)
 {
-    purple_debug_info("prpl-vkcom", "Captcha entry cancelled by user\n");
+    vkcom_debug_info("Captcha entry cancelled by user\n");
     if (data->error_cb)
         data->error_cb();
     delete data;
@@ -48,12 +50,14 @@ void request_captcha(PurpleConnection* gc, const string& captcha_img, const Capt
 {
     http_get(gc, captcha_img, [=](PurpleHttpConnection*, PurpleHttpResponse* response) {
         if (!purple_http_response_is_successful(response)) {
-            purple_debug_error("prpl-vkcom", "Error while fetching captcha: %s\n",
+            vkcom_debug_error("Error while fetching captcha: %s\n",
                                purple_http_response_get_error(response));
             if (error_cb)
                 error_cb();
             return;
         }
+
+        vkcom_debug_info("Got captcha %s, showing to user\n", captcha_img.data());
 
         size_t captcha_len;
         const char* captcha_data = purple_http_response_get_data(response, &captcha_len);

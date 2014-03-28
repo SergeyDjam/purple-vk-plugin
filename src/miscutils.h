@@ -21,12 +21,12 @@ string urlencode_form(const vector<string_pair>& params);
 string_map parse_urlencoded_form(const char* encoded);
 
 // A rather specific function, which returns the length of prefix (the first part of the string),
-// so that when it is encoded, it is no longer than max_urlencoded_len.
-// Used when you have large inputs and want to split them.
+// urlencoded version of which is no longer than max_urlencoded_len. Used when you have large
+// input parameters for API and need to split them to fit into max URL length.
 const size_t MAX_URLENCODED_STRING = 1900;
 size_t max_urlencoded_prefix(const char* s, size_t max_urlencoded_len = MAX_URLENCODED_STRING);
 
-// Returns the maximum amount of numbers, which can fit into one URL, being separated by comma.
+// A version of max_urlencoded_prefix, which works with arrays of integers (prefix is the subarray).
 size_t max_urlencoded_int(uint64_vec::const_iterator start, uint64_vec::const_iterator end,
                           size_t max_urlencoded_len = MAX_URLENCODED_STRING);
 

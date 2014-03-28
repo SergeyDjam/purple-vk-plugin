@@ -16,7 +16,7 @@ typedef function_ptr<void(uint64 max_msg_id)> ReceivedCb;
 void receive_messages_range(PurpleConnection* gc, uint64 last_msg_id, const ReceivedCb& received_cb);
 
 // Receives messages with given ids. Suitable for small amount of message_ids (< 100).
-void receive_messages(PurpleConnection* gc, const uint64_vec& message_ids, const ReceivedCb& received_cb = nullptr);
+void receive_messages(PurpleConnection* gc, const uint64_vec& message_ids);
 
 // Marks messages as read or defers marking them until it is appropriate to mark them as read.
 void mark_message_as_read(PurpleConnection* gc, const VkReceivedMessage_vec& messages);

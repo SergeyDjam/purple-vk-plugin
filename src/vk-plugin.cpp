@@ -8,6 +8,7 @@
 #include "miscutils.h"
 #include "vk-api.h"
 #include "vk-buddy.h"
+#include "vk-chat.h"
 #include "vk-common.h"
 #include "vk-filexfer.h"
 #include "vk-longpoll.h"
@@ -45,17 +46,12 @@ GList* vk_status_types(PurpleAccount*)
     return g_list_reverse(types);
 }
 
-namespace
-{
-
-} // End of anonymous namespace
-
 // Returns text, which is shown under each buddy list item.
 char* vk_status_text(PurpleBuddy* buddy)
 {
     PurplePresence* presence = purple_buddy_get_presence(buddy);
     if (purple_presence_is_online(presence)) {
-        VkUserInfo* user_info = get_user_info_for_buddy(buddy);
+        VkUserInfo* user_info = get_user_info(buddy);
         if (!user_info)
             return nullptr;
         if (user_info->activity.empty())
@@ -79,9 +75,11 @@ void purple_notify_user_info_add_pair_plaintext(PurpleNotifyUserInfo *user_info,
 // Returns text, which is shown when mouse hovers over list.
 void vk_tooltip_text(PurpleBuddy* buddy, PurpleNotifyUserInfo* info, gboolean)
 {
-    VkUserInfo* user_info = get_user_info_for_buddy(buddy);
-    if (!user_info)
+    VkUserInfo* user_info = get_user_info(buddy);
+    if (!user_info) {
+        purple_notify_user_info_add_pair_plaintext(info, "Updating data...", nullptr);
         return;
+    }
 
     if (!user_info->domain.empty())
         purple_notify_user_info_add_pair_plaintext(info, "Nickname", user_info->domain.data());
@@ -103,6 +101,8 @@ void conversation_updated(PurpleConversation* conv, PurpleConvUpdateType type, g
         return;
 
     if (type == PURPLE_CONV_UPDATE_UNSEEN) {
+        vkcom_debug_info("Active conversation changed\n");
+
         // Pidgin sends this signal before the conversation becomes focused, so we have to run
         // a bit later.
         timeout_add(gc, 0, [=] {
@@ -112,14 +112,53 @@ void conversation_updated(PurpleConversation* conv, PurpleConvUpdateType type, g
     }
 }
 
-void vk_login(PurpleAccount* acct)
+GList* vk_chat_join_info(PurpleConnection*)
 {
-    PurpleConnection* gc = purple_account_get_connection(acct);
+    proto_chat_entry* pce = g_new0(proto_chat_entry, 1);
+    pce->label = "_Title:";
+    pce->identifier = "title";
+    pce->required = true;
+    return g_list_append(nullptr, pce);
+}
+
+GHashTable* vk_chat_info_defaults(PurpleConnection*, const char* chat_name)
+{
+    GHashTable *defaults = g_hash_table_new_full(g_str_hash, g_str_equal, nullptr, g_free);
+
+    if (chat_name != NULL)
+        g_hash_table_insert(defaults, (void*)"id", g_strdup(chat_name));
+
+    return defaults;
+}
+
+
+// Sets option with given name to value if not already set.
+void convert_option_bool(PurpleAccount* account, const char* name, bool previous_value)
+{
+    bool value = purple_account_get_bool(account, name, previous_value);
+    purple_account_set_bool(account, name, value);
+}
+
+// Convert old options to new.
+void convert_options(PurpleAccount* account)
+{
+    // The change may seem strange, but the old option name was really inappropriate.
+    bool mark_as_read_inactive_tab = purple_account_get_bool(account, "mark_as_read_instantaneous", false);
+    convert_option_bool(account, "mark_as_read_inactive_tab", mark_as_read_inactive_tab);
+}
+
+void vk_login(PurpleAccount* account)
+{
+    vkcom_debug_info("Opening connection\n");
+
+    convert_options(account);
+
+    PurpleConnection* gc = purple_account_get_connection(account);
 
     gc->flags = PurpleConnectionFlags(gc->flags | PURPLE_CONNECTION_NO_BGCOLOR | PURPLE_CONNECTION_NO_FONTSIZE);
 
-    const char* email = purple_account_get_username(acct);
-    const char* password = purple_account_get_password(acct);
+    const char* email = purple_account_get_username(account);
+    const char* password = purple_account_get_password(account);
     VkConnData* data = new VkConnData(gc, email, password);
     purple_connection_set_protocol_data(gc, data);
 
@@ -130,6 +169,8 @@ void vk_login(PurpleAccount* acct)
         if (!alias || !alias[0]) {
             set_account_alias(gc);
         }
+
+        check_open_chat_convs(gc);
 
         // Start Long Poll event processing. Buddy list and unread messages will be retrieved there.
         start_long_poll(gc);
@@ -164,6 +205,10 @@ void vk_login(PurpleAccount* acct)
 
 void vk_close(PurpleConnection* gc)
 {
+    vkcom_debug_info("Closing connection\n");
+
+    check_custom_alias_group(gc);
+
     purple_signal_disconnect(purple_conversations_get_handle(), "conversation-updated", gc,
                           PURPLE_CALLBACK(conversation_updated));
 
@@ -184,39 +229,58 @@ void vk_close(PurpleConnection* gc)
     delete data;
 }
 
-int vk_send_im(PurpleConnection* gc, const char* to, const char* message, PurpleMessageFlags)
+int vk_send_im(PurpleConnection* gc, const char* who, const char* message, PurpleMessageFlags)
 {
+    uint64 user_id = user_id_from_name(who);
+    if (user_id == 0) {
+        vkcom_debug_info("Trying to send message to unknown user %s\n", who);
+        return 0;
+    }
     mark_deferred_messages_as_read(gc, true);
-    return send_im_message(gc, uid_from_buddy_name(to), message);
+    return send_im_message(gc, user_id, message);
 }
 
-unsigned int vk_send_typing(PurpleConnection* gc, const char* name, PurpleTypingState state)
+unsigned int vk_send_typing(PurpleConnection* gc, const char* who, PurpleTypingState state)
 {
     if (state != PURPLE_TYPING)
         return 0;
+
+    uint64 user_id = user_id_from_name(who);
+    if (user_id == 0) {
+        vkcom_debug_info("Trying to send message to unknown user %s\n", who);
+        return 0;
+    }
     mark_deferred_messages_as_read(gc, true);
-    return send_typing_notification(gc, uid_from_buddy_name(name));
+    return send_typing_notification(gc, user_id);
 }
 
 // Returns link to vk.com user page
-string get_user_page(const char* name, const VkUserInfo* info)
+string get_user_page(const char* who, const VkUserInfo* info)
 {
     if (info && !info->domain.empty())
         return str_format("https://vk.com/%s", info->domain.data());
     else
-        return str_format("https://vk.com/%s", name);
+        return str_format("https://vk.com/%s", who);
 }
 
 // Called when user chooses "Get Info".
-void vk_get_info(PurpleConnection* gc, const char* username)
+void vk_get_info(PurpleConnection* gc, const char* who)
 {
-    VkUserInfo* user_info = get_user_info_for_buddy(gc, username);
+    vkcom_debug_info("Requesting user info for %s\n", who);
 
     PurpleNotifyUserInfo* info = purple_notify_user_info_new();
-    purple_notify_user_info_add_pair(info, "Page", get_user_page(username, user_info).data());
+    uint64 user_id = user_id_from_name(who);
+    if (user_id == 0) {
+        purple_notify_user_info_add_pair(info, "User is not a Vk.com user", nullptr);
+        purple_notify_userinfo(gc, who, info, nullptr, nullptr);
+        return;
+    }
 
+    VkUserInfo* user_info = get_user_info(gc, user_id);
+    purple_notify_user_info_add_pair(info, "Page", get_user_page(who, user_info).data());
     if (!user_info) {
-        purple_notify_userinfo(gc, username, info, nullptr, nullptr);
+        purple_notify_user_info_add_pair(info, "Updating data...", nullptr);
+        purple_notify_userinfo(gc, who, info, nullptr, nullptr);
         return;
     }
 
@@ -232,7 +296,7 @@ void vk_get_info(PurpleConnection* gc, const char* username)
         }
 
         purple_notify_user_info_add_section_break(info);
-        purple_notify_user_info_add_pair_plaintext(info, "Name", user_info->name.data());
+        purple_notify_user_info_add_pair_plaintext(info, "Name", user_info->real_name.data());
 
         if (!user_info->bdate.empty())
             purple_notify_user_info_add_pair_plaintext(info, "Birthdate", user_info->bdate.data());
@@ -242,7 +306,7 @@ void vk_get_info(PurpleConnection* gc, const char* username)
             purple_notify_user_info_add_pair_plaintext(info, "Mobile phone", user_info->mobile_phone.data());
         if (!user_info->activity.empty())
             purple_notify_user_info_add_pair_plaintext(info, "Status", user_info->activity.data());
-        purple_notify_userinfo(gc, username, info, nullptr, nullptr);
+        purple_notify_userinfo(gc, who, info, nullptr, nullptr);
     });
 }
 
@@ -266,57 +330,126 @@ void vk_add_buddy(PurpleConnection* gc, PurpleBuddy* buddy, PurpleGroup* group)
 
 void vk_remove_buddy(PurpleConnection* gc, PurpleBuddy* buddy, PurpleGroup*)
 {
-    uint64 user_id = uid_from_buddy_name(purple_buddy_get_name(buddy));
+    const char* name = purple_buddy_get_name(buddy);
+    vkcom_debug_info("Manually removing buddy %s\n", name);
+
+    uint64 user_id = user_id_from_name(name);
     if (user_id == 0)
         return;
 
     VkConnData* conn_data = get_conn_data(gc);
-    if (contains_key(conn_data->manually_added_buddies, user_id))
+    if (contains(conn_data->manually_added_buddies, user_id))
         conn_data->manually_added_buddies.erase(user_id);
-    else
-        conn_data->manually_removed_buddies.insert(user_id);
+    conn_data->manually_removed_buddies.insert(user_id);
 }
 
-char* vk_get_chat_name(GHashTable* data)
+void vk_chat_join(PurpleConnection* gc, GHashTable* components)
 {
-    return g_strdup((const char*)g_hash_table_lookup(data, "title"));
+    const char* chat_name = (const char*)g_hash_table_lookup(components, "id");
+    if (chat_name) {
+        vkcom_debug_info("Joining %s\n", chat_name);
+
+        uint64 chat_id = chat_id_from_name(chat_name);
+        open_chat_conv(gc, chat_id, [=] {
+            // Pidgin does not activate newly created conversations, let's do it ourselves.
+            PurpleConversation* conv = find_conv_for_id(gc, 0, chat_id);
+            purple_conversation_present(conv);
+        });
+    } else {
+        vkcom_debug_error("FUCK WHAT TO DO NO ID\n");
+    }
+
+//    whatsapp_connection *wconn = purple_connection_get_protocol_data(gc);
+//    const char *groupname = g_hash_table_lookup(data, "subject");
+//    char *id = g_hash_table_lookup(data, "id");
+
+//    if (!id) {
+//        gchar *tmp = g_strdup_printf("Joining %s requires an invitation.", groupname);
+//        purple_notify_error(gc, "Invitation only", "Invitation only", tmp);
+//        g_free(tmp);
+//        return;
+//    }
+
+//    int prplid = chatid_to_convo(id);
+//    purple_debug_info(WHATSAPP_ID, "joining group %s\n", groupname);
+
+//    if (!purple_find_chat(gc, prplid)) {
+//        char *subject, *owner, *part;
+//        if (!waAPI_getgroupinfo(wconn->waAPI, id, &subject, &owner, &part))
+//            return;
+
+//        /* Notify chat add */
+//        PurpleConversation *conv = serv_got_joined_chat(gc, prplid, groupname);
+
+//        /* Add people in the chat */
+//        purple_debug_info(WHATSAPP_ID, "group info ID(%s) SUBJECT(%s) OWNER(%s)\n", id, subject, owner);
+//        conv_add_participants(conv, part, owner);
+//    }
+}
+
+char* vk_get_chat_name(GHashTable* components)
+{
+    const char* chat_name = (const char*)g_hash_table_lookup(components, "id");
+
+    // This function gets called after "Join chat", before the chat is actually joined.
+    if (chat_name)
+        return g_strdup(chat_name);
+    else
+        return g_strdup("CHAT NOT CREATED");
+}
+
+void vk_chat_invite(PurpleConnection*, int, const char*, const char*)
+{
+    vkcom_debug_error("CHAT INVITE\n");
+
+//    whatsapp_connection *wconn = purple_connection_get_protocol_data(gc);
+//    PurpleConversation *convo = purple_find_chat(gc, id);
+//    PurpleChat *ch = blist_find_chat_by_convo(gc, id);
+//    GHashTable *hasht = purple_chat_get_components(ch);
+//    char *chat_id = g_hash_table_lookup(hasht, "id");
+
+//    if (strstr(name, "@s.whatsapp.net") == 0)
+//        name = g_strdup_printf("%s@s.whatsapp.net", name);
+//    waAPI_manageparticipant(wconn->waAPI, chat_id, name, "add");
+
+//    purple_conv_chat_add_user(purple_conversation_get_chat_data(convo), name, "", PURPLE_CBFLAGS_NONE, FALSE);
+
+//    waprpl_check_output(gc);
+}
+
+void vk_chat_leave(PurpleConnection* gc, int id)
+{
+    uint64 chat_id = conv_id_to_chat_id(gc, id);
+    if (chat_id == 0) {
+        vkcom_debug_info("Trying to leave chat %d\n", id);
+        return;
+    }
+
+    vkcom_debug_error("Leaving chat%" PRIu64 "\n", chat_id);
+    remove_conv_id(gc, id);
+    remove_chat_if_needed(gc, chat_id);
 }
 
 int vk_chat_send(PurpleConnection* gc, int id, const char* message, PurpleMessageFlags)
 {
-    return send_chat_message(gc, id, message);
-}
-
-// We do not store alias on server, but we can set the flag, so that the alias will not be overwritten
-// on next update of the buddy list.
-void vk_alias_buddy(PurpleConnection* gc, const char* who, const char*)
-{
-    PurpleAccount* account = purple_connection_get_account(gc);
-    PurpleBuddy* buddy = purple_find_buddy(account, who);
-    if (!buddy)
-        return;
-
-    purple_blist_node_set_bool(&buddy->node, "custom-alias", true);
-}
-
-void vk_group_buddy(PurpleConnection* gc, const char* who, const char*, const char* new_group)
-{
-    PurpleAccount* account = purple_connection_get_account(gc);
-    PurpleBuddy* buddy = purple_find_buddy(account, who);
-    if (!buddy)
-        return;
-
-    const char* default_group = purple_account_get_string(purple_connection_get_account(gc),
-                                                          "blist_default_group", "");
-    if (!g_str_equal(new_group, default_group)) {
-        purple_blist_node_set_bool(&buddy->node, "custom-group", true);
-    } else {
-        // Set "custom-group" only if it has been set before. This happens when
-        // the user changes default group and all buddies from the old default group are
-        // moved to new one.
-        if (purple_blist_node_get_bool(&buddy->node, "custom-group"))
-            purple_blist_node_set_bool(&buddy->node, "custom-group", false);
+    uint64 chat_id = conv_id_to_chat_id(gc, id);
+    if (chat_id == 0) {
+        vkcom_debug_info("Trying to send message to unknown chat %d\n", id);
+        return 0;
     }
+
+    // Pidgin for some reason does not write outgoing messages when writing to the chat,
+    // so we have to do it oruselves.
+    const char* alias = purple_account_get_name_for_display(purple_connection_get_account(gc));
+    serv_got_chat_in(gc, id, alias, PURPLE_MESSAGE_SEND, message, time(nullptr));
+
+    return send_chat_message(gc, chat_id, message);
+}
+
+void vk_alias_buddy(PurpleConnection* gc, const char *, const char *)
+{
+    // Recheck all open chats and update because they could contain the aliased buddy.
+    update_all_open_chat_convs(gc);
 }
 
 // A dummy "rename group" is required so that libpurple client does not remove and re-add all buddies
@@ -328,13 +461,51 @@ void vk_rename_group(PurpleConnection*, const char*,  PurpleGroup*, GList*)
 // Conversation is closed, we may want to remove buddy from buddy list if it has been added there temporarily.
 void vk_convo_closed(PurpleConnection* gc, const char* who)
 {
-    uint64 uid = uid_from_buddy_name(who);
+    vkcom_debug_info("Conversation with %s closed\n", who);
+
+    uint64 user_id = user_id_from_name(who);
+    if (user_id == 0)
+        return;
+
     // We must call remove_buddy_if_needed later, otherwise the conversation is still open when this
     // function is closed and buddy is not removed.
     timeout_add(gc, 0, [=] {
-        remove_buddy_if_needed(gc, uid);
+        remove_buddy_if_needed(gc, user_id);
         return false;
     });
+}
+
+PurpleChat* vk_find_blist_chat(PurpleAccount* account, const char* name)
+{
+    for (PurpleChat* chat: find_all_purple_chats(account)) {
+        const char* chat_name = (const char*)g_hash_table_lookup(purple_chat_get_components(chat), "id");
+        if (g_str_equal(chat_name, name))
+            return chat;
+    }
+
+    vkcom_debug_error("Unable to find chat with name %s\n", name);
+    return nullptr;
+}
+
+char* vk_get_cb_real_name(PurpleConnection* gc, int id, const char* who)
+{
+    uint64 user_id = find_user_id_from_conv(gc, id, who);
+    if (user_id == 0) {
+        const char* self_alias = purple_account_get_alias(purple_connection_get_account(gc));
+        if (g_str_equal(who, self_alias)) {
+            VkConnData* conn_data = get_conn_data(gc);
+            user_id = conn_data->self_user_id();
+        }
+    }
+
+    if (user_id != 0)
+        return g_strdup(user_name_from_id(user_id).data());
+    else
+        return nullptr;
+}
+
+void vk_set_chat_topic(PurpleConnection*, int, const char*)
+{
 }
 
 gboolean vk_can_receive_file(PurpleConnection*, const char*)
@@ -344,7 +515,12 @@ gboolean vk_can_receive_file(PurpleConnection*, const char*)
 
 PurpleXfer* vk_new_xfer(PurpleConnection* gc, const char* who)
 {
-    return new_xfer(gc, uid_from_buddy_name(who));
+    uint64 user_id = user_id_from_name(who);
+    if (user_id == 0) {
+        vkcom_debug_info("Trying to send file to unknown user %s\n", who);
+        return nullptr;
+    }
+    return new_xfer(gc, user_id);
 }
 
 void vk_send_file(PurpleConnection* gc, const char* who, const char* filename)
@@ -372,6 +548,8 @@ GHashTable* vk_get_account_text_table(PurpleAccount*)
 
 void vk_add_buddy_with_invite(PurpleConnection* gc, PurpleBuddy* buddy, PurpleGroup* group, const char*)
 {
+    vkcom_debug_info("Manually adding buddy\n");
+
     // Get only the latest part of URL if we've been supplied with it.
     string buddy_name = str_rsplit(purple_buddy_get_name(buddy), '/');
 
@@ -393,14 +571,13 @@ void vk_add_buddy_with_invite(PurpleConnection* gc, PurpleBuddy* buddy, PurpleGr
         }
 
         VkConnData* conn_data = get_conn_data(gc);
-        if (contains_key(conn_data->manually_removed_buddies, user_id))
+        if (contains(conn_data->manually_removed_buddies, user_id))
             conn_data->manually_removed_buddies.erase(user_id);
-        else
-            conn_data->manually_added_buddies.insert(user_id);
+        conn_data->manually_added_buddies.insert(user_id);
 
         add_buddy_if_needed(gc, user_id, [=] {
             PurpleBuddy* buddy = purple_find_buddy(purple_connection_get_account(gc),
-                                                   buddy_name_from_uid(user_id).data());
+                                                   user_name_from_id(user_id).data());
             assert(buddy);
 
             if (!alias.empty()) {
@@ -420,7 +597,9 @@ void vk_add_buddy_with_invite(PurpleConnection* gc, PurpleBuddy* buddy, PurpleGr
 }
 
 PurplePluginProtocolInfo prpl_info = {
-    PurpleProtocolOptions(OPT_PROTO_IM_IMAGE), /* options */
+    // OPT_PROTO_UNIQUE_CHATNAME prevents libpurple messing with names of chat users (we use
+    // real names, not idXXX for them).
+    PurpleProtocolOptions(OPT_PROTO_IM_IMAGE | OPT_PROTO_UNIQUE_CHATNAME), /* options */
     nullptr, /* user_splits */
     nullptr, /* protocol_options, initialized in waprpl_init() */
     { /* icon_spec, a PurpleBuddyIconSpec */
@@ -438,8 +617,8 @@ PurplePluginProtocolInfo prpl_info = {
     vk_tooltip_text, /* tooltip_text */
     vk_status_types, /* status_types */
     nullptr, /* blist_node_menu */
-    nullptr, //    waprpl_chat_join_info, /* chat_info */
-    nullptr, //    waprpl_chat_info_defaults, /* chat_info_defaults */
+    vk_chat_join_info, /* chat_info */
+    vk_chat_info_defaults, /* chat_info_defaults */
     vk_login, /* login */
     vk_close, /* close */
     vk_send_im, /* send_im */
@@ -458,11 +637,11 @@ PurplePluginProtocolInfo prpl_info = {
     nullptr, /* rem_permit */
     nullptr, /* rem_deny */
     nullptr, /* set_permit_deny */
-    nullptr, //    waprpl_chat_join, /* join_chat */
+    vk_chat_join, /* join_chat */
     nullptr, /* reject_chat */
     vk_get_chat_name, /* get_chat_name */
-    nullptr, //    waprpl_chat_invite, /* chat_invite */
-    nullptr, /* chat_leave */
+    vk_chat_invite, /* chat_invite */
+    vk_chat_leave, /* chat_leave */
     nullptr, /* chat_whisper */
     vk_chat_send, /* chat_send */
     nullptr, /* keepalive */
@@ -470,16 +649,16 @@ PurplePluginProtocolInfo prpl_info = {
     nullptr, /* get_cb_info */
     nullptr, /* get_cb_away */
     vk_alias_buddy, /* alias_buddy */
-    vk_group_buddy, /* group_buddy */
+    nullptr, /* group_buddy */
     vk_rename_group, /* rename_group */
     nullptr, /* buddy_free */
     vk_convo_closed, /* convo_closed */
     purple_normalize_nocase, /* normalize */
     nullptr, /* set_buddy_icon */
     nullptr, /* remove_group */
-    nullptr, /* get_cb_real_name */
-    nullptr, /* set_chat_topic */
-    nullptr, /* find_blist_chat */
+    vk_get_cb_real_name, /* get_cb_real_name */
+    vk_set_chat_topic, /* set_chat_topic */
+    vk_find_blist_chat, /* find_blist_chat */
     nullptr, /* roomlist_get_list */
     nullptr, /* roomlist_cancel */
     nullptr, /* roomlist_expand_category */
@@ -528,7 +707,7 @@ PurplePluginInfo info = {
     PURPLE_PRIORITY_DEFAULT, /* priority */
     (char*)"prpl-vkcom", /* id */
     (char*)"Vk.com", /* name */
-    (char*)"0.5", /* version */
+    (char*)"1.0", /* version */
     (char*)"Vk.com chat protocol", /* summary */
     (char*)"Vk.com chat protocol", /* description */
     (char*)"Oleg Andreev (olegoandreev@yandex.ru)", /* author */
@@ -550,7 +729,7 @@ void vkcom_prpl_init(PurplePlugin*)
 {
     // Options, listed on "Advanced" page when creating or modifying account.
     PurpleAccountOption *option;
-    option = purple_account_option_bool_new("Show only friends in buddy list", "only_friends_in_blist", false);
+    option = purple_account_option_bool_new("Show only friends in buddy list", "only_friends_in_blist", true);
     prpl_info.protocol_options = g_list_append(prpl_info.protocol_options, option);
 
     option = purple_account_option_bool_new("Show chats in buddy list", "chats_in_blist", true);
@@ -559,13 +738,16 @@ void vkcom_prpl_init(PurplePlugin*)
     option = purple_account_option_bool_new("Do not mark messages as read when away", "mark_as_read_online_only", true);
     prpl_info.protocol_options = g_list_append(prpl_info.protocol_options, option);
 
-    option = purple_account_option_bool_new("Mark messages as read even if in inactive tab", "mark_as_read_instantaneous", false);
+    option = purple_account_option_bool_new("Mark messages as read even if in inactive tab", "mark_as_read_inactive_tab", false);
     prpl_info.protocol_options = g_list_append(prpl_info.protocol_options, option);
 
     option = purple_account_option_bool_new("Imitate using mobile client", "imitate_mobile_client", false);
     prpl_info.protocol_options = g_list_append(prpl_info.protocol_options, option);
 
     option = purple_account_option_string_new("Group for buddies", "blist_default_group", "");
+    prpl_info.protocol_options = g_list_append(prpl_info.protocol_options, option);
+
+    option = purple_account_option_string_new("Group for chats", "blist_chat_group", "");
     prpl_info.protocol_options = g_list_append(prpl_info.protocol_options, option);
 }
 

@@ -11,6 +11,7 @@
 #include "miscutils.h"
 #include "vk-api.h"
 #include "vk-buddy.h"
+#include "vk-chat.h"
 #include "vk-common.h"
 #include "vk-utils.h"
 
@@ -38,7 +39,7 @@ enum MessageStatus {
 struct Message
 {
     uint64 mid;
-    uint64 uid;
+    uint64 user_id;
     uint64 chat_id; // If chat_id is 0, this is a regular IM message.
     string text;
     time_t timestamp;
@@ -104,6 +105,9 @@ void download_thumbnail(const MessagesData_ptr& data, size_t message, size_t thu
 // from vk.com
 void replace_user_ids(const MessagesData_ptr& data);
 void replace_group_ids(const MessagesData_ptr& data);
+// Adds all users and groups which are senders/receiveirs of message (needed to get their names/open
+// conversation with them).
+void add_unknown_users_chats(const MessagesData_ptr& data);
 // Sorts received messages, sends them to libpurple client and destroys this.
 void finish_receiving(const MessagesData_ptr& data);
 
@@ -133,17 +137,14 @@ void receive_messages_range(PurpleConnection* gc, uint64 last_msg_id, const Rece
 namespace
 {
 
-void receive_messages_impl(PurpleConnection* gc, const uint64_vec& message_ids, size_t offset, const ReceivedCb& received_cb)
+void receive_messages_impl(PurpleConnection* gc, const uint64_vec& message_ids, size_t offset)
 {
-    if (message_ids.empty()) {
-        if (received_cb)
-            received_cb(0);
+    if (message_ids.empty())
         return;
-    }
 
-    MessagesData_ptr data{ new MessagesData };
+    MessagesData_ptr data{ new MessagesData() };
     data->gc = gc;
-    data->received_cb = received_cb;
+    data->received_cb = nullptr;
 
     size_t num = max_urlencoded_int(message_ids.begin() + offset, message_ids.end());
     string ids_str = str_concat_int(',', message_ids.begin() + offset, message_ids.begin() + offset + num);
@@ -157,15 +158,15 @@ void receive_messages_impl(PurpleConnection* gc, const uint64_vec& message_ids, 
 
         size_t next_offset = offset + num;
         if (next_offset < message_ids.size())
-            receive_messages_impl(gc, message_ids, next_offset, received_cb);
+            receive_messages_impl(gc, message_ids, next_offset);
     });
 }
 
 }
 
-void receive_messages(PurpleConnection* gc, const uint64_vec& message_ids, const ReceivedCb& received_cb)
+void receive_messages(PurpleConnection* gc, const uint64_vec& message_ids)
 {
-    receive_messages_impl(gc, message_ids, 0, received_cb);
+    receive_messages_impl(gc, message_ids, 0);
 }
 
 namespace
@@ -176,7 +177,7 @@ void get_last_message_id(PurpleConnection* gc, LastMessageIdCb last_message_id_c
     CallParams params = { {"code", "return API.messages.get({\"count\": 1}).items[0].id;" } };
     vk_call_api(gc, "execute", params, [=](const picojson::value& v) {
         if (!v.is<double>()) {
-            purple_debug_error("prpl-vkcom", "Strange response from messages.get: %s\n",
+            vkcom_debug_error("Strange response from messages.get: %s\n",
                                v.serialize().data());
             last_message_id_cb(0);
             return;
@@ -190,7 +191,7 @@ void get_last_message_id(PurpleConnection* gc, LastMessageIdCb last_message_id_c
 
 void receive_messages_range_internal(const MessagesData_ptr& data, uint64 last_msg_id, bool outgoing)
 {
-    purple_debug_info("prpl-vkcom", "Receiving %s messages starting from %" PRIu64 "\n",
+    vkcom_debug_info("Receiving %s messages starting from %" PRIu64 "\n",
                       outgoing ? "outgoing" : "incoming", last_msg_id + 1);
 
     CallParams params = { {"out", outgoing ? "1" : "0"}, {"count", "200"},
@@ -199,7 +200,7 @@ void receive_messages_range_internal(const MessagesData_ptr& data, uint64 last_m
     vk_call_api_items(data->gc, "messages.get", params, true, [=](const picojson::value& message) {
         process_message(data, message);
     }, [=] {
-        purple_debug_info("prpl-vkcom", "Finished processing %s messages\n", outgoing ? "outgoing" : "incoming");
+        vkcom_debug_info("Finished processing %s messages\n", outgoing ? "outgoing" : "incoming");
         if (!outgoing)
             receive_messages_range_internal(data, last_msg_id, true);
         else
@@ -235,7 +236,7 @@ void process_message(const MessagesData_ptr& data, const picojson::value& fields
     if (!field_is_present<double>(fields, "user_id") || !field_is_present<double>(fields, "date")
             || !field_is_present<string>(fields, "body") || !field_is_present<double>(fields, "id")
             || !field_is_present<double>(fields, "read_state")|| !field_is_present<double>(fields, "out")) {
-        purple_debug_error("prpl-vkcom", "Strange response from messages.get or messages.getById: %s\n",
+        vkcom_debug_error("Strange response from messages.get or messages.getById: %s\n",
                            fields.serialize().data());
         return;
     }
@@ -243,7 +244,7 @@ void process_message(const MessagesData_ptr& data, const picojson::value& fields
     data->messages.push_back(Message());
     Message& message = data->messages.back();
     message.mid = fields.get("id").get<double>();
-    message.uid = fields.get("user_id").get<double>();
+    message.user_id = fields.get("user_id").get<double>();
     message.chat_id = 0;
     if (field_is_present<double>(fields, "chat_id"))
         message.chat_id = fields.get("chat_id").get<double>();
@@ -273,13 +274,13 @@ void process_attachments(PurpleConnection* gc, const picojson::array& items, Mes
 {
     for (const picojson::value& v: items) {
         if (!field_is_present<string>(v, "type")) {
-            purple_debug_error("prpl-vkcom", "Strange response from messages.get or messages.getById: %s\n",
+            vkcom_debug_error("Strange response from messages.get or messages.getById: %s\n",
                                v.serialize().data());
             return;
         }
         const string& type = v.get("type").get<string>();
         if (!field_is_present<picojson::object>(v, type)) {
-            purple_debug_error("prpl-vkcom", "Strange response from messages.get or messages.getById: %s\n",
+            vkcom_debug_error("Strange response from messages.get or messages.getById: %s\n",
                                v.serialize().data());
             return;
         }
@@ -303,7 +304,7 @@ void process_attachments(PurpleConnection* gc, const picojson::array& items, Mes
         } else if (type == "album") {
             process_album_attachment(fields, message);
         } else {
-            purple_debug_error("prpl-vkcom", "Strange attachment in response from messages.get "
+            vkcom_debug_error("Strange attachment in response from messages.get "
                                "or messages.getById: type %s, %s\n", type.data(), fields.serialize().data());
             message.text += "\nUnknown attachement type ";
             message.text += type;
@@ -316,7 +317,7 @@ void process_fwd_message(PurpleConnection* gc, const picojson::value& fields, Me
 {
     if (!field_is_present<double>(fields, "user_id") || !field_is_present<double>(fields, "date")
             || !field_is_present<string>(fields, "body")) {
-        purple_debug_error("prpl-vkcom", "Strange response from messages.get or messages.getById: %s\n",
+        vkcom_debug_error("Strange response from messages.get or messages.getById: %s\n",
                            fields.serialize().data());
         return;
     }
@@ -343,7 +344,7 @@ void process_photo_attachment(const picojson::value& fields, Message& message)
 {
     if (!field_is_present<double>(fields, "id") || !field_is_present<double>(fields, "owner_id")
             || !field_is_present<string>(fields, "text") || !field_is_present<string>(fields, "photo_604")) {
-        purple_debug_error("prpl-vkcom", "Strange attachment in response from messages.get "
+        vkcom_debug_error("Strange attachment in response from messages.get "
                            "or messages.getById: %s\n", fields.serialize().data());
         return;
     }
@@ -381,7 +382,7 @@ void process_video_attachment(const picojson::value& fields, Message& message)
 {
     if (!field_is_present<double>(fields, "id") || !field_is_present<double>(fields, "owner_id")
             || !field_is_present<string>(fields, "title") || !field_is_present<string>(fields, "photo_320")) {
-        purple_debug_error("prpl-vkcom", "Strange attachment in response from messages.get "
+        vkcom_debug_error("Strange attachment in response from messages.get "
                            "or messages.getById: %s\n", fields.serialize().data());
         return;
     }
@@ -400,7 +401,7 @@ void process_audio_attachment(const picojson::value& fields, Message& message)
 {
     if (!field_is_present<string>(fields, "url") || !field_is_present<string>(fields, "artist")
             || !field_is_present<string>(fields, "title")) {
-        purple_debug_error("prpl-vkcom", "Strange attachment in response from messages.get "
+        vkcom_debug_error("Strange attachment in response from messages.get "
                            "or messages.getById: %s\n", fields.serialize().data());
         return;
     }
@@ -414,7 +415,7 @@ void process_audio_attachment(const picojson::value& fields, Message& message)
 void process_doc_attachment(const picojson::value& fields, Message& message)
 {
     if (!field_is_present<string>(fields, "url") || !field_is_present<string>(fields, "title")) {
-        purple_debug_error("prpl-vkcom", "Strange attachment in response from messages.get "
+        vkcom_debug_error("Strange attachment in response from messages.get "
                            "or messages.getById: %s\n", fields.serialize().data());
         return;
     }
@@ -436,7 +437,7 @@ void process_wall_attachment(PurpleConnection* gc, const picojson::value& fields
             || (!field_is_present<double>(fields, "to_id") && !field_is_present<double>(fields, "from_id"))
             || !field_is_present<double>(fields, "date")
             || !field_is_present<string>(fields, "text")) {
-        purple_debug_error("prpl-vkcom", "Strange attachment in response from messages.get "
+        vkcom_debug_error("Strange attachment in response from messages.get "
                            "or messages.getById: %s\n", fields.serialize().data());
         return;
     }
@@ -483,7 +484,7 @@ void process_wall_attachment(PurpleConnection* gc, const picojson::value& fields
 void process_link_attachment(const picojson::value& fields, Message& message)
 {
     if (!field_is_present<string>(fields, "url")) {
-        purple_debug_error("prpl-vkcom", "Strange attachment in response from messages.get "
+        vkcom_debug_error("Strange attachment in response from messages.get "
                            "or messages.getById: %s\n", fields.serialize().data());
         return;
     }
@@ -520,7 +521,7 @@ void process_album_attachment(const picojson::value& fields, Message& message)
 {
     if (!field_is_present<string>(fields, "id") || !field_is_present<double>(fields, "owner_id")
             || !field_is_present<string>(fields, "title")) {
-        purple_debug_error("prpl-vkcom", "Strange attachment in response from messages.get "
+        vkcom_debug_error("Strange attachment in response from messages.get "
                            "or messages.getById: %s\n", fields.serialize().data());
         return;
     }
@@ -548,7 +549,7 @@ string get_user_placeholder(PurpleConnection* gc, uint64 user_id, Message& messa
     if (user_id == 0)
         return "";
 
-    VkUserInfo* info = get_user_info_for_buddy(gc, user_id);
+    VkUserInfo* info = get_user_info(gc, user_id);
     if (info)
         return get_user_href(user_id, *info);
 
@@ -581,7 +582,7 @@ void download_thumbnail(const MessagesData_ptr& data, size_t message, size_t thu
     const string& url = data->messages[message].thumbnail_urls[thumbnail];
     http_get(data->gc, url, [=](PurpleHttpConnection*, PurpleHttpResponse* response) {
         if (!purple_http_response_is_successful(response)) {
-            purple_debug_error("prpl-vkcom", "Unable to download thumbnail: %s\n",
+            vkcom_debug_error("Unable to download thumbnail: %s\n",
                                purple_http_response_get_error(response));
             download_thumbnail(data, message, thumbnail + 1);
             return;
@@ -601,16 +602,16 @@ void download_thumbnail(const MessagesData_ptr& data, size_t message, size_t thu
 
 void replace_user_ids(const MessagesData_ptr& data)
 {
-    // Get all uids, which are not present in user_infos.
-    uint64_vec unknown_uids;
+    // Get all user ids, which are not present in user_infos.
+    uint64_vec unknown_user_ids;
     for (const Message& m: data->messages)
-        append(unknown_uids, m.unknown_user_ids);
+        append(unknown_user_ids, m.unknown_user_ids);
 
-    add_or_update_user_infos(data->gc, unknown_uids, [=] {
+    add_or_update_user_infos(data->gc, unknown_user_ids, [=] {
         for (Message& m: data->messages) {
             for (unsigned i = 0; i < m.unknown_user_ids.size(); i++) {
                 uint64 id = m.unknown_user_ids[i];
-                VkUserInfo* info = get_user_info_for_buddy(data->gc, id);
+                VkUserInfo* info = get_user_info(data->gc, id);
                 // Getting the user info could fail.
                 if (!info)
                     continue;
@@ -637,7 +638,7 @@ void replace_group_ids(const MessagesData_ptr& data)
                 uint64 group_id = m.unknown_group_ids[i];
                 string placeholder = str_format("<group-placeholder-%d>", i);
                 // Getting the group info could fail.
-                if (!contains_key(infos, group_id))
+                if (!contains(infos, group_id))
                     continue;
 
                 string href = get_group_href(group_id, infos.at(group_id));
@@ -645,7 +646,43 @@ void replace_group_ids(const MessagesData_ptr& data)
             }
         }
 
-        finish_receiving(data);
+        add_unknown_users_chats(data);
+    });
+}
+
+void add_unknown_users_chats(const MessagesData_ptr& data)
+{
+    uint64_vec unknown_user_ids; // Users to get information about.
+    for (const Message& m: data->messages)
+        if (m.status != MESSAGE_OUTGOING && is_unknown_user(data->gc, m.user_id))
+            unknown_user_ids.push_back(m.user_id);
+
+    add_or_update_user_infos(data->gc, unknown_user_ids, [=] {
+        uint64_vec user_ids_to_buddy_list; // Users to be added to buddy list.
+        for (const Message& m: data->messages)
+            // We want to add buddies to buddy list for unread personal messages because we will open conversations
+            // with them.
+            if (m.status == MESSAGE_INCOMING_UNREAD && m.chat_id == 0 && !user_in_buddy_list(data->gc, m.user_id))
+                user_ids_to_buddy_list.push_back(m.user_id);
+
+        // We are setting presence because this is the first time we update the buddies.
+        add_buddies_if_needed(data->gc, user_ids_to_buddy_list, [=] {
+            uint64_vec unknown_chat_ids; // Chats to get information about.
+            for (const Message& m: data->messages)
+                if (m.status != MESSAGE_OUTGOING && m.chat_id != 0 && is_unknown_chat(data->gc, m.chat_id))
+                    unknown_chat_ids.push_back(m.chat_id);
+
+            add_or_update_chat_infos(data->gc, unknown_chat_ids, [=] {
+                uint64_vec chat_ids_to_buddy_list; // Chats to be added to buddy list.
+                for (const Message& m: data->messages)
+                    if (m.status == MESSAGE_INCOMING_UNREAD && m.chat_id != 0 && !chat_in_buddy_list(data->gc, m.chat_id))
+                        chat_ids_to_buddy_list.push_back(m.chat_id);
+
+                add_chats_if_needed(data->gc, chat_ids_to_buddy_list, [=] {
+                    finish_receiving(data);
+                });
+            });
+        });
     });
 }
 
@@ -662,73 +699,65 @@ void finish_receiving(const MessagesData_ptr& data)
         return a.mid == b.mid;
     });
 
-    uint64_vec unknown_uids; // Users to get information about.
-    for (const Message& m: data->messages)
-        if (m.status != MESSAGE_OUTGOING && is_unknown_uid(data->gc, m.uid))
-            unknown_uids.push_back(m.uid);
-
-    add_or_update_user_infos(data->gc, unknown_uids, [=] {
-        uint64_vec uids_to_buddy_list; // Users to be added to buddy list.
-        for (const Message& m: data->messages)
-            // We want to add buddies to buddy list for unread personal messages because we will open conversations
-            // with them.
-            if (m.status == MESSAGE_INCOMING_UNREAD && m.chat_id == 0 && !in_buddy_list(data->gc, m.uid))
-                uids_to_buddy_list.push_back(m.uid);
-
-        // We are setting presence because this is the first time we update the buddies.
-        add_buddies_if_needed(data->gc, uids_to_buddy_list, [=] {
-            PurpleLogCache logs(data->gc);
-            for (const Message& m: data->messages) {
-                if (m.status == MESSAGE_INCOMING_UNREAD) {
-                    // Open new conversation for received message.
-                    if (m.chat_id == 0) {
-                        serv_got_im(data->gc, buddy_name_from_uid(m.uid).data(), m.text.data(), PURPLE_MESSAGE_RECV,
-                                    m.timestamp);
-                    } else {
-//                        TODO: open chat
-//                        serv_got_chat_in(m_gc, m.chat_id, get_buddy_name(m_gc, m.uid).data(),
-//                                         PURPLE_MESSAGE_RECV, m.text.data(), m.timestamp);
-                    }
-                } else { // m.status == MESSAGE_INCOMING_READ || m.status == MESSAGE_OUTGOING
-                    // Check if the conversation is open, so that we write to the conversation, not the log.
-                    // TODO: Remove code duplication with vk-longpoll.cpp
-                    string from;
-                    PurpleMessageFlags flags;
-                    if (m.status == MESSAGE_INCOMING_READ) {
-                        from = get_buddy_name(data->gc, m.uid);
-                        flags = PURPLE_MESSAGE_RECV;
-                    } else {
-                        from = purple_account_get_name_for_display(purple_connection_get_account(data->gc));
-                        flags = PURPLE_MESSAGE_SEND;
-                    }
-
-                    PurpleConversation* conv = find_conv_for_id(data->gc, m.uid, m.chat_id);
-                    if (conv) {
-                        purple_conv_im_write(PURPLE_CONV_IM(conv), from.data(), m.text.data(), flags,
-                                             m.timestamp);
-                    } else {
-                        PurpleLog* log = (m.chat_id == 0) ? logs.for_uid(m.uid) : logs.for_chat(m.chat_id);
-                        purple_log_write(log, flags, from.data(), m.timestamp, m.text.data());
-                    }
-                }
+    PurpleLogCache logs(data->gc);
+    for (const Message& m: data->messages) {
+        if (m.status == MESSAGE_INCOMING_UNREAD) {
+            // Open new conversation for received message.
+            if (m.chat_id == 0) {
+                string from = user_name_from_id(m.user_id);
+                serv_got_im(data->gc, from.data(), m.text.data(), PURPLE_MESSAGE_RECV, m.timestamp);
+            } else {
+                // Ideally, the chat info would be already added, so the lambda will be called in the current
+                // context.
+                open_chat_conv(data->gc, m.chat_id, [=] {
+                    int conv_id = chat_id_to_conv_id(data->gc, m.chat_id);
+                    string from = get_user_display_name(data->gc, m.user_id);
+                    serv_got_chat_in(data->gc, conv_id, from.data(), PURPLE_MESSAGE_RECV, m.text.data(),
+                                     m.timestamp);
+                });
+            }
+        } else { // m.status == MESSAGE_INCOMING_READ || m.status == MESSAGE_OUTGOING
+            // Check if the conversation is open, so that we write to the conversation, not the log.
+            // TODO: Remove code duplication with vk-longpoll.cpp
+            string from;
+            PurpleMessageFlags flags;
+            if (m.status == MESSAGE_INCOMING_READ) {
+                from = get_user_display_name(data->gc, m.user_id);
+                flags = PURPLE_MESSAGE_RECV;
+            } else {
+                from = purple_account_get_name_for_display(purple_connection_get_account(data->gc));
+                flags = PURPLE_MESSAGE_SEND;
             }
 
-            // Mark incoming messages as read.
-            VkReceivedMessage_vec unread_messages;
-            for (const Message& m: data->messages)
-                if (m.status == MESSAGE_INCOMING_UNREAD)
-                    unread_messages.push_back(VkReceivedMessage{ m.mid, m.uid, m.chat_id });
-            mark_message_as_read(data->gc, unread_messages);
+            PurpleConversation* conv = find_conv_for_id(data->gc, m.user_id, m.chat_id);
+            if (conv) {
+                if (m.chat_id == 0)
+                    purple_conv_im_write(PURPLE_CONV_IM(conv), from.data(), m.text.data(), flags,
+                                         m.timestamp);
+                else
+                    purple_conv_chat_write(PURPLE_CONV_CHAT(conv), from.data(), m.text.data(), flags,
+                                           m.timestamp);
+            } else {
+                PurpleLog* log = (m.chat_id == 0) ? logs.for_user(m.user_id) : logs.for_chat(m.chat_id);
+                purple_log_write(log, flags, from.data(), m.timestamp, m.text.data());
+            }
+        }
+    }
 
-            // Sets the last message id as m_messages are sorted by mid.
-            uint64 max_msg_id = 0;
-            if (!data->messages.empty())
-                max_msg_id = data->messages.back().mid;
+    // Mark incoming messages as read.
+    VkReceivedMessage_vec unread_messages;
+    for (const Message& m: data->messages)
+        if (m.status == MESSAGE_INCOMING_UNREAD)
+            unread_messages.push_back(VkReceivedMessage{ m.mid, m.user_id, m.chat_id });
+    mark_message_as_read(data->gc, unread_messages);
 
-            if (data->received_cb)
-                data->received_cb(max_msg_id);
-        });
-    });
+    // Sets the last message id as m_messages are sorted by mid.
+    uint64 max_msg_id = 0;
+    if (!data->messages.empty())
+        max_msg_id = data->messages.back().mid;
+
+    if (data->received_cb)
+        data->received_cb(max_msg_id);
 }
 
 } // End of anonymous namespace
@@ -739,8 +768,8 @@ namespace {
 // mark_as_read_online_only option is enabled (the default).
 bool is_away(PurpleConnection* gc)
 {
-    PurpleAccount* account = purple_connection_get_account(gc);
-    if (purple_account_get_bool(account, "mark_as_read_online_only", true)) {
+    VkConnData* conn_data = get_conn_data(gc);
+    if (conn_data->options.mark_as_read_online_only) {
         PurpleStatus* status = purple_account_get_active_status(purple_connection_get_account(gc));
         PurpleStatusPrimitive primitive_status = purple_status_type_get_primitive(purple_status_get_type(status));
         if (primitive_status != PURPLE_STATUS_AVAILABLE)
@@ -770,8 +799,11 @@ void find_active_ids(PurpleConversation* conv, uint64* user_id, uint64* chat_id)
     }
 
     const char* name = purple_conversation_get_name(conv);
-    *user_id = uid_from_buddy_name(name);
-    *chat_id = chat_id_from_name(name);
+    *user_id = user_id_from_name(name, true);
+    *chat_id = chat_id_from_name(name, true);
+
+    if (user_id == 0 && chat_id == 0)
+        vkcom_debug_info("Unknown conversation open: %s\n", name);
 }
 
 // Returns true if message belongs to to the active conversation, which is defined by active_user_id
@@ -791,6 +823,7 @@ void mark_messages_as_read_impl(PurpleConnection* gc, const Cont& message_ids)
     if (message_ids.empty())
         return;
 
+    vkcom_debug_info("Marking %d messages as read\n", (int)message_ids.size());
     vk_call_api_ids(gc, "messages.markAsRead", CallParams(), "message_ids", message_ids,
                     nullptr, nullptr, nullptr);
 }
@@ -799,19 +832,19 @@ void mark_messages_as_read_impl(PurpleConnection* gc, const Cont& message_ids)
 
 void mark_message_as_read(PurpleConnection* gc, const VkReceivedMessage_vec& messages)
 {
-    uint64_vec message_ids;
+    VkConnData* conn_data = get_conn_data(gc);
 
-    if (purple_account_get_bool(purple_connection_get_account(gc), "mark_as_read_instantaneous", false)) {
+    // Check if we should defer all messages, because we are Away.
+    if (is_away(gc)) {
+        append(conn_data->deferred_mark_as_read, messages);
+        return;
+    }
+
+    uint64_vec message_ids;
+    if (conn_data->options.mark_as_read_inactive_tab) {
         for (const VkReceivedMessage& msg: messages)
             message_ids.push_back(msg.msg_id);
     } else {
-        VkConnData* conn_data = get_conn_data(gc);
-        // Check if we should defer all messages, because we are Away.
-        if (is_away(gc)) {
-            append(conn_data->deferred_mark_as_read, messages);
-            return;
-        }
-
         PurpleConversation* conv = find_active_conv(gc);
         uint64 active_user_id;
         uint64 active_chat_id;
@@ -830,17 +863,16 @@ void mark_message_as_read(PurpleConnection* gc, const VkReceivedMessage_vec& mes
 
 void mark_deferred_messages_as_read(PurpleConnection* gc, bool active)
 {
-    uint64_vec message_ids;
+    if (is_away(gc) && !active)
+        return;
 
     VkConnData* conn_data = get_conn_data(gc);
-    if (purple_account_get_bool(purple_connection_get_account(gc), "mark_as_read_instantaneous", false)) {
+    uint64_vec message_ids;
+    if (conn_data->options.mark_as_read_inactive_tab) {
         for (const VkReceivedMessage& msg: conn_data->deferred_mark_as_read)
             message_ids.push_back(msg.msg_id);
         conn_data->deferred_mark_as_read.clear();
     } else {
-        if (is_away(gc) && !active)
-            return;
-
         PurpleConversation* conv = find_active_conv(gc);
         uint64 active_user_id;
         uint64 active_chat_id;
@@ -850,7 +882,7 @@ void mark_deferred_messages_as_read(PurpleConnection* gc, bool active)
             if (message_is_active(msg, active_user_id, active_chat_id))
                 message_ids.push_back(msg.msg_id);
 
-        remove_all(conn_data->deferred_mark_as_read, [=](const VkReceivedMessage& msg) {
+        erase_if(conn_data->deferred_mark_as_read, [=](const VkReceivedMessage& msg) {
             return message_is_active(msg, active_user_id, active_chat_id);
         });
     }
