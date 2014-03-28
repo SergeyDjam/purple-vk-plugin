@@ -5,27 +5,6 @@
 #include "httputils.h"
 #include "miscutils.h"
 
-namespace
-{
-
-// Returns keepalive pool for all the HTTP connections in PurpleConnection.
-PurpleHttpKeepalivePool* get_keepalive_pool(PurpleConnection* gc)
-{
-    VkConnData* data = get_conn_data(gc);
-    if (!data->keepalive_pool)
-        data->keepalive_pool = purple_http_keepalive_pool_new();
-    return data->keepalive_pool;
-}
-
-} // End of anonymous namespace
-
-void destroy_keepalive_pool(PurpleConnection* gc)
-{
-    VkConnData* data = get_conn_data(gc);
-    if (data->keepalive_pool)
-        purple_http_keepalive_pool_unref(data->keepalive_pool);
-}
-
 PurpleHttpConnection* http_get(PurpleConnection* gc, const string& url, const HttpCallback& callback)
 {
     PurpleHttpRequest* request = purple_http_request_new(url.data());
@@ -54,7 +33,7 @@ void http_cb(PurpleHttpConnection* http_conn, PurpleHttpResponse* response, void
     if ((purple_http_response_get_code(response) == 0 || purple_http_response_get_code(response) >= 500)
             && data->retries < MAX_HTTP_RETRIES && !conn_data->is_closing()) {
         vkcom_debug_error("HTTP error %d, retrying %d time\n",
-                           purple_http_response_get_code(response), data->retries);
+                           purple_http_response_get_code(response), data->retries + 1);
 
         // We've got a network error or Vk.com server error and have not given up retrying.
         PurpleHttpRequest* request = purple_http_conn_get_request(http_conn);
@@ -77,7 +56,8 @@ void http_cb(PurpleHttpConnection* http_conn, PurpleHttpResponse* response, void
 PurpleHttpConnection* http_request(PurpleConnection* gc, PurpleHttpRequest* request,
                                    const HttpCallback& callback)
 {
-    purple_http_request_set_keepalive_pool(request, get_keepalive_pool(gc));
+    VkConnData* conn_data = get_conn_data(gc);
+    purple_http_request_set_keepalive_pool(request, conn_data->get_keepalive_pool());
     HttpUserData* data = new HttpUserData();
     data->callback = callback;
     data->retries = 0;

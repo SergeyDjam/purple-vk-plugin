@@ -151,58 +151,6 @@ size_t max_urlencoded_int(uint64_vec::const_iterator start, uint64_vec::const_it
     return end - start;
 }
 
-namespace
-{
-
-// Helper structure for timeout_add. The two latter members are used to remove id upon
-// timeout end.
-struct TimeoutCbData
-{
-    TimeoutCb callback;
-    set<uint>& timeout_ids;
-    uint id;
-};
-
-// Helper callback for timeout_add
-int timeout_cb(void* user_data)
-{
-    TimeoutCbData* data = (TimeoutCbData*)user_data;
-    return data->callback();
-}
-
-// Helper callback for timeout_add
-void timeout_destroy_cb(void* user_data)
-{
-    TimeoutCbData* data = (TimeoutCbData*)user_data;
-    data->timeout_ids.erase(data->id);
-    delete data;
-}
-
-} // End of anonymous namespace
-
-void timeout_add(PurpleConnection* gc, unsigned milliseconds, const TimeoutCb& callback)
-{
-    VkConnData* conn_data = get_conn_data(gc);
-    if (conn_data->is_closing()) {
-        vkcom_debug_error("Programming error: timeout_add(%d) called during logout\n", milliseconds);
-        return;
-    }
-
-    TimeoutCbData* data = new TimeoutCbData({ callback, conn_data->timeout_ids, 0 });
-    data->id = g_timeout_add_full(G_PRIORITY_DEFAULT, milliseconds, timeout_cb, data,
-                                  timeout_destroy_cb);
-    conn_data->timeout_ids.insert(data->id);
-}
-
-void timeout_remove_all(PurpleConnection* gc)
-{
-    // g_source_remove calls timeout_destroy_cb, which modifies timeout_ids, so we make a copy before
-    // calling g_source_remove. Damned mutability.
-    uint_set timeout_ids = get_conn_data(gc)->timeout_ids;
-    for (uint id: timeout_ids)
-        g_source_remove(id);
-}
-
 
 string unescape_html(const char* text)
 {

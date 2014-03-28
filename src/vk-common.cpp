@@ -118,14 +118,14 @@ string uploaded_docs_to_string(const vector<VkUploadedDoc>& docs)
     return picojson::value(a).serialize();
 }
 
-} // namespace
+} // End of anonymous namespace
 
 VkConnData::VkConnData(PurpleConnection* gc, const string& email, const string& password)
-    : keepalive_pool(nullptr),
-      m_email(email),
+    : m_email(email),
       m_password(password),
       m_gc(gc),
-      m_closing(false)
+      m_closing(false),
+      m_keepalive_pool(nullptr)
 {
     PurpleAccount* account = purple_connection_get_account(m_gc);
 
@@ -164,6 +164,15 @@ VkConnData::~VkConnData()
 
     str = uploaded_docs_to_string(uploaded_docs);
     purple_account_set_string(account, "uploaded_docs", str.data());
+
+    // g_source_remove calls timeout_destroy_cb, which modifies timeout_ids, so we make a copy before
+    // calling g_source_remove. Damned mutability.
+    uint_set timeout_ids_copy = timeout_ids;
+    for (uint id: timeout_ids_copy)
+        g_source_remove(id);
+
+    if (m_keepalive_pool)
+        purple_http_keepalive_pool_unref(m_keepalive_pool);
 }
 
 void VkConnData::authenticate(const SuccessCb& success_cb, const ErrorCb& error_cb)
@@ -193,6 +202,14 @@ void VkConnData::authenticate(const SuccessCb& success_cb, const ErrorCb& error_
         purple_connection_error_reason(m_gc, PURPLE_CONNECTION_ERROR_NETWORK_ERROR, "Unable to connect to Long Poll server");
         error_cb();
     });
+}
+
+PurpleHttpKeepalivePool* VkConnData::get_keepalive_pool()
+{
+    if (!m_keepalive_pool)
+        m_keepalive_pool = purple_http_keepalive_pool_new();
+
+    return m_keepalive_pool;
 }
 
 
@@ -235,4 +252,34 @@ uint64 chat_id_from_name(const char* name, bool quiet)
     }
 
     return atoll(name + 4);
+}
+
+
+void timeout_add(PurpleConnection* gc, unsigned milliseconds, const TimeoutCb& callback)
+{
+    // Helper structure. The two latter members are used to remove id upon timeout end.
+    struct TimeoutCbData
+    {
+        TimeoutCb callback;
+        VkConnData* conn_data;
+        uint id;
+    };
+
+    VkConnData* conn_data = get_conn_data(gc);
+    if (conn_data->is_closing()) {
+        vkcom_debug_error("Programming error: timeout_add(%d) called during logout\n", milliseconds);
+        return;
+    }
+
+    TimeoutCbData* data = new TimeoutCbData({ callback, conn_data, 0 });
+    data->id = g_timeout_add_full(G_PRIORITY_DEFAULT, milliseconds, [](void* user_data) -> gboolean {
+        TimeoutCbData* data = (TimeoutCbData*)user_data;
+        return data->callback();
+    }, data, [](void* user_data) {
+        TimeoutCbData* data = (TimeoutCbData*)user_data;
+        data->conn_data->timeout_ids.erase(data->id);
+        delete data;
+    });
+
+    conn_data->timeout_ids.insert(data->id);
 }

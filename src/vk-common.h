@@ -98,6 +98,13 @@ struct VkChatInfo
     map<string, uint64> participant_names;
 };
 
+
+// All timed events must be added via this timeout_add, because only then they will be properly
+// destroyed upon closing connection.
+typedef function_ptr<bool()> TimeoutCb;
+void timeout_add(PurpleConnection* gc, unsigned milliseconds, const TimeoutCb& callback);
+
+
 // Data, associated with account. It contains all information, required for connecting and executing
 // API calls.
 class VkConnData
@@ -204,13 +211,9 @@ public:
         m_closing = true;
     }
 
-    // We need to remove all timed events added by timeout_add upon closing connection or the crash
-    // is possible otherwise. This set stores all ids of the events.
-    uint_set timeout_ids;
-
     // Per-connection HTTP keepalive pool, initialized upon first HTTP connection and destroy
     // upon closing the connection.
-    PurpleHttpKeepalivePool* keepalive_pool;
+    PurpleHttpKeepalivePool* get_keepalive_pool();
 
 private:
     string m_email;
@@ -220,6 +223,12 @@ private:
 
     PurpleConnection* m_gc;
     bool m_closing;
+
+    uint_set timeout_ids;
+
+    PurpleHttpKeepalivePool* m_keepalive_pool;
+
+    friend void timeout_add(PurpleConnection* gc, unsigned milliseconds, const TimeoutCb& callback);
 };
 
 inline VkConnData* get_conn_data(PurpleConnection* gc)
@@ -241,3 +250,4 @@ string chat_name_from_id(uint64 chat_id);
 // (both "id" attributes in blist and conversation names).
 // If quiet is false, the function will output an error into log if it returns zero.
 uint64 chat_id_from_name(const char* name, bool quiet = false);
+

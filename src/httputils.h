@@ -6,9 +6,6 @@
 
 #include "contrib/purple/http.h"
 
-// Destroys keepalive pool for PurpleConnection. Must be called on logout.
-void destroy_keepalive_pool(PurpleConnection* gc);
-
 typedef function_ptr<void(PurpleHttpConnection *http_conn, PurpleHttpResponse *response)> HttpCallback;
 
 // Utility function: run purple_http_get with keep-alive pool and add to connection set.
