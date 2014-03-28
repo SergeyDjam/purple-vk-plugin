@@ -306,6 +306,8 @@ void check_buddy_alias(PurpleConnection* gc, PurpleBuddy* buddy)
         return;
 
     const char* current_alias = purple_buddy_get_alias(buddy);
+    if (!current_alias)
+        current_alias = "";
 
     if (purple_blist_node_get_bool(&buddy->node, "custom-alias")) {
         // Check if buddy has been renamed back to its name.
@@ -329,6 +331,7 @@ void check_buddy_alias(PurpleConnection* gc, PurpleBuddy* buddy)
                 // why we call serv_got_alias is because that function conveniently writes "idXXXX is now known as YYY"
                 // if conversation with that buddy is open. Otherwise, server alias is completely ignored.
                 purple_serv_got_private_alias(gc, purple_buddy_get_name(buddy), info->real_name.data());
+                current_alias = info->real_name.data();
             }
         }
     }
@@ -346,12 +349,17 @@ void check_chat_alias(PurpleConnection* gc, PurpleChat* chat)
 
     VkConnData* conn_data = get_conn_data(gc);
     uint64 chat_id = chat_id_from_name(chat_name);
-    VkChatInfo& info = conn_data->chat_infos[chat_id];
+    VkChatInfo* info = get_chat_info(gc, chat_id);
+    if (!info)
+        return;
+
     const char* current_alias = chat->alias;
+    if (!current_alias)
+        current_alias = "";
 
     if (purple_blist_node_get_bool(&chat->node, "custom-alias")) {
         // Check if chat alias has been set back to its title.
-        if (current_alias == info.title)
+        if (current_alias == info->title)
             purple_blist_node_remove_setting(&chat->node, "custom-alias");
     } else {
         // Check if chat has been renamed since last check.
@@ -363,9 +371,9 @@ void check_chat_alias(PurpleConnection* gc, PurpleChat* chat)
             purple_blist_node_set_bool(&chat->node, "custom-alias", true);
         } else {
             // Chat either has not been renamed or has just been added. Check if chat title has been updated.
-            if (current_alias != info.title)
-                purple_blist_alias_chat(chat, info.title.data());
-            current_alias = info.title.data();
+            if (current_alias != info->title)
+                purple_blist_alias_chat(chat, info->title.data());
+            current_alias = info->title.data();
         }
     }
 
