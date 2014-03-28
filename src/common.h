@@ -87,7 +87,11 @@ public:
 
     R operator()(ArgTypes... args) const
     {
-        return m_function->operator()(args...);
+        // Amazing, that you can do it for R == void
+        if (m_function)
+            return m_function->operator()(args...);
+        else
+            return R();
     }
 
 private:
