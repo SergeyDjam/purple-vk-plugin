@@ -8,35 +8,56 @@
 
 #include "vk-common.h"
 
+
+// Set account alias to user full name (first name + second name).
+void set_account_alias(PurpleConnection* gc);
+
 // Finds links to photo/video/docs on vk.com and returns attachment string, describing them as required
 // by message.send API call.
 string parse_vkcom_attachments(const string& message);
 
-// Gets buddy names for buddies in the contact list.
-string get_buddy_name(PurpleConnection* gc, uint64 uid);
+// Gets name used for display for user.
+string get_user_display_name(PurpleConnection* gc, uint64 user_id);
 
-// Returns true if uid is present in buddy list.
-bool in_buddy_list(PurpleConnection* gc, uint64 uid);
+// Returns true if user_id is present in buddy list.
+bool user_in_buddy_list(PurpleConnection* gc, uint64 user_id);
 
-// Returns true if uid is a friend.
-bool is_friend(PurpleConnection* gc, uint64 uid);
+// Returns true if user_id is a friend.
+bool user_is_friend(PurpleConnection* gc, uint64 user_id);
 
-// Returns true if uid is not present even in user infos.
-bool is_unknown_uid(PurpleConnection* gc, uint64 uid);
+// Returns true if user ever had a dialog with user_id.
+bool had_dialog_with_user(PurpleConnection* gc, uint64 user_id);
 
-// Returns true if we are currently having an open IM conversation with (chats ignored).
-bool have_conversation_with(PurpleConnection* gc, uint64 uid);
+// Returns true if user_id is not present even in user infos.
+bool is_unknown_user(PurpleConnection* gc, uint64 user_id);
 
-// Returns VkUserInfo, corresponding to buddy.
-VkUserInfo* get_user_info_for_buddy(PurpleBuddy* buddy);
-VkUserInfo* get_user_info_for_buddy(PurpleConnection* gc, const char* name);
-VkUserInfo* get_user_info_for_buddy(PurpleConnection* gc, uint64 user_id);
+// Returns true if we currently have an open IM conversation with (chats ignored).
+bool have_conversation_with_user(PurpleConnection* gc, uint64 user_id);
+
+// Returns trus if chat is present in buddy list.
+bool chat_in_buddy_list(PurpleConnection* gc, uint64 chat_id);
+
+// Returns true if user is a participant in chat_id.
+bool participant_in_chat(PurpleConnection* gc, uint64 chat_id);
+
+// Returns true if chat is not present even in chat infos.
+bool is_unknown_chat(PurpleConnection* gc, uint64 chat_id);
+
+// Returns VkUserInfo, corresponding to buddy or nullptr if info still has not been added.
+VkUserInfo* get_user_info(PurpleBuddy* buddy);
+VkUserInfo* get_user_info(PurpleConnection* gc, uint64 user_id);
+
+// Return VkChatInfo or nullptr if infostill has not been added.
+VkChatInfo* get_chat_info(PurpleConnection* gc, uint64 chat_id);
 
 // Check if buddy has been manually added to the buddy list.
-bool is_manually_added(PurpleConnection* gc, uint64 user_id);
+bool is_user_manually_added(PurpleConnection* gc, uint64 user_id);
 
 // Check if buddy has been manually removed from the buddy list.
-bool is_manually_removed(PurpleConnection* gc, uint64 user_id);
+bool is_user_manually_removed(PurpleConnection* gc, uint64 user_id);
+
+// Check if chat has been manually added to the buddy list.
+bool is_chat_manually_added(PurpleConnection* gc, uint64 chat_id);
 
 // Map of several PurpleLogs (one for each user), so that they are not created for each received message.
 // Used in vk-message-recv.cpp
@@ -46,8 +67,8 @@ public:
     PurpleLogCache(PurpleConnection* gc);
     ~PurpleLogCache();
 
-    // Opens PurpleLog for given uid or returns an already open one.
-    PurpleLog* for_uid(uint64 uid);
+    // Opens PurpleLog for given user_id or returns an already open one.
+    PurpleLog* for_user(uint64 user_id);
     // Opens PurpleLog for given chat id or returns an already open one.
     PurpleLog* for_chat(uint64 chat_id);
 
@@ -56,7 +77,7 @@ private:
     map<uint64, PurpleLog*> m_logs;
     map<uint64, PurpleLog*> m_chat_logs;
 
-    PurpleLog* open_for_uid(uint64 uid);
+    PurpleLog* open_for_user_id(uint64 user_id);
     PurpleLog* open_for_chat_id(uint64 chat_id);
 };
 
@@ -87,3 +108,15 @@ PurpleConversation* find_conv_for_id(PurpleConnection* gc, uint64 user_id, uint6
 // Resolves screen name, like a nickname or group name to type and identifier.
 typedef function_ptr<void(const string& type, uint64 id)> ResolveScreenNameCb;
 void resolve_screen_name(PurpleConnection* gc, const char* screen_name, const ResolveScreenNameCb& resolved_cb);
+
+
+// A function analogous to purple_find_buddies but which returns all chats in buddy list.
+vector<PurpleChat*> find_all_purple_chats(PurpleAccount* account);
+
+// Returns chat in buddy list, which has this chat id or null if no chat found.
+PurpleChat* find_purple_chat_by_id(PurpleConnection* gc, uint64 chat_id);
+
+
+// Finds user by "screen name" i.e. nickname.
+typedef function_ptr<void(uint64 user_id)> UserIdFetchedCb;
+void find_user_by_screenname(PurpleConnection* gc, const string& screen_name, const UserIdFetchedCb& fetch_cb);

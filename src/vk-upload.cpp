@@ -23,13 +23,16 @@ void upload_doc_for_im(PurpleConnection* gc, const char* name, const void* conte
                        const UploadedCb& uploaded_cb, const ErrorCb& error_cb,
                        const UploadProgressCb& upload_progress_cb)
 {
+    vkcom_debug_info("Uploading document for IM\n");
+
     upload_file(gc, "docs.getWallUploadServer", "file", name, contents, size, [=](const picojson::value& v) {
         if (!field_is_present<string>(v, "file")) {
-            purple_debug_error("prpl-vkcom", "Strange response from upload server: %s\n", v.serialize().data());
+            vkcom_debug_error("Strange response from upload server: %s\n", v.serialize().data());
             if (error_cb)
                 error_cb();
             return;
         }
+
         const string& file = v.get("file").get<string>();
         CallParams params = { {"file", file} };
         vk_call_api(gc, "docs.save", params, [=](const picojson::value& result) {
@@ -45,15 +48,18 @@ void upload_photo_for_im(PurpleConnection* gc, const char* name, const void* con
                          const UploadedCb& uploaded_cb, const ErrorCb& error_cb,
                          const UploadProgressCb& upload_progress_cb)
 {
+    vkcom_debug_info("Uploading photo for IM\n");
+
     upload_file(gc, "photos.getMessagesUploadServer", "photo", name, contents, size, [=](const picojson::value& v) {
         // Vk.com documentation says that "server" should be a string, however, this is contrary to observations.
         if (!(field_is_present<int>(v, "server") || field_is_present<string>(v, "server"))
                 || !field_is_present<string>(v, "photo") || !field_is_present<string>(v, "hash")) {
-            purple_debug_error("prpl-vkcom", "Strange response from upload server: %s\n", v.serialize().data());
+            vkcom_debug_error("Strange response from upload server: %s\n", v.serialize().data());
             if (error_cb)
                 error_cb();
             return;
         }
+
         const string& server = v.get("server").to_str();
         const string& photo = v.get("photo").get<string>();
         const string& hash = v.get("hash").get<string>();
@@ -90,14 +96,14 @@ void upload_file(PurpleConnection* gc, const char* get_upload_server, const char
 {
     vk_call_api(gc, get_upload_server, CallParams(), [=](const picojson::value& result) {
         if (!field_is_present<string>(result, "upload_url")) {
-            purple_debug_error("prpl-vkcom", "Strange response from docs.getWallUploadServer: %s\n",
+            vkcom_debug_error("Strange response from docs.getWallUploadServer: %s\n",
                                result.serialize().data());
             if (error_cb)
                 error_cb();
             return;
         }
         const string& upload_url = result.get("upload_url").get<string>();
-        purple_debug_info("prpl-vkcom", "Uploading to %s\n", upload_url.data());
+        vkcom_debug_info("Uploading to %s\n", upload_url.data());
 
         start_upload(gc, upload_url, partname, name, contents, size, uploaded_cb, error_cb, upload_progress_cb);
     }, [=](const picojson::value&) {
@@ -110,6 +116,8 @@ void start_upload(PurpleConnection* gc, const string& upload_url, const char* pa
                   const void* contents, size_t size, const UploadedCb& uploaded_cb, const ErrorCb& error_cb,
                   const UploadProgressCb& upload_progress_cb)
 {
+    vkcom_debug_info("Starting upload\n");
+
     PurpleHttpRequest* request = prepare_upload_request(upload_url, partname, contents, size, name);
     UploadProgressCb* progress_data = nullptr;
     if (upload_progress_cb)
@@ -130,11 +138,14 @@ void start_upload(PurpleConnection* gc, const string& upload_url, const char* pa
         picojson::value root;
         string error = picojson::parse(root, response_text, response_text + strlen(response_text));
         if (!error.empty()) {
-            purple_debug_error("prpl-vkcom", "Error parsing %s: %s\n", response_text_copy, error.data());
+            vkcom_debug_error("Error parsing %s: %s\n", response_text_copy, error.data());
             if (error_cb)
                 error_cb();
             return;
         }
+
+        vkcom_debug_info("Finished upload\n");
+
         uploaded_cb(root);
     });
     purple_http_request_unref(request);
@@ -157,7 +168,7 @@ PurpleHttpRequest* prepare_upload_request(const string& url, const char* partnam
         mime_type = g_content_type_get_mime_type(content_type);
     else
         mime_type = g_strdup("application/octet-stream");
-    purple_debug_info("prpl-vkcom", "Sending file %s with size %lu and mime-type %s to %s\n",
+    vkcom_debug_info("Sending file %s with size %lu and mime-type %s to %s\n",
                       name, (long unsigned)size, mime_type, url.data());
     string body_header = str_format("--%s\r\n"
                                     "Content-Disposition: form-data; name=\"%s\"; filename=\"%s\"\r\n"
@@ -203,6 +214,8 @@ void progress_watcher(PurpleHttpConnection* http_conn, gboolean reading_state, i
         return;
     if (reading_state)
         return;
+
+    vkcom_debug_info("Uploaded %d %d\n", processed, total);
 
     UploadProgressCb* upload_progress_cb = (UploadProgressCb*)progress_data;
     (*upload_progress_cb)(http_conn, processed, total);

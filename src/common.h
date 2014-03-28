@@ -249,10 +249,10 @@ inline string to_string(uint64 i)
 // Miscellaneous container functions
 
 // Checks if map already contains key and sets it to new value.
-template<typename M, typename K, typename V>
-inline bool map_update(M& map, const K& key, const V& value)
+template<typename Map, typename Key, typename Value>
+inline bool map_update(Map& map, const Key& key, const Value& value)
 {
-    typename M::iterator it = map.find(key);
+    auto it = map.find(key);
     if (it == map.end())
         return false;
     it->second = value;
@@ -260,10 +260,10 @@ inline bool map_update(M& map, const K& key, const V& value)
 }
 
 // Returns value for key or default value without inserting into map.
-template<typename M, typename K, typename V = typename M::value_type>
-inline V map_at_default(const M& map, const K& key, const V& default_value = V())
+template<typename Map, typename Key, typename Value = typename Map::value_type>
+inline Value map_at(const Map& map, const Key& key, const Value& default_value = Value())
 {
-    typename M::iterator it = map.find(key);
+    auto it = map.find(key);
     if (it == map.end())
         return default_value;
     else
@@ -271,35 +271,76 @@ inline V map_at_default(const M& map, const K& key, const V& default_value = V()
 }
 
 // Returns true if map or set contains key.
-template<typename C, typename K>
-inline bool contains_key(const C& cont, const K& key)
+template<typename Cont, typename Key>
+inline bool contains(const Cont& cont, const Key& key)
 {
     return cont.find(key) != cont.end();
 }
 
-// Appends one vector, deque or list container to another.
-template<typename D, typename S>
-inline void append(D& dst, const S& src)
+// Appends one container to another, version for sets/maps.
+template<typename DstCont, typename SrcCont>
+inline void append(DstCont& dst, const SrcCont& src)
+{
+    for (auto it = src.cbegin(); it != src.cend(); ++it)
+        dst.insert(*it);
+}
+
+// Appends one container to another, version for vector.
+template<typename ...DstArgs, typename SrcCont>
+inline void append(vector<DstArgs...>& dst, const SrcCont& src)
 {
     dst.insert(dst.end(), src.begin(), src.end());
 }
 
-template<typename D, typename S, typename Pred>
-inline void append_if(D& dst, const S& src, Pred pred)
+// Appends all elements satisfying predicate from one container to another, version for sets/maps.
+template<typename DstCont, typename SrcCont, typename Pred>
+inline void append_if(DstCont& dst, const SrcCont& src, Pred pred)
 {
-    std::copy_if(src.begin(), src.end(), std::back_inserter(dst), pred);
+    for (auto it = src.cbegin(); it != src.cend(); ++it)
+        if (pred(*it))
+            dst.insert(*it);
 }
 
-// A simple wrapper over std::remove_if and erase, usable for std::vector/std::string/std::deque.
-template<typename C, typename Pred>
-inline void remove_all(C& cont, Pred pred)
+// Appends all elements satisfying predicate from one container to another, version for vectors.
+template<typename ...DstArgs, typename SrcCont, typename Pred>
+inline void append_if(vector<DstArgs...>& dst, const SrcCont& src, Pred pred)
+{
+    for (auto it = src.cbegin(); it != src.cend(); ++it)
+        if (pred(*it))
+            dst.push_back(*it);
+}
+
+// Assigns contents of one container to another (used instead of operator= for different containers).
+template<typename DstCont, typename SrcCont>
+inline void assign(DstCont& dst, const SrcCont& src)
+{
+    dst.clear();
+    append(dst, src);
+}
+
+// Removes all elements, satisfying predicate, version for sets/maps.
+template<typename Cont, typename Pred>
+inline void erase_if(Cont& cont, Pred pred)
+{
+    for (auto it = cont.begin(); it != cont.end();) {
+        if (pred) {
+            it = cont.erase(it);
+        } else {
+            ++it;
+        }
+    }
+}
+
+// Removes all elements, satisfying predicate, version for vectors.
+template<typename ...Args, typename Pred>
+inline void erase_if(vector<Args...>& cont, Pred pred)
 {
     cont.erase(std::remove_if(cont.begin(), cont.end(), pred), cont.end());
 }
 
-// A simple wrapper over std::unique and erase, usable for std::vector/std::string/std::deque.
-template<typename C, typename Pred>
-inline void unique(C& cont, Pred pred)
+// Removes sequential equal elements from vector.
+template<typename ...Params, typename Pred>
+inline void unique(vector<Params...>& cont, Pred pred)
 {
     cont.erase(std::unique(cont.begin(), cont.end(), pred), cont.end());
 }
@@ -312,3 +353,11 @@ inline std::chrono::milliseconds::rep to_milliseconds(T duration)
 {
     return std::chrono::duration_cast<std::chrono::milliseconds>(duration).count();
 }
+
+
+// Debugging macroses
+
+#define vkcom_debug_info(fmt, ...) \
+    purple_debug_info("prpl-vkcom", fmt, ##__VA_ARGS__)
+#define vkcom_debug_error(fmt, ...) \
+    purple_debug_error("prpl-vkcom", fmt, ##__VA_ARGS__)

@@ -139,6 +139,18 @@ size_t max_urlencoded_prefix(const char *s, size_t max_urlencoded_len)
     }
 }
 
+
+size_t max_urlencoded_int(uint64_vec::const_iterator start, uint64_vec::const_iterator end, size_t max_urlencoded_len)
+{
+    size_t len = 0;
+    for (uint64_vec::const_iterator it = start; it != end; ++it) {
+        len += int(log10(*it) + 1) + 3; // Comma is URLencoded
+        if (len > max_urlencoded_len)
+            return it - start;
+    }
+    return end - start;
+}
+
 namespace
 {
 
@@ -172,7 +184,7 @@ void timeout_add(PurpleConnection* gc, unsigned milliseconds, const TimeoutCb& c
 {
     VkConnData* conn_data = get_conn_data(gc);
     if (conn_data->is_closing()) {
-        purple_debug_error("prpl-vkcom", "Programming error: timeout_add(%d) called during logout\n", milliseconds);
+        vkcom_debug_error("Programming error: timeout_add(%d) called during logout\n", milliseconds);
         return;
     }
 
@@ -214,16 +226,4 @@ string ensure_https_url(const string& url)
         return "https:" + url.substr(5);
     else
         return url;
-}
-
-
-size_t max_urlencoded_int(uint64_vec::const_iterator start, uint64_vec::const_iterator end, size_t max_urlencoded_len)
-{
-    size_t len = 0;
-    for (uint64_vec::const_iterator it = start; it != end; ++it) {
-        len += int(log10(*it) + 1) + 3; // Comma is URLencoded
-        if (len > max_urlencoded_len)
-            return it - start;
-    }
-    return end - start;
 }

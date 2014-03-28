@@ -123,6 +123,8 @@ set(SOURCES
   src/vk-buddy.h
   src/vk-captcha.cpp
   src/vk-captcha.h
+  src/vk-chat.cpp
+  src/vk-chat.h
   src/vk-common.cpp
   src/vk-common.h
   src/vk-filexfer.cpp

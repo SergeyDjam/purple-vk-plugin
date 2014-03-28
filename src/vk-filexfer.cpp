@@ -18,15 +18,15 @@ void xfer_init(PurpleXfer* xfer);
 
 } // End of anonymous namespace
 
-PurpleXfer* new_xfer(PurpleConnection* gc, uint64 uid)
+PurpleXfer* new_xfer(PurpleConnection* gc, uint64 user_id)
 {
-    if (uid == 0)
+    if (user_id == 0)
         return nullptr;
 
     PurpleXfer* xfer = purple_xfer_new(purple_connection_get_account(gc), PURPLE_XFER_SEND,
-                                       buddy_name_from_uid(uid).data());
+                                       user_name_from_id(user_id).data());
 
-    xfer->data = new uint64(uid);
+    xfer->data = new uint64(user_id);
 
     // NOTE: We are lazy and do not implement "proper" sending file in buffer. We load the
     // contents of the file in xfer_start and hope that noone will be uploading DVD ISOs
@@ -71,7 +71,7 @@ void send_doc_url(PurpleConnection* gc, uint64 user_id, const string& url, bool 
     send_im_attachment(gc, user_id, attachemnt);
 
     // Write information about uploaded file. so that user will be able to send the link to someone else.
-    string who = buddy_name_from_uid(user_id);
+    string who = user_name_from_id(user_id);
     PurpleConversation* conv = purple_find_conversation_with_account(PURPLE_CONV_TYPE_IM, who.data(),
                                                                       purple_connection_get_account(gc));
     if (conv) {
@@ -84,16 +84,16 @@ void send_doc_url(PurpleConnection* gc, uint64 user_id, const string& url, bool 
     }
 }
 
-// Sends document described by v to uid and save doc to uploaded_docs.
+// Sends document described by v to user_id and save doc to uploaded_docs.
 bool send_doc(PurpleConnection* gc, uint64 user_id, const VkUploadedDoc& doc, const picojson::value& v)
 {
     if (!v.is<picojson::array>()) {
-        purple_debug_error("prpl-vkcom", "Strange response from docs.save: %s\n", v.serialize().data());
+        vkcom_debug_error("Strange response from docs.save: %s\n", v.serialize().data());
         return false;
     }
     const picojson::value& d = v.get(0);
     if (!field_is_present<string>(d, "url")) {
-        purple_debug_error("prpl-vkcom", "Strange response from docs.save: %s\n", v.serialize().data());
+        vkcom_debug_error("Strange response from docs.save: %s\n", v.serialize().data());
         return false;
     }
 
@@ -123,12 +123,12 @@ void xfer_fini(PurpleXfer* xfer, char* contents)
 void start_uploading_doc(PurpleConnection* gc, PurpleXfer* xfer, const VkUploadedDoc& doc, char* contents)
 {
     upload_doc_for_im(gc, doc.filename.data(), contents, doc.size, [=](const picojson::value& v) {
-        uint64* uid = (uint64*)xfer->data;
+        uint64* user_id = (uint64*)xfer->data;
 
         if (purple_xfer_get_status(xfer) == PURPLE_XFER_STATUS_CANCEL_LOCAL) {
-            purple_debug_info("prpl-vkcom", "Transfer has been cancelled by user\n");
+            vkcom_debug_info("Transfer has been cancelled by user\n");
         } else {
-            if (send_doc(gc, *uid, doc, v)) {
+            if (send_doc(gc, *user_id, doc, v)) {
                 purple_xfer_set_completed(xfer, true);
                 purple_xfer_end(xfer);
             } else {
@@ -138,7 +138,7 @@ void start_uploading_doc(PurpleConnection* gc, PurpleXfer* xfer, const VkUploade
         xfer_fini(xfer, contents);
     }, [=] {
         if (purple_xfer_get_status(xfer) == PURPLE_XFER_STATUS_CANCEL_LOCAL)
-            purple_debug_info("prpl-vkcom", "Transfer has been cancelled by user\n");
+            vkcom_debug_info("Transfer has been cancelled by user\n");
         else
             purple_xfer_cancel_remote(xfer);
         xfer_fini(xfer, contents);
@@ -151,6 +151,8 @@ void start_uploading_doc(PurpleConnection* gc, PurpleXfer* xfer, const VkUploade
 // or do not match the stored parameters.
 void clean_nonexisting_docs(PurpleConnection* gc, const SuccessCb& success_cb)
 {
+    vkcom_debug_info("Checking for stale information about uploaded documents\n");
+
     shared_ptr<vector<VkUploadedDoc>> existing_docs{ new vector<VkUploadedDoc>() };
 
     VkConnData* conn_data = get_conn_data(gc);
@@ -158,7 +160,7 @@ void clean_nonexisting_docs(PurpleConnection* gc, const SuccessCb& success_cb)
     vk_call_api_items(gc, "docs.get", CallParams(), true, [=](const picojson::value& v) {
         if (!field_is_present<double>(v, "id") || !field_is_present<string>(v, "title")
                 || !field_is_present<double>(v, "size") || !field_is_present<string>(v, "url")) {
-            purple_debug_error("prpl-vkcom", "Strange response from docs.get: %s\n", v.serialize().data());
+            vkcom_debug_error("Strange response from docs.get: %s\n", v.serialize().data());
             return;
         }
 
@@ -172,14 +174,14 @@ void clean_nonexisting_docs(PurpleConnection* gc, const SuccessCb& success_cb)
                 if (doc.filename == title && doc.size == size && doc.url == url)
                     existing_docs->push_back(doc);
                 else
-                    purple_debug_info("prpl-vkcom", "Document %" PRIu64 " changed either title, size or url, "
+                    vkcom_debug_info("Document %" PRIu64 " changed either title, size or url, "
                                       "removing from uploaded\n", id);
             }
         }
     }, [=]() {
         int size_diff = conn_data->uploaded_docs.size() - existing_docs->size();
         if (size_diff > 0)
-            purple_debug_info("prpl-vkcom", "%d docs removed from uploaded\n", size_diff);
+            vkcom_debug_info("%d docs removed from uploaded\n", size_diff);
         conn_data->uploaded_docs = *existing_docs;
 
         if (success_cb)
@@ -205,7 +207,7 @@ void find_or_upload_doc(PurpleConnection* gc, PurpleXfer* xfer, const VkUploaded
         VkConnData* conn_data = get_conn_data(gc);
         for (const VkUploadedDoc& up: conn_data->uploaded_docs) {
             if (up.filename == doc.filename && up.size == doc.size && up.md5sum == doc.md5sum) {
-                purple_debug_info("prpl-vkcom", "Filename, size and md5sum matches the doc %" PRIu64 ", resending it.\n", up.id);
+                vkcom_debug_info("Filename, size and md5sum matches the doc %" PRIu64 ", resending it.\n", up.id);
 
                 uint64 user_id = *(uint64*)xfer->data;
                 send_doc_url(gc, user_id, up.url, true);
@@ -229,13 +231,17 @@ void xfer_init(PurpleXfer* xfer)
     const char* filepath = purple_xfer_get_local_filename(xfer);
     const char* filename = purple_xfer_get_filename(xfer);
 
+    vkcom_debug_info("Reading file contents\n");
+
     // Load all contents in memory.
     char* contents;
     gsize size;
     if (!g_file_get_contents(filepath, &contents, &size, nullptr)) {
-        purple_debug_error("prpl-vkcom", "Unable to read file %s\n", filepath);
+        vkcom_debug_error("Unable to read file %s\n", filepath);
         return;
     }
+
+    vkcom_debug_info("Successfully read file contents\n");
 
     // We manually increase reference count for xfer, so that it does not die without us noticing it.
     // Xfer can be cancelled locally anytime, which may lead to error callback getting called or not called.

@@ -29,7 +29,7 @@ void vk_call_api_items(PurpleConnection* gc, const char* method_name, const Call
                        const CallFinishedCb& call_finished_cb, const CallErrorCb& error_cb);
 
 // Helper function, which calls method for multiple ids (with the same other parameters), separated by comma.
-// It is used if ids.size() is large (potentiall > 200 elements), so that multiple calls are required in order
+// It is used if ids.size() is large (potentially > 200 elements), so that multiple calls are required in order
 // to fit into the URL limits. success_cb may be called multiple times and either call_finished_cb or error_cb
 // will be called.
 void vk_call_api_ids(PurpleConnection* gc, const char* method_name, const CallParams& params,

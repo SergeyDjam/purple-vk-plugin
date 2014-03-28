@@ -19,7 +19,7 @@ namespace
 {
 
 // Common function for send_im_message and send_chat_message.
-int send_message(PurpleConnection* gc, uint64 uid, uint64 chat_id, const char* raw_message,
+int send_message(PurpleConnection* gc, uint64 user_id, uint64 chat_id, const char* raw_message,
                  const SuccessCb& success_cb, const ErrorCb& error_cb);
 
 // Parses and removes <img id="X"> out of message and returns cleaned message (without <img> tags)
@@ -34,8 +34,8 @@ void upload_imgstore_images(PurpleConnection* gc, const int_vec& img_ids, const 
 // Helper struct used to reduce length of function signatures.
 struct SendMessage
 {
-    // One and only one of uid or chat_id should be non-zero.
-    uint64 uid;
+    // One and only one of user_id or chat_id should be non-zero.
+    uint64 user_id;
     uint64 chat_id;
     string text;
     string attachments;
@@ -53,35 +53,38 @@ void show_error(PurpleConnection* gc, const SendMessage& message);
 
 } // End of anonymous namespace
 
-int send_im_message(PurpleConnection* gc, uint64 uid, const char* raw_message,
+int send_im_message(PurpleConnection* gc, uint64 user_id, const char* raw_message,
                     const SuccessCb& success_cb, const ErrorCb& error_cb)
 {
-    if (uid == 0)
-        return 0;
-    return send_message(gc, uid, 0, raw_message, success_cb, error_cb);
+    vkcom_debug_info("Sending IM message to %" PRIu64 "\n", user_id);
+
+    return send_message(gc, user_id, 0, raw_message, success_cb, error_cb);
 }
 
 int send_chat_message(PurpleConnection* gc, uint64 chat_id, const char* raw_message,
                       const SuccessCb& success_cb, const ErrorCb& error_cb)
 {
-    if (chat_id == 0)
-        return 0;
+    vkcom_debug_info("Sending chat message to %" PRIu64 "\n", chat_id);
+
     return send_message(gc, 0, chat_id, raw_message, success_cb, error_cb);
 }
 
-void send_im_attachment(PurpleConnection* gc, uint64 uid, const string& attachment)
+void send_im_attachment(PurpleConnection* gc, uint64 user_id, const string& attachment)
 {
     SendMessage_ptr message{ new SendMessage() };
-    message->uid = uid;
+    message->user_id = user_id;
     message->chat_id = 0;
     message->attachments = attachment;
+
+    vkcom_debug_info("Sending IM attachment\n");
+
     send_message_internal(gc, message);
 }
 
 namespace
 {
 
-int send_message(PurpleConnection* gc, uint64 uid, uint64 chat_id, const char* raw_message,
+int send_message(PurpleConnection* gc, uint64 user_id, uint64 chat_id, const char* raw_message,
                  const SuccessCb& success_cb, const ErrorCb& error_cb)
 {
     // NOTE: We de-escape message before sending, because
@@ -95,7 +98,7 @@ int send_message(PurpleConnection* gc, uint64 uid, uint64 chat_id, const char* r
     g_free(unescaped_message);
 
     SendMessage_ptr message{ new SendMessage() };
-    message->uid = uid;
+    message->user_id = user_id;
     message->chat_id = chat_id;
     message->text = move(p.first);
     message->success_cb = success_cb;
@@ -116,7 +119,8 @@ int send_message(PurpleConnection* gc, uint64 uid, uint64 chat_id, const char* r
         show_error(gc, *message);
     });
 
-    add_buddy_if_needed(gc, uid);
+    if (user_id != 0)
+        add_buddy_if_needed(gc, user_id);
 
     return 1;
 
@@ -134,7 +138,7 @@ pair<string, int_vec> remove_img_tags(const char* message)
         img_regex = g_regex_new(img_regex_const, GRegexCompileFlags(G_REGEX_CASELESS | G_REGEX_OPTIMIZE),
                                   GRegexMatchFlags(0), nullptr);
         if (!img_regex) {
-            purple_debug_error("prpl-vkcom", "Unable to compile <img> regexp, aborting");
+            vkcom_debug_error("Unable to compile <img> regexp, aborting");
             return { string(message), {} };
         }
     }
@@ -156,7 +160,7 @@ pair<string, int_vec> remove_img_tags(const char* message)
     // Clean message.
     char* cleaned = g_regex_replace_literal(img_regex, message, -1, 0, "", GRegexMatchFlags(0), nullptr);
     if (!cleaned) {
-        purple_debug_error("prpl-vkcom", "Unable to replace <img> in message\n");
+        vkcom_debug_error("Unable to replace <img> in message\n");
         return { string(message), img_ids };
     }
     string cleaned_message = cleaned;
@@ -204,18 +208,18 @@ void upload_imgstore_images_internal(PurpleConnection* gc, const UploadImgstoreI
     const void* contents = purple_imgstore_get_data(img);
     size_t size = purple_imgstore_get_size(img);
 
-    purple_debug_info("prpl-vkcom", "Uploading img %d\n", img_id);
+    vkcom_debug_info("Uploading img %d\n", img_id);
     upload_photo_for_im(gc, filename, contents, size, [=](const picojson::value& v) {
-        purple_debug_info("prpl-vkcom", "Sucessfully uploaded img %d\n", img_id);
+        vkcom_debug_info("Sucessfully uploaded img %d\n", img_id);
         if (!v.is<picojson::array>() || !v.contains(0)) {
-            purple_debug_error("prpl-vkcom", "Unknown photos.saveMessagesPhoto result: %s\n", v.serialize().data());
+            vkcom_debug_error("Unknown photos.saveMessagesPhoto result: %s\n", v.serialize().data());
             if (error_cb)
                 error_cb();
             return;
         }
         const picojson::value& fields = v.get(0);
         if (!field_is_present<double>(fields, "owner_id") || !field_is_present<double>(fields, "id")) {
-            purple_debug_error("prpl-vkcom", "Unknown photos.saveMessagesPhoto result: %s\n", v.serialize().data());
+            vkcom_debug_error("Unknown photos.saveMessagesPhoto result: %s\n", v.serialize().data());
             if (error_cb)
                 error_cb();
             return;
@@ -258,8 +262,8 @@ void send_message_internal(PurpleConnection* gc, const SendMessage_ptr& message,
         params.emplace_back("message", message->text);
     else
         params.emplace_back("message", message->text.substr(0, text_len));
-    if (message->uid > 0)
-        params.emplace_back("user_id", to_string(message->uid));
+    if (message->user_id != 0)
+        params.emplace_back("user_id", to_string(message->user_id));
     else
         params.emplace_back("chat_id", to_string(message->chat_id));
     if (!captcha_sid.empty())
@@ -274,7 +278,7 @@ void send_message_internal(PurpleConnection* gc, const SendMessage_ptr& message,
 
     vk_call_api(gc, "messages.send", params, [=](const picojson::value& v) {
         if (!v.is<double>()) {
-            purple_debug_error("prpl-vkcom", "Wrong response from message.send: %s\n", v.serialize().data());
+            vkcom_debug_error("Wrong response from message.send: %s\n", v.serialize().data());
             show_error(gc, *message);
             return;
         }
@@ -289,6 +293,9 @@ void send_message_internal(PurpleConnection* gc, const SendMessage_ptr& message,
             if (message->success_cb)
                 message->success_cb();
         } else {
+            vkcom_debug_info("Sent another %d bytes of the message, sending the remainder\n",
+                              (int)text_len);
+
             // Send next part of message.
             message->text.erase(0, text_len);
             send_message_internal(gc, message, captcha_sid, captcha_key);
@@ -311,14 +318,15 @@ void process_im_error(const picojson::value& error, PurpleConnection* gc, const 
         return;
     }
     if (!field_is_present<string>(error, "captcha_sid") || !field_is_present<string>(error, "captcha_img")) {
-        purple_debug_error("prpl-vkcom", "Captcha request does not contain captcha_sid or captcha_img");
+        vkcom_debug_error("Captcha request does not contain captcha_sid or captcha_img");
         show_error(gc, *message);
         return;
     }
 
     const string& captcha_sid = error.get("captcha_sid").get<string>();
     const string& captcha_img = error.get("captcha_img").get<string>();
-    purple_debug_info("prpl-vkcom", "Received CAPTCHA %s\n", captcha_img.data());
+
+    vkcom_debug_info("Received catpcha %s\n", captcha_img.data());
 
     request_captcha(gc, captcha_img, [=](const string& captcha_key) {
         send_message_internal(gc, message, captcha_sid, captcha_key);
@@ -329,10 +337,10 @@ void process_im_error(const picojson::value& error, PurpleConnection* gc, const 
 
 void show_error(PurpleConnection* gc, const SendMessage& message)
 {
-    purple_debug_error("prpl-vkcom", "Error sending message to %" PRIu64 "/%" PRIu64 "\n",
-                       message.uid, message.chat_id);
+    vkcom_debug_error("Error sending message to %" PRIu64 "/%" PRIu64 "\n",
+                       message.user_id, message.chat_id);
 
-    PurpleConversation* conv = find_conv_for_id(gc, message.uid, message.chat_id);
+    PurpleConversation* conv = find_conv_for_id(gc, message.user_id, message.chat_id);
     if (conv) {
         char* escaped_message = g_markup_escape_text(message.text.data(), -1);
         string error_msg = str_format("Error sending message '%s'", escaped_message);
@@ -348,15 +356,12 @@ void show_error(PurpleConnection* gc, const SendMessage& message)
 } // End of anonymous namespace
 
 
-unsigned send_typing_notification(PurpleConnection* gc, uint64 uid)
+unsigned send_typing_notification(PurpleConnection* gc, uint64 user_id)
 {
-    if (uid == 0)
-        return 0;
-
-    CallParams params = { {"user_id", to_string(uid)}, {"type", "typing"} };
+    CallParams params = { {"user_id", to_string(user_id)}, {"type", "typing"} };
     vk_call_api(gc, "messages.setActivity", params, nullptr, nullptr);
 
-    add_buddy_if_needed(gc, uid);
+    add_buddy_if_needed(gc, user_id);
 
     // Resend typing notification in 10 seconds
     return 10;
