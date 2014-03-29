@@ -74,7 +74,7 @@ void process_attachments(PurpleConnection* gc, const picojson::array& items, Mes
 // Processes forwarded messages: appends message text and processes attachments.
 void process_fwd_message(PurpleConnection* gc, const picojson::value& fields, Message& message);
 // Processes photo attachment.
-void process_photo_attachment(const picojson::value& items, Message& message);
+void process_photo_attachment(const picojson::value& fields, Message& message);
 // Processes video attachment.
 void process_video_attachment(const picojson::value& fields, Message& message);
 // Processes audio attachment.
@@ -87,10 +87,13 @@ void process_wall_attachment(PurpleConnection* gc, const picojson::value& fields
 void process_link_attachment(const picojson::value& fields, Message& message);
 // Processes album attachment.
 void process_album_attachment(const picojson::value& fields, Message& message);
+// Processes sticker attachment.
+void process_sticker_attachment(const picojson::value& fields, Message& message);
 
 // Appends specific thumbnail placeholder to the end of message text. Placeholder will be replaced
-// by actual image later in download_thumbnail().
-void append_thumbnail_placeholder(const string& thumbnail_url, Message& message);
+// by actual image later in download_thumbnail(). If prepend_br is false, <br> is prepended only
+// when message text is not empty.
+void append_thumbnail_placeholder(const string& thumbnail_url, Message& message, bool prepend_br = true);
 // Returns user/group placeholder, which should be appended to the message text. It will
 // be replaced with actual user/group name and link to the page later in replace_user/group_ids().
 string get_user_placeholder(PurpleConnection* gc, uint64 user_id, Message& message);
@@ -303,6 +306,8 @@ void process_attachments(PurpleConnection* gc, const picojson::array& items, Mes
             process_link_attachment(fields, message);
         } else if (type == "album") {
             process_album_attachment(fields, message);
+        } else if (type == "sticker") {
+            process_sticker_attachment(fields, message);
         } else {
             vkcom_debug_error("Strange attachment in response from messages.get "
                                "or messages.getById: type %s, %s\n", type.data(), fields.serialize().data());
@@ -534,13 +539,29 @@ void process_album_attachment(const picojson::value& fields, Message& message)
     message.text += str_format("Album: <a href='%s'>%s</a>", url.data(), title.data());
 }
 
-void append_thumbnail_placeholder(const string& thumbnail_url, Message& message)
+void process_sticker_attachment(const picojson::value& fields, Message& message)
+{
+    if (!field_is_present<string>(fields, "photo_64")) {
+        vkcom_debug_error("Strange attachment in response from messages.get "
+                           "or messages.getById: %s\n", fields.serialize().data());
+        return;
+    }
+    const string& thumbnail = fields.get("photo_64").get<string>();
+
+    append_thumbnail_placeholder(thumbnail, message, false);
+}
+
+void append_thumbnail_placeholder(const string& thumbnail_url, Message& message, bool prepend_br)
 {
     // TODO: If the conversation is open and an outgoing message has been received, we should show
     // the image too.
     if (message.status == MESSAGE_INCOMING_UNREAD) {
-        message.text += str_format("<br><thumbnail-placeholder-%d>", message.thumbnail_urls.size());
+        if (!message.text.empty() || prepend_br)
+            message.text += "<br>";
+        message.text += str_format("<thumbnail-placeholder-%d>", message.thumbnail_urls.size());
         message.thumbnail_urls.push_back(thumbnail_url);
+    } else {
+        message.text += str_format("%s", thumbnail_url.data());
     }
 }
 
