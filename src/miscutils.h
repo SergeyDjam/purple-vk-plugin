@@ -25,7 +25,7 @@ string_map parse_urlencoded_form(const char* encoded);
 // input parameters for API and need to split them to fit into max URL length. Function tries
 // to split the string on a) line breaks, b) punctuation, c) spaces in order to be suitable
 // for splitting message text.
-const size_t MAX_URLENCODED_STRING = 1900;
+const size_t MAX_URLENCODED_STRING = 1700;
 size_t max_urlencoded_prefix(const char* s, size_t max_urlencoded_len = MAX_URLENCODED_STRING);
 
 // A version of max_urlencoded_prefix, which works with arrays of integers (prefix is the subarray).

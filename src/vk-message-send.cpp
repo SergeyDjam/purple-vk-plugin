@@ -22,15 +22,6 @@ namespace
 int send_message(PurpleConnection* gc, uint64 user_id, uint64 chat_id, const char* raw_message,
                  const SuccessCb& success_cb, const ErrorCb& error_cb);
 
-// Parses and removes <img id="X"> out of message and returns cleaned message (without <img> tags)
-// and list of img ids.
-pair<string, int_vec> remove_img_tags(const char* message);
-// Uploads a number of images, stored in imgstore and returns the list of attachments to be added
-// to the message which contained the images.
-typedef function_ptr<void(const string& attachments)> ImagesUploadedCb;
-void upload_imgstore_images(PurpleConnection* gc, const int_vec& img_ids, const ImagesUploadedCb& uploaded_cb,
-                            const ErrorCb& error_cb);
-
 // Helper struct used to reduce length of function signatures.
 struct SendMessage
 {
@@ -84,49 +75,9 @@ void send_im_attachment(PurpleConnection* gc, uint64 user_id, const string& atta
 namespace
 {
 
-int send_message(PurpleConnection* gc, uint64 user_id, uint64 chat_id, const char* raw_message,
-                 const SuccessCb& success_cb, const ErrorCb& error_cb)
-{
-    // NOTE: We de-escape message before sending, because
-    //  * Vk.com chat is plaintext anyway
-    //  * Vk.com accepts '\n' in place of <br>
-    //  * we do not receive HTML (apart from Pidgin insistence to send HTML entities)
-    char* unescaped_message = purple_unescape_html(raw_message);
-    // We remove all <img id="X">, inserted via "Insert image", upload the images to server
-    // and append to the attachment.
-    pair<string, int_vec> p = remove_img_tags(unescaped_message);
-    g_free(unescaped_message);
-
-    SendMessage_ptr message{ new SendMessage() };
-    message->user_id = user_id;
-    message->chat_id = chat_id;
-    message->text = move(p.first);
-    message->success_cb = success_cb;
-    message->error_cb = error_cb;
-
-    const int_vec& img_ids = p.second;
-    upload_imgstore_images(gc, img_ids, [=](const string& img_attachments) {
-        message->attachments = parse_vkcom_attachments(message->text);
-        // Append attachments for in-body images to other attachments.
-        if (!img_attachments.empty()) {
-            if (!message->attachments.empty())
-                message->attachments += ',';
-            message->attachments += img_attachments;
-        }
-
-        send_message_internal(gc, message);
-    }, [=] {
-        show_error(gc, *message);
-    });
-
-    if (user_id != 0)
-        add_buddy_if_needed(gc, user_id);
-
-    return 1;
-
-}
-
-pair<string, int_vec> remove_img_tags(const char* message)
+// Parses and removes <img id="X"> out of message and returns cleaned message (without <img> tags)
+// and list of img ids.
+void remove_img_tags(const char* message, string* clean_message, int_vec* img_ids)
 {
     static GRegex* img_regex = nullptr;
     static OnExit img_regex_deleter([=] {
@@ -139,20 +90,20 @@ pair<string, int_vec> remove_img_tags(const char* message)
                                   GRegexMatchFlags(0), nullptr);
         if (!img_regex) {
             vkcom_debug_error("Unable to compile <img> regexp, aborting");
-            return { string(message), {} };
+            return;
         }
     }
 
     GMatchInfo* match_info;
     if (!g_regex_match(img_regex, message, GRegexMatchFlags(0), &match_info)) {
-        return { string(message), {} };
+        *clean_message = message;
+        return;
     }
 
     // Find all img ids.
-    int_vec img_ids;
     while (g_match_info_matches(match_info)) {
         char* id = g_match_info_fetch_named(match_info, "id");
-        img_ids.push_back(atoi(id));
+        img_ids->push_back(atoi(id));
 
         g_match_info_next(match_info, nullptr);
     }
@@ -161,48 +112,32 @@ pair<string, int_vec> remove_img_tags(const char* message)
     char* cleaned = g_regex_replace_literal(img_regex, message, -1, 0, "", GRegexMatchFlags(0), nullptr);
     if (!cleaned) {
         vkcom_debug_error("Unable to replace <img> in message\n");
-        return { string(message), img_ids };
-    }
-    string cleaned_message = cleaned;
-    g_free(cleaned);
 
-    return { cleaned_message, img_ids };
+        *clean_message = message;
+        return;
+    }
+
+    *clean_message = cleaned;
+    g_free(cleaned);
 }
 
 // Helper data structure for upload_imgstore_images.
 struct UploadImgstoreImages
 {
-    // List of all img_ids
+    // List remaining all img_ids to upload.
     int_vec img_ids;
-    // attachments from all the uploaded img_ids.
+    // Attachments created from the already uploaded img_ids.
     string attachments;
 };
 typedef shared_ptr<UploadImgstoreImages> UploadImgstoreImages_ptr;
 
-// Helper function for upload_imgstore_images.
-void upload_imgstore_images_internal(PurpleConnection* gc, const UploadImgstoreImages_ptr& images,
-                                     const ImagesUploadedCb& uploaded_cb, const ErrorCb& error_cb);
+typedef function_ptr<void(const string& attachments)> ImagesUploadedCb;
 
-void upload_imgstore_images(PurpleConnection* gc, const int_vec& img_ids, const ImagesUploadedCb& uploaded_cb,
-                            const ErrorCb& error_cb)
+void upload_imgstore_images_impl(PurpleConnection* gc, const UploadImgstoreImages_ptr& images,
+                                 const ImagesUploadedCb& uploaded_cb, const ErrorCb& error_cb, int offset)
 {
-    if (img_ids.empty()) {
-        uploaded_cb("");
-        return;
-    }
-
-    // GCC 4.6 crashes here if we try to use uniform intialization.
-    UploadImgstoreImages_ptr images{ new UploadImgstoreImages() };
-    images->img_ids = img_ids;
-    // Reverse data->img_ids as we start pop the items from the back of the img_ids.
-    std::reverse(images->img_ids.begin(), images->img_ids.end());
-    upload_imgstore_images_internal(gc, images, uploaded_cb, error_cb);
-}
-
-void upload_imgstore_images_internal(PurpleConnection* gc, const UploadImgstoreImages_ptr& images,
-                                     const ImagesUploadedCb& uploaded_cb, const ErrorCb& error_cb)
-{
-    int img_id = images->img_ids.back();
+    // We start uploading images from the end.
+    int img_id = images->img_ids[images->img_ids.size() - offset - 1];
     PurpleStoredImage* img = purple_imgstore_find_by_id(img_id);
     const char* filename = purple_imgstore_get_filename(img);
     const void* contents = purple_imgstore_get_data(img);
@@ -229,21 +164,75 @@ void upload_imgstore_images_internal(PurpleConnection* gc, const UploadImgstoreI
             images->attachments += ',';
         // NOTE: We do not receive "access_key" from photos.saveMessagesPhoto, but it seems it does not matter,
         // vk.com will automatically add access_key to your private photos.
-        int64 owner_id = int64(fields.get("owner_id").get<double>());
-        uint64 id = uint64(fields.get("id").get<double>());
+        int64 owner_id = (int64)fields.get("owner_id").get<double>();
+        uint64 id = (uint64)fields.get("id").get<double>();
         images->attachments += str_format("photo%" PRId64 "_%" PRIu64, owner_id, id);
 
-        images->img_ids.pop_back();
-        if (images->img_ids.empty()) {
+        if ((size_t)offset == images->img_ids.size() - 1) {
             uploaded_cb(images->attachments);
-            return;
         } else {
-            upload_imgstore_images_internal(gc, images, uploaded_cb, error_cb);
+            upload_imgstore_images_impl(gc, images, uploaded_cb, error_cb, offset + 1);
         }
     }, [=] {
         if (error_cb)
             error_cb();
     });
+}
+
+// Uploads a number of images, stored in imgstore and returns the list of attachments to be added
+// to the message which contained the images.
+void upload_imgstore_images(PurpleConnection* gc, const int_vec& img_ids, const ImagesUploadedCb& uploaded_cb,
+                            const ErrorCb& error_cb)
+{
+    if (img_ids.empty()) {
+        uploaded_cb("");
+        return;
+    }
+
+    // GCC 4.6 crashes here if we try to use uniform intialization.
+    UploadImgstoreImages_ptr images{ new UploadImgstoreImages() };
+    images->img_ids = img_ids;
+    upload_imgstore_images_impl(gc, images, uploaded_cb, error_cb, 0);
+}
+
+int send_message(PurpleConnection* gc, uint64 user_id, uint64 chat_id, const char* raw_message,
+                 const SuccessCb& success_cb, const ErrorCb& error_cb)
+{
+    // We remove all <img id="X">, inserted via "Insert image", upload the images to server
+    // and append to the attachment.
+    string no_imgs_message;
+    int_vec img_ids;
+    remove_img_tags(raw_message, &no_imgs_message, &img_ids);
+
+    // Strip HTML tags from the message (<a> gets replaced with link title + url, most other
+    // tags simply removed).
+    char* stripped_message = purple_markup_strip_html(no_imgs_message.data());
+    SendMessage_ptr message{ new SendMessage() };
+    message->user_id = user_id;
+    message->chat_id = chat_id;
+    message->text = stripped_message;
+    message->success_cb = success_cb;
+    message->error_cb = error_cb;
+    g_free(stripped_message);
+
+    upload_imgstore_images(gc, img_ids, [=](const string& img_attachments) {
+        message->attachments = parse_vkcom_attachments(message->text);
+        // Append attachments for in-body images to other attachments.
+        if (!img_attachments.empty()) {
+            if (!message->attachments.empty())
+                message->attachments += ',';
+            message->attachments += img_attachments;
+        }
+
+        send_message_internal(gc, message);
+    }, [=] {
+        show_error(gc, *message);
+    });
+
+    if (user_id != 0)
+        add_buddy_if_needed(gc, user_id);
+
+    return 1;
 
 }
 
@@ -258,6 +247,7 @@ void send_message_internal(PurpleConnection* gc, const SendMessage_ptr& message,
 
     // We cannot send large messages at once due to URL limits (message is encoded in URL).
     size_t text_len = max_urlencoded_prefix(message->text.data());
+
     if (text_len == message->text.length())
         params.emplace_back("message", message->text);
     else

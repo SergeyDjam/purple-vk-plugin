@@ -48,8 +48,9 @@ void vk_call_api(PurpleConnection* gc, const char* method_name, const CallParams
         method_url += "&";
         method_url += urlencode_form(params);
 
-        // The first part of URL should definitely be less than 100 bytes.
-        if (method_url.size() > MAX_URLENCODED_STRING + 100) {
+        // MAX_URLENCODED_STRING is usually the largest params, all other parts of URL should
+        // definitely be less than 300 bytes long.
+        if (method_url.size() > MAX_URLENCODED_STRING + 300) {
             vkcom_debug_error("Too large method params length: %d\n", (int)method_url.size());
 
             if (error_cb)
@@ -254,11 +255,13 @@ void vk_call_api_items_impl(PurpleConnection* gc, const char* method_name, const
         uint64 count = result.get("count").get<double>();
         uint next_offset = offset + items.size();
         // Either we've received all items or method does not have pagination.
-        if (next_offset >= count || items.empty() || !pagination)
-            call_finished_cb();
-        else
+        if (next_offset >= count || items.empty() || !pagination) {
+            if (call_finished_cb)
+                call_finished_cb();
+        } else {
             vk_call_api_items_impl(gc, method_name, params, pagination, call_process_item_cb,
                                    call_finished_cb, error_cb, next_offset);
+        }
     }, error_cb);
 }
 

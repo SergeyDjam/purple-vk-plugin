@@ -1,4 +1,3 @@
- * Add support for creating/joining multi-user chats.
  * Add warning on uploading unsupported types? Automatically add to zip archive?
  * Add support for setting status according to the current music (does every player implement MPRIS now?)
  * Add (optional) pseudo-user for informing on replies/comments to photos/whatever.
