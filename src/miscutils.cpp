@@ -19,11 +19,11 @@ namespace
 {
 
 // Generic version of different urlencode_form variants.
-template<typename It>
-string urlencode_form(It first, It last)
+template<typename Iter>
+string urlencode_form(Iter first, Iter last)
 {
     string ret;
-    for (It it = first; it != last; it++) {
+    for (Iter it = first; it != last; it++) {
         if (!ret.empty())
             ret += '&';
         ret += purple_url_encode(it->first.data());
@@ -166,12 +166,4 @@ string unescape_html(const char* text)
 string unescape_html(const string& text)
 {
     return unescape_html(text.data());
-}
-
-string ensure_https_url(const string& url)
-{
-    if (strncmp(url.data(), "http:", 5) == 0)
-        return "https:" + url.substr(5);
-    else
-        return url;
 }

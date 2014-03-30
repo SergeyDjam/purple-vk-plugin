@@ -327,7 +327,7 @@ template<typename Cont, typename Pred>
 inline void erase_if(Cont& cont, Pred pred)
 {
     for (auto it = cont.begin(); it != cont.end();) {
-        if (pred) {
+        if (pred(*it)) {
             it = cont.erase(it);
         } else {
             ++it;

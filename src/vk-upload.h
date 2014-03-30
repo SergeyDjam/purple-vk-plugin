@@ -9,6 +9,9 @@
 #include <contrib/purple/http.h>
 #include "contrib/picojson.h"
 
+// Vk.com requires 200mb max file size, let's lower the limit even more.
+const int MAX_UPLOAD_SIZE = 150 * 1024 * 1024;
+
 typedef function_ptr<void(const picojson::value& result)> UploadedCb;
 typedef function_ptr<void(PurpleHttpConnection* http_conn, int processed, int total)> UploadProgressCb;
 

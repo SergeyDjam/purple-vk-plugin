@@ -72,7 +72,7 @@ string deferred_mark_as_read_to_string(const vector<VkReceivedMessage>& messages
 }
 
 // Parses VkUploadedDocs from JSON representation.
-vector<VkUploadedDoc> uploaded_docs_from_string(const char* str)
+map<uint64, VkUploadedDocInfo> uploaded_docs_from_string(const char* str)
 {
     picojson::value v;
     string err = picojson::parse(v, str, str + strlen(str));
@@ -81,7 +81,7 @@ vector<VkUploadedDoc> uploaded_docs_from_string(const char* str)
         return {};
     }
 
-    vector<VkUploadedDoc> ret;
+    map<uint64, VkUploadedDocInfo> ret;
     const picojson::array& a = v.get<picojson::array>();
     for (const picojson::value& d: a) {
         // Compatibility with older releases.
@@ -90,9 +90,8 @@ vector<VkUploadedDoc> uploaded_docs_from_string(const char* str)
                 || !field_is_present<string>(d, "url"))
             continue;
 
-        ret.push_back(VkUploadedDoc());
-        VkUploadedDoc& doc = ret.back();
-        doc.id = d.get("id").get<double>();
+        uint64 id = d.get("id").get<double>();
+        VkUploadedDocInfo& doc = ret[id];
         doc.filename = d.get("filename").get<string>();
         doc.size = d.get("size").get<double>();
         doc.md5sum = d.get("md5sum").get<string>();
@@ -102,12 +101,14 @@ vector<VkUploadedDoc> uploaded_docs_from_string(const char* str)
 }
 
 // Stores VkUploadedDocs in JSON representation.
-string uploaded_docs_to_string(const vector<VkUploadedDoc>& docs)
+string uploaded_docs_to_string(const map<uint64, VkUploadedDocInfo>& docs)
 {
     picojson::array a;
-    for (const VkUploadedDoc& doc: docs) {
+    for (const pair<uint64, VkUploadedDocInfo>& p: docs) {
+        uint64 id = p.first;
+        const VkUploadedDocInfo& doc = p.second;
         picojson::object d = {
-            {"id",  picojson::value((double)doc.id)},
+            {"id",  picojson::value((double)id)},
             {"filename", picojson::value(doc.filename)},
             {"size", picojson::value((double)doc.size)},
             {"md5sum", picojson::value(doc.md5sum)},

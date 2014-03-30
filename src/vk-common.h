@@ -71,9 +71,8 @@ typedef vector<VkReceivedMessage> VkReceivedMessage_vec;
 
 // A structure, describing a previously uploaded doc. It is used to check whether the doc
 // has already been uploaded before and not upload it again.
-struct VkUploadedDoc
+struct VkUploadedDocInfo
 {
-    uint64 id;
     string filename;
     uint64 size;
     string md5sum;
@@ -115,6 +114,7 @@ public:
 
     void authenticate(const SuccessCb& success_cb, const ErrorCb &error_cb);
 
+    // Access token, used for accessing the API. If the token is empty, authentication is in process.
     const string& access_token() const
     {
         return m_access_token;
@@ -183,7 +183,7 @@ public:
 
     // We check this collection on each file xfer and update it after upload to Vk.com. It gets stored and loaded
     // from settings.
-    vector<VkUploadedDoc> uploaded_docs;
+    map<uint64, VkUploadedDocInfo> uploaded_docs;
 
     // We store buddy and chat names, buddy and chat groups names in order to check later if user has move buddies
     // or chats to new groups. See check_custom_alias_group(). Buddy and chat names most of the time are duplicate

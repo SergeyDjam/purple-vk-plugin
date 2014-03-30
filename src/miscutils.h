@@ -22,7 +22,9 @@ string_map parse_urlencoded_form(const char* encoded);
 
 // A rather specific function, which returns the length of prefix (the first part of the string),
 // urlencoded version of which is no longer than max_urlencoded_len. Used when you have large
-// input parameters for API and need to split them to fit into max URL length.
+// input parameters for API and need to split them to fit into max URL length. Function tries
+// to split the string on a) line breaks, b) punctuation, c) spaces in order to be suitable
+// for splitting message text.
 const size_t MAX_URLENCODED_STRING = 1900;
 size_t max_urlencoded_prefix(const char* s, size_t max_urlencoded_len = MAX_URLENCODED_STRING);
 
@@ -46,6 +48,3 @@ bool field_is_present(const picojson::value& v, const string& key)
 // A tiny wrapper around purple_unescape_html, accepting and returning string.
 string unescape_html(const char* text);
 string unescape_html(const string& text);
-
-// Checks if url starts with http:// and replaces it with https://
-string ensure_https_url(const string& url);

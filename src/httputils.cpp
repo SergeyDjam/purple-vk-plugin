@@ -29,9 +29,9 @@ void http_cb(PurpleHttpConnection* http_conn, PurpleHttpResponse* response, void
 {
     HttpUserData* data = (HttpUserData*)user_data;
     PurpleConnection* gc = purple_http_conn_get_purple_connection(http_conn);
-    VkConnData* conn_data = get_conn_data(gc);
-    if ((purple_http_response_get_code(response) == 0 || purple_http_response_get_code(response) >= 500)
-            && data->retries < MAX_HTTP_RETRIES && !conn_data->is_closing()) {
+    int response_code = purple_http_response_get_code(response);
+    if ((response_code == 0 || response_code >= 500) && data->retries < MAX_HTTP_RETRIES
+            && !get_conn_data(gc)->is_closing()) {
         vkcom_debug_error("HTTP error %d, retrying %d time\n",
                            purple_http_response_get_code(response), data->retries + 1);
 
@@ -57,6 +57,11 @@ PurpleHttpConnection* http_request(PurpleConnection* gc, PurpleHttpRequest* requ
                                    const HttpCallback& callback)
 {
     VkConnData* conn_data = get_conn_data(gc);
+    if (conn_data->is_closing()) {
+        vkcom_debug_error("Attempting to connect while closing the connection\n");
+        return nullptr;
+    }
+
     purple_http_request_set_keepalive_pool(request, conn_data->get_keepalive_pool());
     HttpUserData* data = new HttpUserData();
     data->callback = callback;

@@ -9,18 +9,20 @@
 
 #include "vk-api.h"
 
+const char api_version[] = "5.14";
+
 namespace
 {
 
 // We store call parameters, because we may need to repeat the call on error.
-struct VkStoredCall
+struct VkCall
 {
     string method_name;
     CallParams params;
 };
 
 // Callback, which is called upon receiving response to API call.
-void on_vk_call_cb(PurpleHttpConnection* http_conn, PurpleHttpResponse* response, const VkStoredCall& call,
+void on_vk_call_cb(PurpleHttpConnection* http_conn, PurpleHttpResponse* response, const VkCall& call,
                    const CallSuccessCb& success_cb, const CallErrorCb& error_cb);
 
 } // End of anonymous namespace
@@ -36,16 +38,24 @@ void vk_call_api(PurpleConnection* gc, const char* method_name, const CallParams
         return;
     }
 
-    VkStoredCall call;
+    VkCall call;
     call.method_name = method_name;
     call.params = params;
 
-    string params_str = urlencode_form(params);
-    string method_url = str_format("https://api.vk.com/method/%s?v=5.14&access_token=%s", method_name,
-                                   conn_data->access_token().data());
-    if (!params_str.empty()) {
+    string method_url = str_format("https://api.vk.com/method/%s?v=%s&access_token=%s", method_name,
+                                   api_version, conn_data->access_token().data());
+    if (!params.empty()) {
         method_url += "&";
-        method_url += params_str;
+        method_url += urlencode_form(params);
+
+        // The first part of URL should definitely be less than 100 bytes.
+        if (method_url.size() > MAX_URLENCODED_STRING + 100) {
+            vkcom_debug_error("Too large method params length: %d\n", (int)method_url.size());
+
+            if (error_cb)
+                error_cb(picojson::value());
+            return;
+        }
     }
 
     PurpleHttpRequest* req = purple_http_request_new(method_url.data());
@@ -64,11 +74,107 @@ void vk_call_api(PurpleConnection* gc, const char* method_name, const CallParams
 namespace
 {
 
-// Process error: maybe do another call and/or re-authorize.
-void process_error(PurpleHttpConnection* http_conn, const picojson::value& error, const VkStoredCall& call,
-                   const CallSuccessCb& success_cb, const CallErrorCb& error_cb);
+// Someone started authentication, waits until the auth token is set and repeats the call.
+void vk_call_after_auth(PurpleConnection* gc, const VkCall& call,
+                        const CallSuccessCb& success_cb, const CallErrorCb& error_cb)
+{
+    // Try repeating in a second.
+    const int WAIT_AUTH_TIMEOUT = 1000;
+    vkcom_debug_info("Authentication already in progress, retrying in %d msec\n", WAIT_AUTH_TIMEOUT);
 
-void on_vk_call_cb(PurpleHttpConnection* http_conn, PurpleHttpResponse* response, const VkStoredCall &call,
+    // This loop stops in case of failed authentication, because all timeouts die.
+    timeout_add(gc, WAIT_AUTH_TIMEOUT, [=] {
+        VkConnData* conn_data = get_conn_data(gc);
+        if (conn_data->access_token().empty())
+            vk_call_after_auth(gc, call, success_cb, error_cb);
+        else
+            vk_call_api(gc, call.method_name.data(), call.params, success_cb, error_cb);
+        return false;
+    });
+}
+
+// Process error: maybe do another call and/or re-authorize.
+void process_error(PurpleHttpConnection* http_conn, const picojson::value& error, const VkCall &call,
+                   const CallSuccessCb& success_cb, const CallErrorCb& error_cb)
+{
+    if (!error.is<picojson::object>()) {
+        vkcom_debug_error("Unknown error response: %s\n", error.serialize().data());
+        if (error_cb)
+            error_cb(picojson::value());
+        return;
+    }
+
+    if (!field_is_present<double>(error, "error_code")) {
+        vkcom_debug_error("Unknown error response: %s\n", error.serialize().data());
+        if (error_cb)
+            error_cb(picojson::value());
+        return;
+    }
+
+    PurpleConnection* gc = purple_http_conn_get_purple_connection(http_conn);
+    int error_code = error.get("error_code").get<double>();
+    if (error_code == VK_AUTHORIZATION_FAILED) {
+        // Check if another authentication process has already started
+        VkConnData* conn_data = get_conn_data(gc);
+        if (conn_data->access_token().empty()) {
+            vk_call_after_auth(gc, call, success_cb, error_cb);
+        } else {
+            vkcom_debug_info("Access token expired, doing a reauthorization\n");
+
+            conn_data->authenticate([=] {
+                vk_call_api(gc, call.method_name.data(), call.params, success_cb, error_cb);
+            }, [=] {
+                if (error_cb)
+                    error_cb(picojson::value());
+            });
+        }
+    } else if (error_code == VK_TOO_MANY_REQUESTS_PER_SECOND) {
+        const int RETRY_TIMEOUT = 400; // 400msec is less than 3 requests per second (the current rate limit on Vk.com
+        vkcom_debug_info("Call rate limit hit, retrying in %d msec\n", RETRY_TIMEOUT);
+
+        timeout_add(gc, RETRY_TIMEOUT, [=] {
+            vk_call_api(gc, call.method_name.data(), call.params, success_cb, error_cb);
+            return false;
+        });
+    } else if (error_code == VK_FLOOD_CONTROL) {
+        // Simply ignore the error.
+    } else if (error_code == VK_VALIDATION_REQUIRED) {
+        // As far as I could understand, once you complete validation, all future requests/login attempts
+        // will work correctly, so there is no need to do anything apart from showing the link to the use
+        // and asking them to re-login.
+        string message_text;
+        if (!field_is_present<string>(error, "redirect_uri"))
+            message_text = "Please open https://vk.com in your browser and validate yourself";
+        else
+            message_text = str_format("Please open the following link in your browser:\n%s",
+                                      error.get("redirect_uri").get<string>().data());
+        purple_request_action(nullptr, "Please validate yourself", "Please validate yourself", message_text.data(),
+                              0, nullptr, nullptr, nullptr, nullptr, 1, "OK", nullptr);
+
+        // NOTE: Seems like NETWORK_ERROR is the only error, which Pidgin considers "non-fatal"
+        // and does not require you to re-enable the account.
+        purple_connection_error_reason(gc, PURPLE_CONNECTION_ERROR_NETWORK_ERROR, "Validate yourself");
+        if (error_cb)
+            error_cb(error);
+    } else if (error_code == VK_INTERNAL_SERVER_ERROR) {
+        purple_connection_error_reason(gc, PURPLE_CONNECTION_ERROR_NETWORK_ERROR, "Internal server error");
+        if (error_cb)
+            error_cb(error);
+    } else {
+        // We do not process captcha requests on API level, but we do not consider them errors
+        if (error_code != VK_CAPTCHA_NEEDED) {
+            string error_string = error.serialize();
+            // Vk.com returns access_token among other error fields, let's remove it from the logs.
+            str_replace(error_string, get_conn_data(gc)->access_token(), "XXX-ACCESS-TOKEN-XXX");
+            vkcom_debug_error("Vk.com call error: %s\n", error_string.data());
+        }
+
+        if (error_cb)
+            error_cb(error);
+    }
+}
+
+void on_vk_call_cb(PurpleHttpConnection* http_conn, PurpleHttpResponse* response, const VkCall &call,
                    const CallSuccessCb& success_cb, const CallErrorCb& error_cb)
 {
     if (!purple_http_response_is_successful(response)) {
@@ -106,103 +212,6 @@ void on_vk_call_cb(PurpleHttpConnection* http_conn, PurpleHttpResponse* response
         success_cb(root.get("response"));
 }
 
-// Someone started authentication, waits until the auth token is set and repeats the call.
-void vk_call_after_auth(PurpleConnection* gc, const VkStoredCall& call,
-                        const CallSuccessCb& success_cb, const CallErrorCb& error_cb)
-{
-    // Try repeating in a second.
-    timeout_add(gc, 1000, [=] {
-        VkConnData* conn_data = get_conn_data(gc);
-        if (conn_data->access_token().empty())
-            vk_call_after_auth(gc, call, success_cb, error_cb);
-        else
-            vk_call_api(gc, call.method_name.data(), call.params, success_cb, error_cb);
-        return false;
-    });
-}
-
-void process_error(PurpleHttpConnection* http_conn, const picojson::value& error, const VkStoredCall &call,
-                   const CallSuccessCb& success_cb, const CallErrorCb& error_cb)
-{
-    if (!error.is<picojson::object>()) {
-        vkcom_debug_error("Unknown error response: %s\n", error.serialize().data());
-        if (error_cb)
-            error_cb(picojson::value());
-        return;
-    }
-
-    if (!field_is_present<double>(error, "error_code")) {
-        vkcom_debug_error("Unknown error response: %s\n", error.serialize().data());
-        if (error_cb)
-            error_cb(picojson::value());
-        return;
-    }
-
-    PurpleConnection* gc = purple_http_conn_get_purple_connection(http_conn);
-    int error_code = error.get("error_code").get<double>();
-    if (error_code == VK_AUTHORIZATION_FAILED) {
-        vkcom_debug_info("Access token expired, doing a reauthorization\n");
-
-        // Check if another authentication process has already started
-        VkConnData* data = get_conn_data(gc);
-        if (data->access_token().empty()) {
-            vk_call_after_auth(gc, call, success_cb, error_cb);
-        } else {
-            data->authenticate([=] {
-                vk_call_api(gc, call.method_name.data(), call.params, success_cb, error_cb);
-            }, [=] {
-                if (error_cb)
-                    error_cb(picojson::value());
-            });
-        }
-        return;
-    } else if (error_code == VK_TOO_MANY_REQUESTS_PER_SECOND) {
-        const int RETRY_TIMEOUT = 400; // 400msec is less than 3 requests per second (the current rate limit on Vk.com
-        vkcom_debug_info("Call rate limit hit, retrying in %d msec\n", RETRY_TIMEOUT);
-
-        timeout_add(gc, RETRY_TIMEOUT, [=] {
-            vk_call_api(gc, call.method_name.data(), call.params, success_cb, error_cb);
-            return false;
-        });
-        return;
-    } else if (error_code == VK_FLOOD_CONTROL) {
-        return; // Simply ignore the error.
-    } else if (error_code == VK_VALIDATION_REQUIRED) {
-        // As far as I could understand, once you complete validation, all future requests/login attempts will work
-        // correctly, so there is no need to do anything apart from showing the link to the user and asking them
-        // to re-login.
-        string message_text;
-        if (!field_is_present<string>(error, "redirect_uri"))
-            message_text = "Please open https://vk.com in your browser and validate yourself";
-        else
-            message_text = str_format("Please open the following link in your browser:\n%s",
-                                      error.get("redirect_uri").get<string>().data());
-        purple_request_action(nullptr, "Please validate yourself", "Please validate yourself", message_text.data(),
-                              0, nullptr, nullptr, nullptr, nullptr, 1, "OK", nullptr);
-        if (error_cb)
-            error_cb(error);
-        return;
-    } else if (error_code == VK_INTERNAL_SERVER_ERROR) {
-        purple_connection_error_reason(gc, PURPLE_CONNECTION_ERROR_OTHER_ERROR, "Internal server error");
-    }
-
-    // We do not process captcha requests on API level, but we do not consider them errors
-    if (error_code != VK_CAPTCHA_NEEDED) {
-        string error_string = error.serialize();
-        // Vk.com returns access_token among other error fields, let's remove it from the logs.
-        VkConnData* conn_data = get_conn_data(gc);
-        str_replace(error_string, conn_data->access_token(), "XXX-ACCESS-TOKEN-XXX");
-        vkcom_debug_error("Vk.com call error: %s\n", error_string.data());
-    }
-    if (error_cb)
-        error_cb(error);
-}
-
-} // End anonymous namespace
-
-
-namespace
-{
 
 // We do not want to copy CallParams when storing in lambda, the easiest way is storing them in shared_ptr.
 typedef shared_ptr<CallParams> CallParams_ptr;
@@ -245,7 +254,7 @@ void vk_call_api_items_impl(PurpleConnection* gc, const char* method_name, const
         uint64 count = result.get("count").get<double>();
         uint next_offset = offset + items.size();
         // Either we've received all items or method does not have pagination.
-        if (next_offset >= count || items.size() == 0 || !pagination)
+        if (next_offset >= count || items.empty() || !pagination)
             call_finished_cb();
         else
             vk_call_api_items_impl(gc, method_name, params, pagination, call_process_item_cb,

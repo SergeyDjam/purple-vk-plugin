@@ -51,9 +51,8 @@ void upload_photo_for_im(PurpleConnection* gc, const char* name, const void* con
     vkcom_debug_info("Uploading photo for IM\n");
 
     upload_file(gc, "photos.getMessagesUploadServer", "photo", name, contents, size, [=](const picojson::value& v) {
-        // Vk.com documentation says that "server" should be a string, however, this is contrary to observations.
         if (!(field_is_present<int>(v, "server") || field_is_present<string>(v, "server"))
-                || !field_is_present<string>(v, "photo") || !field_is_present<string>(v, "hash")) {
+            || !field_is_present<string>(v, "photo") || !field_is_present<string>(v, "hash")) {
             vkcom_debug_error("Strange response from upload server: %s\n", v.serialize().data());
             if (error_cb)
                 error_cb();
@@ -96,8 +95,8 @@ void upload_file(PurpleConnection* gc, const char* get_upload_server, const char
 {
     vk_call_api(gc, get_upload_server, CallParams(), [=](const picojson::value& result) {
         if (!field_is_present<string>(result, "upload_url")) {
-            vkcom_debug_error("Strange response from docs.getWallUploadServer: %s\n",
-                               result.serialize().data());
+            vkcom_debug_error("Strange response from %s: %s\n", get_upload_server, result.serialize().data());
+
             if (error_cb)
                 error_cb();
             return;
@@ -158,7 +157,14 @@ PurpleHttpRequest* prepare_upload_request(const string& url, const char* partnam
     PurpleHttpRequest* request = purple_http_request_new(url.data());
     purple_http_request_set_method(request, "POST");
 
-    string boundary = generate_boundary();
+    string boundary;
+    while (true) {
+        boundary = generate_boundary();
+        // Check if boundary is not present in the contents.
+        if (!g_strstr_len((const char*)contents, size, boundary.data()))
+            break;
+    }
+
     purple_http_request_header_set_printf(request, "Content-type", "multipart/form-data; boundary=%s",
                                           boundary.data());
 
@@ -168,8 +174,10 @@ PurpleHttpRequest* prepare_upload_request(const string& url, const char* partnam
         mime_type = g_content_type_get_mime_type(content_type);
     else
         mime_type = g_strdup("application/octet-stream");
-    vkcom_debug_info("Sending file %s with size %lu and mime-type %s to %s\n",
-                      name, (long unsigned)size, mime_type, url.data());
+    g_free(content_type);
+
+    vkcom_debug_info("Sending file %s with size %" PRIu64 " and mime-type %s to %s\n", name, (uint64)size,
+                     mime_type, url.data());
     string body_header = str_format("--%s\r\n"
                                     "Content-Disposition: form-data; name=\"%s\"; filename=\"%s\"\r\n"
                                     "Content-Type: %s\r\n"
@@ -177,12 +185,17 @@ PurpleHttpRequest* prepare_upload_request(const string& url, const char* partnam
                                     "\r\n", boundary.data(), partname, name, mime_type, (uint64)size);
     string body_footer = str_format("\r\n--%s--", boundary.data());
     g_free(mime_type);
-    g_free(content_type);
 
+    // Yes, we copy file contents in memory, let's hope again, that user will not be uploading large files.
+    // Anyway, we will have to add compression to zip on-the-fly for most of the file types later.
+    // Another copy happens in set_contents, so it's a good thing we capped the size of the files
+    // to 150mb!
+    //
+    // TODO: Add properly this stuff via purple_http_request_set_contents_reader.
     vector<char> body;
     body.reserve(body_header.size() + size + body_footer.size());
     append(body, body_header);
-    const char* char_contents = reinterpret_cast<const char*>(contents);
+    const char* char_contents = (const char*)contents;
     body.insert(body.end(), char_contents, char_contents + size);
     append(body, body_footer);
     body.insert(body.end(), body_footer.begin(), body_footer.end());
