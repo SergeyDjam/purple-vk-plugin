@@ -26,7 +26,7 @@ void update_open_conversation_presence(PurpleConnection* gc);
 //
 // Always updates presence of buddies, because this function is used only for buddies not in the buddy
 // list and longpoll does not receive online/offline status changes for these buddies.
-void add_buddies_if_needed(PurpleConnection* gc, const uint64_vec& user_ids, const SuccessCb& on_update_cb = nullptr);
+void add_buddies_if_needed(PurpleConnection* gc, const uint64_set& user_ids, const SuccessCb& on_update_cb = nullptr);
 
 // An "overload' for add_buddies_if_needed.
 void add_buddy_if_needed(PurpleConnection* gc, uint64 user_id, const SuccessCb& on_update_cb = nullptr);
@@ -39,12 +39,12 @@ void remove_buddy_if_needed(PurpleConnection* gc, uint64 user_id);
 // Adds or updated information on buddies in VkConnData::user_infos.
 //
 // NOTE: user_ids must contain only non-friends.
-void add_or_update_user_infos(PurpleConnection* gc, const uint64_vec& user_ids, const SuccessCb& on_update_cb);
+void add_or_update_user_infos(PurpleConnection* gc, const uint64_set& user_ids, const SuccessCb& on_update_cb);
 
 
 // Checks if chats are not present in buddy list and adds them to buddy list regardless of
 // "Show chats in buddy list" option. Used when receiving message from chat.
-void add_chats_if_needed(PurpleConnection* gc, const uint64_vec& chat_ids, const SuccessCb& on_update_cb);
+void add_chats_if_needed(PurpleConnection* gc, const uint64_set& chat_ids, const SuccessCb& on_update_cb);
 
 // An "overload" for add_chats_if_needed
 void add_chat_if_needed(PurpleConnection* gc, uint64 chat_id, const SuccessCb& on_update_cb);
@@ -54,7 +54,7 @@ void add_chat_if_needed(PurpleConnection* gc, uint64 chat_id, const SuccessCb& o
 void remove_chat_if_needed(PurpleConnection* gc, uint64 chat_id);
 
 // Adds or updated information on chats in VkConnData::chat_infos.
-void add_or_update_chat_infos(PurpleConnection* gc, const uint64_vec& chat_ids, const SuccessCb& on_update_cb);
+void add_or_update_chat_infos(PurpleConnection* gc, const uint64_set& chat_ids, const SuccessCb& on_update_cb);
 
 
 // Updates only presence status of the given buddy in buddy list according to information in VkConnData::user_infos.

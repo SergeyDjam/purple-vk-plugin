@@ -40,7 +40,7 @@ struct Message
 {
     uint64 mid;
     uint64 user_id;
-    uint64 chat_id; // If chat_id is 0, this is a regular IM message.
+    uint64 chat_id; // If chat_id is 0, this is a regular instant message.
     string text;
     time_t timestamp;
     MessageStatus status;
@@ -48,7 +48,7 @@ struct Message
     // A list of thumbnail URLs to download and append to message. Set in process_attachments,
     // replaced in download_thumbnails.
     vector<string> thumbnail_urls;
-    // A list of user and group ids, present in message. Set in process_attachments
+    // A list of user and group ids, used in the message. Set in process_attachments
     // and process_fwd_message, replaced in replace_user_ids and replace_group_ids.
     vector<uint64> unknown_user_ids;
     vector<uint64> unknown_group_ids;
@@ -102,7 +102,7 @@ string get_group_placeholder(uint64 group_id, Message& message);
 // Downloads the given thumbnail for given message, modifies corresponding message text
 // and calls either next download_thumbnail() or finish(). message is index into m_messages,
 // thumbnail is index into thumbnail_urls.
-void download_thumbnail(const MessagesData_ptr& data, size_t message, size_t thumbnail);
+void download_thumbnail(const MessagesData_ptr& data, size_t msg_num, size_t thumb_num);
 // Replaces all placeholder texts for user/group ids in messages with user/group names
 // and hrefs. Gets information on users, which are not present in user_infos, and groups
 // from vk.com
@@ -556,11 +556,14 @@ void append_thumbnail_placeholder(const string& thumbnail_url, Message& message,
     // TODO: If the conversation is open and an outgoing message has been received, we should show
     // the image too.
     if (message.status == MESSAGE_INCOMING_UNREAD) {
+        // We will download the image later and replace the placeholder.
         if (!message.text.empty() || prepend_br)
             message.text += "<br>";
         message.text += str_format("<thumbnail-placeholder-%d>", message.thumbnail_urls.size());
         message.thumbnail_urls.push_back(thumbnail_url);
     } else {
+        // Pidgin does not store images in logs, store the URL itself. so that the information
+        // does not get lost.
         message.text += str_format("%s", thumbnail_url.data());
     }
 }
@@ -571,12 +574,14 @@ string get_user_placeholder(PurpleConnection* gc, uint64 user_id, Message& messa
         return "";
 
     VkUserInfo* info = get_user_info(gc, user_id);
-    if (info)
+    if (info) {
         return get_user_href(user_id, *info);
-
-    string text = str_format("<user-placeholder-%d>", message.unknown_user_ids.size());
-    message.unknown_user_ids.push_back(user_id);
-    return text;
+    } else {
+        // We will get user information later and replace the placeholder.
+        string text = str_format("<user-placeholder-%d>", message.unknown_user_ids.size());
+        message.unknown_user_ids.push_back(user_id);
+        return text;
+    }
 }
 
 string get_group_placeholder(uint64 group_id, Message& message)
@@ -584,28 +589,29 @@ string get_group_placeholder(uint64 group_id, Message& message)
     if (group_id == 0)
         return "";
 
+    // We will get group information later and replace the placeholder.
     string text = str_format("<group-placeholder-%d>", message.unknown_group_ids.size());
     message.unknown_group_ids.push_back(group_id);
     return text;
 }
 
-void download_thumbnail(const MessagesData_ptr& data, size_t message, size_t thumbnail)
+void download_thumbnail(const MessagesData_ptr& data, size_t msg_num, size_t thumb_num)
 {
-    if (message >= data->messages.size()) {
+    if (msg_num >= data->messages.size()) {
         replace_user_ids(data);
         return;
     }
-    if (thumbnail >= data->messages[message].thumbnail_urls.size()) {
-        download_thumbnail(data, message + 1, 0);
+    if (thumb_num >= data->messages[msg_num].thumbnail_urls.size()) {
+        download_thumbnail(data, msg_num + 1, 0);
         return;
     }
 
-    const string& url = data->messages[message].thumbnail_urls[thumbnail];
+    const string& url = data->messages[msg_num].thumbnail_urls[thumb_num];
     http_get(data->gc, url, [=](PurpleHttpConnection*, PurpleHttpResponse* response) {
         if (!purple_http_response_is_successful(response)) {
             vkcom_debug_error("Unable to download thumbnail: %s\n",
                                purple_http_response_get_error(response));
-            download_thumbnail(data, message, thumbnail + 1);
+            download_thumbnail(data, msg_num, thumb_num + 1);
             return;
         }
 
@@ -614,17 +620,17 @@ void download_thumbnail(const MessagesData_ptr& data, size_t message, size_t thu
         int img_id = purple_imgstore_add_with_id(g_memdup(img_data, size), size, nullptr);
 
         string img_tag = str_format("<img id=\"%d\">", img_id);
-        string img_placeholder = str_format("<thumbnail-placeholder-%d>", thumbnail);
-        str_replace(data->messages[message].text, img_placeholder, img_tag);
+        string img_placeholder = str_format("<thumbnail-placeholder-%d>", thumb_num);
+        str_replace(data->messages[msg_num].text, img_placeholder, img_tag);
 
-        download_thumbnail(data, message, thumbnail + 1);
+        download_thumbnail(data, msg_num, thumb_num + 1);
     });
 }
 
 void replace_user_ids(const MessagesData_ptr& data)
 {
     // Get all user ids, which are not present in user_infos.
-    uint64_vec unknown_user_ids;
+    uint64_set unknown_user_ids;
     for (const Message& m: data->messages)
         append(unknown_user_ids, m.unknown_user_ids);
 
@@ -673,31 +679,36 @@ void replace_group_ids(const MessagesData_ptr& data)
 
 void add_unknown_users_chats(const MessagesData_ptr& data)
 {
-    uint64_vec unknown_user_ids; // Users to get information about.
+    // Users to get information about: authors of every read incoming message (we need their real
+    // names when we write to the log) and all the users to be added to the buddy list (see below).
+    // Chat participants are updated when chat information is updated.
+    uint64_set unknown_user_ids;
     for (const Message& m: data->messages)
-        if (m.status != MESSAGE_OUTGOING && is_unknown_user(data->gc, m.user_id))
-            unknown_user_ids.push_back(m.user_id);
+        if (m.status != MESSAGE_OUTGOING && m.chat_id == 0 && is_unknown_user(data->gc, m.user_id))
+            unknown_user_ids.insert(m.user_id);
 
     add_or_update_user_infos(data->gc, unknown_user_ids, [=] {
-        uint64_vec user_ids_to_buddy_list; // Users to be added to buddy list.
+        // Users to be added to buddy list: authors of unread non-chat messages. Chat participants
+        // are never added to buddy list (unless they are already there).
+        uint64_set user_ids_to_buddy_list;
         for (const Message& m: data->messages)
-            // We want to add buddies to buddy list for unread personal messages because we will open conversations
-            // with them.
             if (m.status == MESSAGE_INCOMING_UNREAD && m.chat_id == 0 && !user_in_buddy_list(data->gc, m.user_id))
-                user_ids_to_buddy_list.push_back(m.user_id);
+                user_ids_to_buddy_list.insert(m.user_id);
 
-        // We are setting presence because this is the first time we update the buddies.
         add_buddies_if_needed(data->gc, user_ids_to_buddy_list, [=] {
-            uint64_vec unknown_chat_ids; // Chats to get information about.
+            // Chats to get information about: all incoming chats. Chat participants are updated
+            // when updating chat information.
+            uint64_set unknown_chat_ids;
             for (const Message& m: data->messages)
                 if (m.status != MESSAGE_OUTGOING && m.chat_id != 0 && is_unknown_chat(data->gc, m.chat_id))
-                    unknown_chat_ids.push_back(m.chat_id);
+                    unknown_chat_ids.insert(m.chat_id);
 
             add_or_update_chat_infos(data->gc, unknown_chat_ids, [=] {
-                uint64_vec chat_ids_to_buddy_list; // Chats to be added to buddy list.
+                // Chats to be added to buddy list: all unread incoming chats.
+                uint64_set chat_ids_to_buddy_list;
                 for (const Message& m: data->messages)
                     if (m.status == MESSAGE_INCOMING_UNREAD && m.chat_id != 0 && !chat_in_buddy_list(data->gc, m.chat_id))
-                        chat_ids_to_buddy_list.push_back(m.chat_id);
+                        chat_ids_to_buddy_list.insert(m.chat_id);
 
                 add_chats_if_needed(data->gc, chat_ids_to_buddy_list, [=] {
                     finish_receiving(data);
@@ -743,6 +754,7 @@ void finish_receiving(const MessagesData_ptr& data)
             string from;
             PurpleMessageFlags flags;
             if (m.status == MESSAGE_INCOMING_READ) {
+                // TODO: Add getting username from chat information for chat messages.
                 from = get_user_display_name(data->gc, m.user_id);
                 flags = PURPLE_MESSAGE_RECV;
             } else {
@@ -753,13 +765,19 @@ void finish_receiving(const MessagesData_ptr& data)
             PurpleConversation* conv = find_conv_for_id(data->gc, m.user_id, m.chat_id);
             if (conv) {
                 if (m.chat_id == 0)
+                    // It is possible to use real name as the second parameter instead of username
+                    // in the form of "idXXX".
                     purple_conv_im_write(PURPLE_CONV_IM(conv), from.data(), m.text.data(), flags,
                                          m.timestamp);
                 else
                     purple_conv_chat_write(PURPLE_CONV_CHAT(conv), from.data(), m.text.data(), flags,
                                            m.timestamp);
             } else {
-                PurpleLog* log = (m.chat_id == 0) ? logs.for_user(m.user_id) : logs.for_chat(m.chat_id);
+                PurpleLog* log;
+                if (m.chat_id == 0)
+                    log = logs.for_user(m.user_id);
+                else
+                    log = logs.for_chat(m.chat_id);
                 purple_log_write(log, flags, from.data(), m.timestamp, m.text.data());
             }
         }
@@ -827,9 +845,9 @@ void find_active_ids(PurpleConversation* conv, uint64* user_id, uint64* chat_id)
         vkcom_debug_info("Unknown conversation open: %s\n", name);
 }
 
-// Returns true if message belongs to to the active conversation, which is defined by active_user_id
+// Returns true if message belongs to the active conversation, which is defined by active_user_id
 // and active_chat_id, returned from find_active_ids.
-bool message_is_active(const VkReceivedMessage& msg, uint64 active_user_id, uint64 active_chat_id)
+bool message_in_active(const VkReceivedMessage& msg, uint64 active_user_id, uint64 active_chat_id)
 {
     if (active_user_id != 0 && msg.user_id == active_user_id)
         return true;
@@ -871,7 +889,7 @@ void mark_message_as_read(PurpleConnection* gc, const VkReceivedMessage_vec& mes
         uint64 active_chat_id;
         find_active_ids(conv, &active_user_id, &active_chat_id);
         for (const VkReceivedMessage& msg: messages) {
-            if (message_is_active(msg, active_user_id, active_chat_id))
+            if (message_in_active(msg, active_user_id, active_chat_id))
                 message_ids.push_back(msg.msg_id);
             else
                 conn_data->deferred_mark_as_read.push_back(msg);
@@ -900,11 +918,11 @@ void mark_deferred_messages_as_read(PurpleConnection* gc, bool active)
         find_active_ids(conv, &active_user_id, &active_chat_id);
 
         for (const VkReceivedMessage& msg: conn_data->deferred_mark_as_read)
-            if (message_is_active(msg, active_user_id, active_chat_id))
+            if (message_in_active(msg, active_user_id, active_chat_id))
                 message_ids.push_back(msg.msg_id);
 
         erase_if(conn_data->deferred_mark_as_read, [=](const VkReceivedMessage& msg) {
-            return message_is_active(msg, active_user_id, active_chat_id);
+            return message_in_active(msg, active_user_id, active_chat_id);
         });
     }
 

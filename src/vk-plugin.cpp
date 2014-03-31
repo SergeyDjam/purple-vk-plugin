@@ -436,6 +436,8 @@ int vk_chat_send(PurpleConnection* gc, int id, const char* message, PurpleMessag
         return 0;
     }
 
+    mark_deferred_messages_as_read(gc, true);
+
     // Pidgin for some reason does not write outgoing messages when writing to the chat,
     // so we have to do it oruselves.
     const char* alias = purple_account_get_name_for_display(purple_connection_get_account(gc));

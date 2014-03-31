@@ -63,9 +63,7 @@ void update_buddies(PurpleConnection* gc, bool update_presence, const SuccessCb&
                 });
             }
 
-            uint64_vec non_friend_user_ids_vec;
-            assign(non_friend_user_ids_vec, non_friend_user_ids);
-            add_or_update_user_infos(gc, non_friend_user_ids_vec, [=] {
+            add_or_update_user_infos(gc, non_friend_user_ids, [=] {
                 update_buddy_list(gc, update_presence);
 
                 // Chat titles, participants or buddy aliases could've changed.
@@ -605,20 +603,9 @@ void fetch_buddy_icon(PurpleConnection* gc, const string& buddy_name, const stri
         fetch_next_buddy_icon();
 }
 
-// Checks if user ids are present in buddy list and adds them if they are not. Ignores "friends only in buddy list"
-// setting.
-void update_buddy_list_for_users(PurpleConnection* gc, const uint64_vec& user_ids, bool update_presence)
-{
-    for (uint64 user_id: user_ids) {
-        VkUserInfo* info = get_user_info(gc, user_id);
-        if (info)
-            update_buddy_in_blist(gc, user_id, *info, update_presence);
-    }
-}
-
 } // anonymous namespace
 
-void add_buddies_if_needed(PurpleConnection* gc, const uint64_vec& user_ids, const SuccessCb& on_update_cb)
+void add_buddies_if_needed(PurpleConnection* gc, const uint64_set& user_ids, const SuccessCb& on_update_cb)
 {
     if (user_ids.empty()) {
         if (on_update_cb)
@@ -631,13 +618,17 @@ void add_buddies_if_needed(PurpleConnection* gc, const uint64_vec& user_ids, con
     VkConnData* conn_data = get_conn_data(gc);
     append(conn_data->dialog_user_ids, user_ids);
 
-    uint64_vec unknown_user_ids;
+    uint64_set unknown_user_ids;
     append_if(unknown_user_ids, user_ids, [=](uint64 user_id) {
         return is_unknown_user(gc, user_id);
     });
 
     add_or_update_user_infos(gc, unknown_user_ids, [=] {
-        update_buddy_list_for_users(gc, user_ids, true);
+        for (uint64 user_id: user_ids) {
+            VkUserInfo* info = get_user_info(gc, user_id);
+            if (info)
+                update_buddy_in_blist(gc, user_id, *info, true);
+        }
         if (on_update_cb)
             on_update_cb();
     });
@@ -673,7 +664,7 @@ void remove_buddy_if_needed(PurpleConnection* gc, uint64 user_id)
     purple_blist_remove_buddy(buddy);
 }
 
-void add_or_update_user_infos(PurpleConnection* gc, const uint64_vec& user_ids, const SuccessCb& on_update_cb)
+void add_or_update_user_infos(PurpleConnection* gc, const uint64_set& user_ids, const SuccessCb& on_update_cb)
 {
     if (user_ids.empty()) {
         if (on_update_cb)
@@ -689,7 +680,9 @@ void add_or_update_user_infos(PurpleConnection* gc, const uint64_vec& user_ids, 
     vkcom_debug_info("Updating information for buddies %s\n", user_ids_str.data());
 
     CallParams params = { {"fields", user_fields} };
-    vk_call_api_ids(gc, "users.get", params, "user_ids", user_ids, [=](const picojson::value& result) {
+    uint64_vec user_ids_vec;
+    assign(user_ids_vec, user_ids);
+    vk_call_api_ids(gc, "users.get", params, "user_ids", user_ids_vec, [=](const picojson::value& result) {
         update_user_infos(gc, result, false, true);
     }, [=] {
         if (on_update_cb)
@@ -700,7 +693,7 @@ void add_or_update_user_infos(PurpleConnection* gc, const uint64_vec& user_ids, 
 }
 
 
-void add_chats_if_needed(PurpleConnection* gc, const uint64_vec& chat_ids, const SuccessCb& on_update_cb)
+void add_chats_if_needed(PurpleConnection* gc, const uint64_set& chat_ids, const SuccessCb& on_update_cb)
 {
     if (chat_ids.empty()) {
         if (on_update_cb)
@@ -713,7 +706,7 @@ void add_chats_if_needed(PurpleConnection* gc, const uint64_vec& chat_ids, const
     VkConnData* conn_data = get_conn_data(gc);
     append(conn_data->chat_ids, chat_ids);
 
-    uint64_vec unknown_chat_ids;
+    uint64_set unknown_chat_ids;
     append_if(unknown_chat_ids, chat_ids, [=](uint64 chat_id) {
         return is_unknown_chat(gc, chat_id);
     });
@@ -798,7 +791,7 @@ void update_chat_info(PurpleConnection* gc, const picojson::value& chat)
         update_open_chat_conv(gc, conv_id);
 }
 
-void add_or_update_chat_infos(PurpleConnection* gc, const uint64_vec& chat_ids, const SuccessCb& on_update_cb)
+void add_or_update_chat_infos(PurpleConnection* gc, const uint64_set& chat_ids, const SuccessCb& on_update_cb)
 {
     if (chat_ids.empty()) {
         if (on_update_cb)
@@ -810,7 +803,9 @@ void add_or_update_chat_infos(PurpleConnection* gc, const uint64_vec& chat_ids, 
     vkcom_debug_info("Updating information for chats %s\n", chat_ids_str.data());
 
     CallParams params = { {"fields", chat_user_fields} };
-    vk_call_api_ids(gc, "messages.getChat", params, "chat_ids", chat_ids, [=](const picojson::value& v) {
+    uint64_vec chat_ids_vec;
+    assign(chat_ids_vec, chat_ids);
+    vk_call_api_ids(gc, "messages.getChat", params, "chat_ids", chat_ids_vec, [=](const picojson::value& v) {
         if (!v.is<picojson::array>()) {
             vkcom_debug_error("Strange response from messages.getChat: %s\n", v.serialize().data());
             purple_connection_error_reason(gc, PURPLE_CONNECTION_ERROR_OTHER_ERROR, "Unable to retrieve chat info");
