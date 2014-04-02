@@ -13,13 +13,18 @@ namespace
 {
 
 // Helper callback, used for friends.get and users.get. Adds and/or updates all buddies info in
-// VkConnData->user_infos from the result. Returns list of user ids.
+// VkConnData->user_infos from the result.
+//
+// If user_ids is not nullptr, inserts retrieved user ids into it.
+//
+// update_presence has the same meaning as in update_buddy_list
+//
+// Returns true if updated successfully, false otherwise.
 //
 // friends_get must be true if the function is called for friends.get result, false for users.get
 // (these two methods have actually slightly different response objects);
-// update_presence has the same meaning as in update_buddy_list
-uint64_set update_user_infos(PurpleConnection* gc, const picojson::value& result, bool friends_get,
-                                bool update_presence);
+bool update_user_infos(PurpleConnection* gc, const picojson::value& result, uint64_set* user_ids, bool friends_get,
+                       bool update_presence);
 
 // Updates VkConnData::dialog_user_ids, ::chat_ids and ::chat_infos for chats user participates in.
 void get_users_chats_from_dialogs(PurpleConnection* gc, const SuccessCb& success_cb);
@@ -40,7 +45,9 @@ void update_buddies(PurpleConnection* gc, bool update_presence, const SuccessCb&
 
     CallParams params = { {"user_id", to_string(get_data(gc).self_user_id())}, {"fields", user_fields} };
     vk_call_api(gc, "friends.get", params, [=](const picojson::value& result) {
-        get_data(gc).friend_user_ids = update_user_infos(gc, result, true, update_presence);
+        if (!update_user_infos(gc, result, &get_data(gc).friend_user_ids, true, update_presence))
+            return;
+
         get_users_chats_from_dialogs(gc, [=]() {
             VkData& gc_data = get_data(gc);
             uint64_set non_friend_user_ids;
@@ -189,26 +196,23 @@ uint64 update_user_info(PurpleConnection* gc, const picojson::value& fields, boo
     return user_id;
 }
 
-uint64_set update_user_infos(PurpleConnection* gc, const picojson::value& result, bool friends_get, bool update_presence)
+bool update_user_infos(PurpleConnection* gc, const picojson::value& result, uint64_set* user_ids, bool friends_get,
+                       bool update_presence)
 {
     if (friends_get && !result.is<picojson::object>()) {
         vkcom_debug_error("Wrong type returned as friends.get call result\n");
-    /*
-        return {};
-        As I can understand, it is all right here, but clang 3.2 doesn't compile it.
-        http://clang-developers.42468.n3.nabble.com/C-11-error-about-initializing-explicit-constructor-with-td4029849.html
-    */
-        return uint64_set();
+        purple_connection_error_reason(gc, PURPLE_CONNECTION_ERROR_NETWORK_ERROR, "Unable to update user infos");
+        return false;
     }
 
     const picojson::value& items = friends_get ? result.get("items") : result;
     if (!items.is<picojson::array>()) {
         vkcom_debug_error("Wrong type returned as friends.get or users.get call result\n");
-        return uint64_set();
+        purple_connection_error_reason(gc, PURPLE_CONNECTION_ERROR_NETWORK_ERROR, "Unable to update user infos");
+        return false;
     }
 
     // Adds or updates buddies in result and forms the active set of buddy ids.
-    uint64_set buddy_user_ids;
     for (const picojson::value& v: items.get<picojson::array>()) {
         if (!v.is<picojson::object>()) {
             vkcom_debug_error("Strange node found in friends.get or users.get result: %s\n",
@@ -216,11 +220,11 @@ uint64_set update_user_infos(PurpleConnection* gc, const picojson::value& result
             continue;
         }
         uint64 user_id = update_user_info(gc, v, update_presence);
-        if (user_id != 0)
-            buddy_user_ids.insert(user_id);
+        if (user_id != 0 && user_ids)
+            user_ids->insert(user_id);
     }
 
-    return buddy_user_ids;
+    return true;
 }
 
 // Returns true if buddy with given user id should be shown in buddy list, false otherwise.
@@ -678,7 +682,7 @@ void add_or_update_user_infos(PurpleConnection* gc, const uint64_set& user_ids, 
     uint64_vec user_ids_vec;
     assign(user_ids_vec, user_ids);
     vk_call_api_ids(gc, "users.get", params, "user_ids", user_ids_vec, [=](const picojson::value& result) {
-        update_user_infos(gc, result, false, true);
+        update_user_infos(gc, result, nullptr, false, true);
     }, [=] {
         if (on_update_cb)
             on_update_cb();

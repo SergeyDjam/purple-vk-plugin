@@ -148,7 +148,7 @@ public:
     // Items are only added to this map and NEVER removed.
     map<uint64, VkUserInfo> user_infos;
 
-    // Ids of all chats user participates with.
+    // Set of ids of all chats user participates with.
     uint64_set chat_ids;
 
     // Map from chat identifier to chat information. Items are only added to this map and NEVER removed.
@@ -159,18 +159,44 @@ public:
     // them to log. We can potentially receive response from messages.send *after* longpoll informs us
     // about them. The devised algorithm is as follows:
     //
-    // 1) Upon calling messages.send, last_msg_send_time is updated to the current time.
-    // 2) The returned mid from messages.send call is stored in sent_msg_ids.
-    // 3) When longpoll processes outgoing message with given mid, it checks sent_msg_ids if the message
-    //    has been sent by us. If received mid is not present in sent_msg_ids, it checks if the last message
-    //    has been sent by us earlier then 1 second. If it has not, after a 5 second timeout sent_msg_ids
+    // 1) Upon calling messages.send, m_last_msg_send_time is updated to the current time.
+    // 2) The returned mid from messages.send call is stored in m_sent_msg_ids.
+    // 3) When longpoll processes outgoing message with given mid, it checks m_sent_msg_ids if the message
+    //    has been sent by us. If received mid is not present in m_sent_msg_ids, it checks if the last message
+    //    has been sent by us earlier then 1 second. If it has not, after a 5 second timeout m_sent_msg_ids
     //    is checked again (hopefully, by that time messages.send would have returned a message and the desured
-    //    mid will be in sent_msg_ids).
+    //    mid will be in m_sent_msg_ids).
     //
-    // Both variables refer only to *locally* sent messages.
-    uint64_set sent_msg_ids;
+    // We only to *locally* sent messages.
 
-    steady_time_point last_msg_sent_time;
+    // Adds sent msg id. Must be used when sending the message succeeds and we get the msg id.
+    void add_sent_msg_id(uint64 msg_id)
+    {
+        m_sent_msg_ids.insert(msg_id);
+    }
+
+    // Checks if msg_id has been sent and removes it from the list of sent msg ids. Returns false
+    // if msg_id had not been sent, true otherwise.
+    bool remove_sent_msg_id(uint64 msg_id)
+    {
+        return m_sent_msg_ids.erase(msg_id) > 0;
+    }
+
+    // Returns send time of last locally sent message.
+    steady_time_point last_msg_sent_time() const
+    {
+        return m_last_msg_sent_time;
+    }
+
+    // Sets last message sent time. Must be used when sending the message.
+    void set_last_msg_sent_time(steady_time_point sent_time)
+    {
+        if (sent_time < m_last_msg_sent_time) {
+            vkcom_debug_error("Trying to set last sent time earlier than currently set time\n");
+            return;
+        }
+        m_last_msg_sent_time = sent_time;
+    }
 
     // These two sets are updated when user selects "Add buddy" or "Remove buddy" in the buddy list.
     // They are permanently stored in account properties, loaded in VkConnData constructor and stored in destructor.
@@ -227,6 +253,9 @@ private:
     uint64 m_self_user_id;
 
     VkOptions m_options;
+
+    uint64_set m_sent_msg_ids;
+    steady_time_point m_last_msg_sent_time;
 
     PurpleConnection* m_gc;
     bool m_closing;

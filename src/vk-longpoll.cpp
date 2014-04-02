@@ -264,15 +264,15 @@ void process_message(PurpleConnection* gc, const picojson::value& v, LastMsg& la
                            v.serialize().data());
         return;
     }
-    uint64 mid = v.get(1).get<double>();
+    uint64 msg_id = v.get(1).get<double>();
     // Check if we already processed this message in receive_messages_range.
-    if (mid <= last_msg.ignored)
+    if (msg_id <= last_msg.ignored)
         return;
 
-    if (mid > last_msg.id) {
-        last_msg.id = mid;
+    if (msg_id > last_msg.id) {
+        last_msg.id = msg_id;
         // Pidgin defaults saving to once per 5 seconds, so there is no problem with resetting this value frequently.
-        save_last_msg_id(gc, mid);
+        save_last_msg_id(gc, msg_id);
     }
 
     int flags = v.get(2).get<double>();
@@ -292,7 +292,7 @@ void process_message(PurpleConnection* gc, const picojson::value& v, LastMsg& la
         // Processing incoming message
         vkcom_debug_info("Got incoming message from %" PRIu64 "\n", user_id);
 
-        process_incoming_message_internal(gc, mid, flags, user_id, move(text), timestamp);
+        process_incoming_message_internal(gc, msg_id, flags, user_id, move(text), timestamp);
     } else {
         // Process outgoing message. This message could've been sent either by us, or by another connected client.
         // See description in vk-common.h of corresponding members of VkConnData for details.
@@ -300,13 +300,13 @@ void process_message(PurpleConnection* gc, const picojson::value& v, LastMsg& la
 
         VkData& gc_data = get_data(gc);
         // The message has been sent by us, ignore it.
-        if (gc_data.sent_msg_ids.erase(mid) > 0)
+        if (gc_data.remove_sent_msg_id(msg_id))
             return;
 
-        steady_duration since_last_msg_sent = steady_clock::now() - gc_data.last_msg_sent_time;
+        steady_duration since_last_msg_sent = steady_clock::now() - gc_data.last_msg_sent_time();
         if (to_milliseconds(since_last_msg_sent) >= 5000) {
             // This is fast path: the message is guaranteed to be sent from someplace else, no need for timeout.
-            process_outgoing_message_internal(gc, mid, flags, user_id, move(text), timestamp);
+            process_outgoing_message_internal(gc, msg_id, flags, user_id, move(text), timestamp);
             return;
         }
 
@@ -314,12 +314,12 @@ void process_message(PurpleConnection* gc, const picojson::value& v, LastMsg& la
         purple_debug_warning("prpl-vkcom", "We sent message not long ago, let's have a check after timeout\n");
         timeout_add(gc, 5000, [=] {
             // Check again after 5 seconds, whether we sent the message or not.
-            if (get_data(gc).sent_msg_ids.erase(mid) > 0)
+            if (get_data(gc).remove_sent_msg_id(msg_id))
                 return false;
 
             purple_debug_warning("prpl-vkcom", "We have sent a message not long ago, but not all msg id"
-                                 "are belong to us (msg id %" PRIu64 ")\n", mid);
-            process_outgoing_message_internal(gc, mid, flags, user_id, move(text), timestamp);
+                                 "are belong to us (msg id %" PRIu64 ")\n", msg_id);
+            process_outgoing_message_internal(gc, msg_id, flags, user_id, move(text), timestamp);
             return false;
         });
     }
