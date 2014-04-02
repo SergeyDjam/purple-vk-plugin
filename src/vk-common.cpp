@@ -130,13 +130,13 @@ VkConnData::VkConnData(PurpleConnection* gc, const string& email, const string& 
 {
     PurpleAccount* account = purple_connection_get_account(m_gc);
 
-    options.only_friends_in_blist = purple_account_get_bool(account, "only_friends_in_blist", false);
-    options.chats_in_blist = purple_account_get_bool(account, "chats_in_blist", true);
-    options.mark_as_read_online_only = purple_account_get_bool(account, "mark_as_read_online_only", true);
-    options.mark_as_read_inactive_tab = purple_account_get_bool(account, "mark_as_read_inactive_tab", false);
-    options.imitate_mobile_client = purple_account_get_bool(account, "imitate_mobile_client", false);
-    options.blist_default_group = purple_account_get_string(account, "blist_default_group", "");
-    options.blist_chat_group = purple_account_get_string(account, "blist_chat_group", "");
+    m_options.only_friends_in_blist = purple_account_get_bool(account, "only_friends_in_blist", false);
+    m_options.chats_in_blist = purple_account_get_bool(account, "chats_in_blist", true);
+    m_options.mark_as_read_online_only = purple_account_get_bool(account, "mark_as_read_online_only", true);
+    m_options.mark_as_read_inactive_tab = purple_account_get_bool(account, "mark_as_read_inactive_tab", false);
+    m_options.imitate_mobile_client = purple_account_get_bool(account, "imitate_mobile_client", false);
+    m_options.blist_default_group = purple_account_get_string(account, "blist_default_group", "");
+    m_options.blist_chat_group = purple_account_get_string(account, "blist_chat_group", "");
 
     const char* str = purple_account_get_string(account, "manually_added_buddies", "");
     manually_added_buddies = str_split_int(str);
@@ -180,7 +180,7 @@ void VkConnData::authenticate(const SuccessCb& success_cb, const ErrorCb& error_
 {
     m_access_token.clear();
     vk_auth_user(m_gc, m_email, m_password, VK_CLIENT_ID, "friends,photos,audio,video,docs,messages",
-                 options.imitate_mobile_client,
+                 m_options.imitate_mobile_client,
         [=](const string& access_token, const string& self_user_id) {
             m_access_token = access_token;
             try {

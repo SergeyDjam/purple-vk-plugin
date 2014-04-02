@@ -44,7 +44,7 @@ void update_buddies(PurpleConnection* gc, bool update_presence, const SuccessCb&
         conn_data->friend_user_ids = update_user_infos(gc, result, true, update_presence);
         get_users_chats_from_dialogs(gc, [=]() {
             uint64_set non_friend_user_ids;
-            if (!conn_data->options.only_friends_in_blist) {
+            if (!conn_data->options().only_friends_in_blist) {
                 append_if(non_friend_user_ids, conn_data->dialog_user_ids, [=](uint64 user_id) {
                     return !user_is_friend(gc, user_id);
                 });
@@ -240,7 +240,7 @@ bool user_should_be_in_blist(PurpleConnection* gc, uint64 user_id)
         return true;
 
     VkConnData* conn_data = get_conn_data(gc);
-    if (!conn_data->options.only_friends_in_blist && had_dialog_with_user(gc, user_id))
+    if (!conn_data->options().only_friends_in_blist && had_dialog_with_user(gc, user_id))
         return true;
 
     return false;
@@ -257,7 +257,7 @@ bool chat_should_be_in_blist(PurpleConnection* gc, uint64 chat_id)
         return true;
 
     VkConnData* conn_data = get_conn_data(gc);
-    if (conn_data->options.chats_in_blist && participant_in_chat(gc, chat_id))
+    if (conn_data->options().chats_in_blist && participant_in_chat(gc, chat_id))
         return true;
     else
         return false;
@@ -267,7 +267,7 @@ bool chat_should_be_in_blist(PurpleConnection* gc, uint64 chat_id)
 PurpleGroup* get_default_group(PurpleConnection* gc)
 {
     VkConnData* conn_data = get_conn_data(gc);
-    const string& group_name = conn_data->options.blist_default_group;
+    const string& group_name = conn_data->options().blist_default_group;
     if (!group_name.empty())
         return purple_group_new(group_name.data());
     else
@@ -278,7 +278,7 @@ PurpleGroup* get_default_group(PurpleConnection* gc)
 PurpleGroup* get_chat_group(PurpleConnection* gc)
 {
     VkConnData* conn_data = get_conn_data(gc);
-    const string& group_name = conn_data->options.blist_chat_group;
+    const string& group_name = conn_data->options().blist_chat_group;
     if (!group_name.empty())
         return purple_group_new(group_name.data());
     else
@@ -391,7 +391,7 @@ void check_buddy_group(PurpleConnection* gc, PurpleBuddy* buddy)
 
     if (purple_blist_node_get_bool(&buddy->node, "custom-group")) {
         // Check if buddy has been moved back to default group.
-        if (conn_data->options.blist_default_group == current_group)
+        if (conn_data->options().blist_default_group == current_group)
             purple_blist_node_remove_setting(&buddy->node, "custom-group");
     } else {
         // Check if buddy has been moved to another group since last check.
@@ -403,10 +403,10 @@ void check_buddy_group(PurpleConnection* gc, PurpleBuddy* buddy)
             purple_blist_node_set_bool(&buddy->node, "custom-group", true);
         } else {
             // Check if default group has changed and move to new default group if needed.
-            if (!conn_data->options.blist_default_group.empty()
-                    && conn_data->options.blist_default_group != current_group) {
+            if (!conn_data->options().blist_default_group.empty()
+                    && conn_data->options().blist_default_group != current_group) {
                 purple_blist_add_buddy(buddy, nullptr, get_default_group(gc), nullptr);
-                current_group = conn_data->options.blist_default_group.data();
+                current_group = conn_data->options().blist_default_group.data();
             }
         }
     }
@@ -428,7 +428,7 @@ void check_chat_group(PurpleConnection* gc, PurpleChat* chat)
 
     if (purple_blist_node_get_bool(&chat->node, "custom-group")) {
         // Check if chat has been moved back to default group.
-        if (conn_data->options.blist_chat_group == current_group)
+        if (conn_data->options().blist_chat_group == current_group)
             purple_blist_node_remove_setting(&chat->node, "custom-group");
     } else {
         // Check if chat has been moved to another group since last check.
@@ -440,10 +440,10 @@ void check_chat_group(PurpleConnection* gc, PurpleChat* chat)
             purple_blist_node_set_bool(&chat->node, "custom-group", true);
         } else {
             // Check if default group has changed and move to new default group if needed.
-            if (!conn_data->options.blist_chat_group.empty()
-                    && conn_data->options.blist_chat_group != current_group) {
+            if (!conn_data->options().blist_chat_group.empty()
+                    && conn_data->options().blist_chat_group != current_group) {
                 purple_blist_add_chat(chat, get_default_group(gc), nullptr);
-                current_group = conn_data->options.blist_chat_group.data();
+                current_group = conn_data->options().blist_chat_group.data();
             }
         }
     }

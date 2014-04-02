@@ -127,7 +127,10 @@ public:
     }
 
     // Connection options, initialized on login.
-    VkConnOptions options;
+    const VkConnOptions& options() const
+    {
+        return m_options;
+    }
 
     // Set of user ids of friends. Updated upon login and on timer by update_users. We generally do
     // not care if this is a bit outdated. This set is updated only upon login and ones per
@@ -220,6 +223,8 @@ private:
     string m_password;
     string m_access_token;
     uint64 m_self_user_id;
+
+    VkConnOptions m_options;
 
     PurpleConnection* m_gc;
     bool m_closing;

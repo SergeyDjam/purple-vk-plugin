@@ -808,7 +808,7 @@ namespace {
 bool is_away(PurpleConnection* gc)
 {
     VkConnData* conn_data = get_conn_data(gc);
-    if (conn_data->options.mark_as_read_online_only) {
+    if (conn_data->options().mark_as_read_online_only) {
         PurpleStatus* status = purple_account_get_active_status(purple_connection_get_account(gc));
         PurpleStatusPrimitive primitive_status = purple_status_type_get_primitive(purple_status_get_type(status));
         if (primitive_status != PURPLE_STATUS_AVAILABLE)
@@ -880,7 +880,7 @@ void mark_message_as_read(PurpleConnection* gc, const VkReceivedMessage_vec& mes
     }
 
     uint64_vec message_ids;
-    if (conn_data->options.mark_as_read_inactive_tab) {
+    if (conn_data->options().mark_as_read_inactive_tab) {
         for (const VkReceivedMessage& msg: messages)
             message_ids.push_back(msg.msg_id);
     } else {
@@ -907,7 +907,7 @@ void mark_deferred_messages_as_read(PurpleConnection* gc, bool active)
 
     VkConnData* conn_data = get_conn_data(gc);
     uint64_vec message_ids;
-    if (conn_data->options.mark_as_read_inactive_tab) {
+    if (conn_data->options().mark_as_read_inactive_tab) {
         for (const VkReceivedMessage& msg: conn_data->deferred_mark_as_read)
             message_ids.push_back(msg.msg_id);
         conn_data->deferred_mark_as_read.clear();
