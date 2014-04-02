@@ -159,10 +159,10 @@ void vk_login(PurpleAccount* account)
 
     const char* email = purple_account_get_username(account);
     const char* password = purple_account_get_password(account);
-    VkConnData* conn_data = new VkConnData(gc, email, password);
-    purple_connection_set_protocol_data(gc, conn_data);
+    VkData* gc_data = new VkData(gc, email, password);
+    purple_connection_set_protocol_data(gc, gc_data);
 
-    conn_data->authenticate([=] {
+    gc_data->authenticate([=] {
         // Set account alias to full user name if alias not set previously.
         PurpleAccount* account = purple_connection_get_account(gc);
         const char* alias = purple_account_get_alias(account);
@@ -217,14 +217,14 @@ void vk_close(PurpleConnection* gc)
     // we cannot defer destruction of PurpleConnection and doing the "right way" is such a bother.
     g_usleep(250000);
 
-    VkConnData* data = get_conn_data(gc);
-    data->set_closing();
+    VkData& data = get_data(gc);
+    data.set_closing();
 
     purple_request_close_with_handle(gc);
     purple_http_conn_cancel_all(gc);
 
     purple_connection_set_protocol_data(gc, nullptr);
-    delete data;
+    delete &data;
 }
 
 int vk_send_im(PurpleConnection* gc, const char* who, const char* message, PurpleMessageFlags)
@@ -335,10 +335,10 @@ void vk_remove_buddy(PurpleConnection* gc, PurpleBuddy* buddy, PurpleGroup*)
     if (user_id == 0)
         return;
 
-    VkConnData* conn_data = get_conn_data(gc);
-    if (contains(conn_data->manually_added_buddies, user_id))
-        conn_data->manually_added_buddies.erase(user_id);
-    conn_data->manually_removed_buddies.insert(user_id);
+    VkData& gc_data = get_data(gc);
+    if (contains(gc_data.manually_added_buddies, user_id))
+        gc_data.manually_added_buddies.erase(user_id);
+    gc_data.manually_removed_buddies.insert(user_id);
 }
 
 void vk_chat_join(PurpleConnection* gc, GHashTable* components)
@@ -492,10 +492,8 @@ char* vk_get_cb_real_name(PurpleConnection* gc, int id, const char* who)
     uint64 user_id = find_user_id_from_conv(gc, id, who);
     if (user_id == 0) {
         const char* self_alias = purple_account_get_alias(purple_connection_get_account(gc));
-        if (g_str_equal(who, self_alias)) {
-            VkConnData* conn_data = get_conn_data(gc);
-            user_id = conn_data->self_user_id();
-        }
+        if (g_str_equal(who, self_alias))
+            user_id = get_data(gc).self_user_id();
     }
 
     if (user_id != 0)
@@ -570,10 +568,9 @@ void vk_add_buddy_with_invite(PurpleConnection* gc, PurpleBuddy* buddy, PurpleGr
             return;
         }
 
-        VkConnData* conn_data = get_conn_data(gc);
-        if (contains(conn_data->manually_removed_buddies, user_id))
-            conn_data->manually_removed_buddies.erase(user_id);
-        conn_data->manually_added_buddies.insert(user_id);
+        VkData& gc_data = get_data(gc);
+        gc_data.manually_removed_buddies.erase(user_id);
+        gc_data.manually_added_buddies.insert(user_id);
 
         add_buddy_if_needed(gc, user_id, [=] {
             PurpleBuddy* buddy = purple_find_buddy(purple_connection_get_account(gc),

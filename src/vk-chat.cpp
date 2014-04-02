@@ -8,8 +8,7 @@
 
 int chat_id_to_conv_id(PurpleConnection* gc, uint64 chat_id)
 {
-    VkConnData* conn_data = get_conn_data(gc);
-    for (const pair<int, uint64>& it: conn_data->chat_conv_ids)
+    for (const pair<int, uint64>& it: get_data(gc).chat_conv_ids)
         if (it.second == chat_id)
             return it.first;
 
@@ -19,8 +18,7 @@ int chat_id_to_conv_id(PurpleConnection* gc, uint64 chat_id)
 
 uint64 conv_id_to_chat_id(PurpleConnection* gc, int conv_id)
 {
-    VkConnData* conn_data = get_conn_data(gc);
-    for (const pair<int, uint64>& it: conn_data->chat_conv_ids)
+    for (const pair<int, uint64>& it: get_data(gc).chat_conv_ids)
         if (it.first == conv_id)
             return it.second;
 
@@ -30,22 +28,21 @@ uint64 conv_id_to_chat_id(PurpleConnection* gc, int conv_id)
 int add_new_conv_id(PurpleConnection* gc, uint64 chat_id)
 {
     int conv_id = 1;
-    VkConnData* conn_data = get_conn_data(gc);
-    for (const pair<int, uint64>& it: conn_data->chat_conv_ids)
+    VkData& gc_data = get_data(gc);
+    for (const pair<int, uint64>& it: gc_data.chat_conv_ids)
         if (it.first >= conv_id)
             conv_id = it.first + 1;
 
     // We probably do not open more than one conversation per second, so the keys will be exhausted in 2 ** 31 seconds,
     // quite a lot of time.
-    conn_data->chat_conv_ids.push_back({ conv_id, chat_id });
+    gc_data.chat_conv_ids.push_back({ conv_id, chat_id });
     return conv_id;
 }
 
 
 void remove_conv_id(PurpleConnection* gc, int conv_id)
 {
-    VkConnData* conn_data = get_conn_data(gc);
-    erase_if(conn_data->chat_conv_ids, [=](const pair<int, uint64>& p) {
+    erase_if(get_data(gc).chat_conv_ids, [=](const pair<int, uint64>& p) {
         return p.first == conv_id;
     });
 }
@@ -133,11 +130,11 @@ void update_open_chat_conv_impl(PurpleConnection* gc, PurpleConversation* conv, 
         // Add self
         const char* self_alias = purple_account_get_alias(purple_connection_get_account(gc));
         string self_name = str_format("%s (you)", self_alias);
-        VkConnData* conn_data = get_conn_data(gc);
-        info->participant_names[self_name] = conn_data->self_user_id();
+        VkData& gc_data = get_data(gc);
+        info->participant_names[self_name] = gc_data.self_user_id();
 
         PurpleConvChatBuddyFlags flags;
-        if (conn_data->self_user_id() == info->admin_id)
+        if (gc_data.self_user_id() == info->admin_id)
             flags = PURPLE_CBFLAGS_FOUNDER;
         else
             flags = PURPLE_CBFLAGS_NONE;
@@ -175,7 +172,6 @@ void open_chat_conv(PurpleConnection* gc, uint64 chat_id, const SuccessCb& succe
 void check_open_chat_convs(PurpleConnection* gc)
 {
     PurpleAccount* account = purple_connection_get_account(gc);
-    VkConnData* conn_data = get_conn_data(gc);
 
     for (GList* it = purple_get_conversations(); it != NULL; it = it->next) {
         PurpleConversation* conv = (PurpleConversation *)it->data;
@@ -191,7 +187,7 @@ void check_open_chat_convs(PurpleConnection* gc)
             continue;
 
         int conv_id = purple_conv_chat_get_id(PURPLE_CONV_CHAT(conv));
-        conn_data->chat_conv_ids.push_back({ conv_id, chat_id });
+        get_data(gc).chat_conv_ids.push_back({ conv_id, chat_id });
     }
 }
 
@@ -215,8 +211,7 @@ void update_open_chat_conv(PurpleConnection* gc, int conv_id)
 
 void update_all_open_chat_convs(PurpleConnection* gc)
 {
-    VkConnData* conn_data = get_conn_data(gc);
-    for (pair<int, uint64> p: conn_data->chat_conv_ids)
+    for (pair<int, uint64> p: get_data(gc).chat_conv_ids)
         update_open_chat_conv(gc, p.first);
 }
 

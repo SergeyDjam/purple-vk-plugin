@@ -100,9 +100,9 @@ bool send_doc(PurpleConnection* gc, uint64 user_id, const VkUploadedDocInfo& doc
 
     // Store the uploaded document.
     uint64 doc_id = d.get("id").get<double>();
-    VkConnData* conn_data = get_conn_data(gc);
-    conn_data->uploaded_docs[doc_id] = doc;
-    conn_data->uploaded_docs[doc_id].url = doc_url;
+    VkData& gc_data = get_data(gc);
+    gc_data.uploaded_docs[doc_id] = doc;
+    gc_data.uploaded_docs[doc_id].url = doc_url;
 
     return true;
 }
@@ -153,7 +153,6 @@ void clean_nonexisting_docs(PurpleConnection* gc, const SuccessCb& success_cb)
     // A set of document ids, which are still available.
     shared_ptr<uint64_set> existing_doc_ids{ new uint64_set() };
 
-    VkConnData* conn_data = get_conn_data(gc);
     vk_call_api_items(gc, "docs.get", CallParams(), true, [=](const picojson::value& v) {
         if (!field_is_present<double>(v, "id") || !field_is_present<string>(v, "title")
                 || !field_is_present<double>(v, "size") || !field_is_present<string>(v, "url")) {
@@ -162,8 +161,10 @@ void clean_nonexisting_docs(PurpleConnection* gc, const SuccessCb& success_cb)
         }
 
         uint64 doc_id = v.get("id").get<double>();
-        if (contains(conn_data->uploaded_docs, doc_id)) {
-            const VkUploadedDocInfo& doc = conn_data->uploaded_docs[doc_id];
+
+        VkData& gc_data = get_data(gc);
+        if (contains(gc_data.uploaded_docs, doc_id)) {
+            const VkUploadedDocInfo& doc = gc_data.uploaded_docs[doc_id];
 
             const string& title = v.get("title").get<string>();
             uint64 size = v.get("size").get<double>();
@@ -176,11 +177,12 @@ void clean_nonexisting_docs(PurpleConnection* gc, const SuccessCb& success_cb)
                                   "removing from uploaded\n", doc_id);
         }
     }, [=]() {
-        int size_diff = conn_data->uploaded_docs.size() - existing_doc_ids->size();
+        VkData& gc_data = get_data(gc);
+        int size_diff = gc_data.uploaded_docs.size() - existing_doc_ids->size();
         if (size_diff > 0)
             vkcom_debug_info("%d docs removed from uploaded\n", size_diff);
 
-        erase_if(conn_data->uploaded_docs, [=](const pair<uint64, VkUploadedDocInfo>& p) {
+        erase_if(gc_data.uploaded_docs, [=](const pair<uint64, VkUploadedDocInfo>& p) {
             uint64 doc_id = p.first;
             return !contains(*existing_doc_ids, doc_id);
         });
@@ -190,7 +192,7 @@ void clean_nonexisting_docs(PurpleConnection* gc, const SuccessCb& success_cb)
     }, [=](const picojson::value& v) {
         purple_debug_warning("prpl-vkcom", "Error in docs.get: %s, removing all info on uploaded docs\n",
                              v.serialize().data());
-        conn_data->uploaded_docs.clear();
+        get_data(gc).uploaded_docs.clear();
 
         if (success_cb)
             success_cb();
@@ -206,8 +208,7 @@ void find_or_upload_doc(PurpleConnection* gc, PurpleXfer* xfer, const VkUploaded
     // the next time it is added) and all this "check if doc still exists" approach is
     // non-concurrency-proof already.
     clean_nonexisting_docs(gc, [=] {
-        VkConnData* conn_data = get_conn_data(gc);
-        for (const pair<uint64, VkUploadedDocInfo>& p: conn_data->uploaded_docs) {
+        for (const pair<uint64, VkUploadedDocInfo>& p: get_data(gc).uploaded_docs) {
             uint64 doc_id = p.first;
             const VkUploadedDocInfo& updoc = p.second;
             if (updoc.filename == doc.filename && updoc.size == doc.size && updoc.md5sum == doc.md5sum) {

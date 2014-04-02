@@ -10,7 +10,7 @@
 
 void set_account_alias(PurpleConnection* gc)
 {
-    uint64 user_id = get_conn_data(gc)->self_user_id();
+    uint64 user_id = get_data(gc).self_user_id();
     vkcom_debug_info("Getting full name for %" PRIu64 "\n", user_id);
 
     CallParams params = { {"user_ids", to_string(user_id)}, {"fields", "first_name,last_name"} };
@@ -128,20 +128,17 @@ bool user_in_buddy_list(PurpleConnection* gc, uint64 user_id)
 
 bool user_is_friend(PurpleConnection* gc, uint64 user_id)
 {
-    VkConnData* conn_data = get_conn_data(gc);
-    return contains(conn_data->friend_user_ids, user_id);
+    return contains(get_data(gc).friend_user_ids, user_id);
 }
 
 bool had_dialog_with_user(PurpleConnection* gc, uint64 user_id)
 {
-    VkConnData* conn_data = get_conn_data(gc);
-    return contains(conn_data->dialog_user_ids, user_id);
+    return contains(get_data(gc).dialog_user_ids, user_id);
 }
 
 bool is_unknown_user(PurpleConnection* gc, uint64 user_id)
 {
-    VkConnData* conn_data = get_conn_data(gc);
-    return !contains(conn_data->user_infos, user_id);
+    return !contains(get_data(gc).user_infos, user_id);
 }
 
 bool have_conversation_with_user(PurpleConnection* gc, uint64 user_id)
@@ -158,14 +155,12 @@ bool chat_in_buddy_list(PurpleConnection* gc, uint64 chat_id)
 
 bool participant_in_chat(PurpleConnection* gc, uint64 chat_id)
 {
-    VkConnData* conn_data = get_conn_data(gc);
-    return contains(conn_data->chat_ids, chat_id);
+    return contains(get_data(gc).chat_ids, chat_id);
 }
 
 bool is_unknown_chat(PurpleConnection* gc, uint64 chat_id)
 {
-    VkConnData* conn_data = get_conn_data(gc);
-    return !contains(conn_data->chat_infos, chat_id);
+    return !contains(get_data(gc).chat_infos, chat_id);
 }
 
 bool have_open_chat(PurpleConnection* gc, uint64 chat_id)
@@ -188,9 +183,9 @@ VkUserInfo* get_user_info(PurpleConnection* gc, uint64 user_id)
     if (user_id == 0)
         return nullptr;
 
-    VkConnData* conn_data = get_conn_data(gc);
-    auto it = conn_data->user_infos.find(user_id);
-    if (it == conn_data->user_infos.end())
+    VkData& gc_data = get_data(gc);
+    auto it = gc_data.user_infos.find(user_id);
+    if (it == gc_data.user_infos.end())
         return nullptr;
     return &it->second;
 }
@@ -200,29 +195,26 @@ VkChatInfo* get_chat_info(PurpleConnection* gc, uint64 chat_id)
     if (chat_id == 0)
         return nullptr;
 
-    VkConnData* conn_data = get_conn_data(gc);
-    auto it = conn_data->chat_infos.find(chat_id);
-    if (it == conn_data->chat_infos.end())
+    VkData& gc_data = get_data(gc);
+    auto it = gc_data.chat_infos.find(chat_id);
+    if (it == gc_data.chat_infos.end())
         return nullptr;
     return &it->second;
 }
 
 bool is_user_manually_added(PurpleConnection* gc, uint64 user_id)
 {
-    VkConnData* conn_data = get_conn_data(gc);
-    return contains(conn_data->manually_added_buddies, user_id);
+    return contains(get_data(gc).manually_added_buddies, user_id);
 }
 
 bool is_user_manually_removed(PurpleConnection* gc, uint64 user_id)
 {
-    VkConnData* conn_data = get_conn_data(gc);
-    return contains(conn_data->manually_removed_buddies, user_id);
+    return contains(get_data(gc).manually_removed_buddies, user_id);
 }
 
 bool is_chat_manually_added(PurpleConnection* gc, uint64 chat_id)
 {
-    VkConnData* conn_data = get_conn_data(gc);
-    return contains(conn_data->manually_added_chats, chat_id);
+    return contains(get_data(gc).manually_added_chats, chat_id);
 }
 
 

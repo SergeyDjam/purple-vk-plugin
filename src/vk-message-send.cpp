@@ -261,10 +261,10 @@ void send_message_internal(PurpleConnection* gc, const SendMessage_ptr& message,
     if (!captcha_key.empty())
         params.emplace_back("captcha_key", captcha_key);
 
-    VkConnData* conn_data = get_conn_data(gc);
+    VkData& gc_data = get_data(gc);
     steady_time_point current_time = steady_clock::now();
-    assert(conn_data->last_msg_sent_time <= current_time);
-    conn_data->last_msg_sent_time = current_time;
+    assert(gc_data.last_msg_sent_time <= current_time);
+    gc_data.last_msg_sent_time = current_time;
 
     vk_call_api(gc, "messages.send", params, [=](const picojson::value& v) {
         if (!v.is<double>()) {
@@ -276,7 +276,7 @@ void send_message_internal(PurpleConnection* gc, const SendMessage_ptr& message,
         // NOTE: We do not set last_msg_id here, because it is done when corresponding notification is received
         // in longpoll.
         uint64 msg_id = v.get<double>();
-        conn_data->sent_msg_ids.insert(msg_id);
+        get_data(gc).sent_msg_ids.insert(msg_id);
 
         // Check if we have sent the whole message.
         if (text_len == message->text.length()) {

@@ -127,8 +127,6 @@ const char* long_poll_url = "https://%s?act=a_check&key=%s&ts=%llu&wait=25&mode=
 void request_long_poll(PurpleConnection* gc, const string& server, const string& key, uint64 ts,
                        LastMsg last_msg)
 {
-    VkConnData* conn_data = get_conn_data(gc);
-
     string server_url = str_format(long_poll_url, server.data(), key.data(), ts);
 #if 0
     vkcom_debug_info("Connecting to Long Poll %s\n", server_url.data());
@@ -136,7 +134,7 @@ void request_long_poll(PurpleConnection* gc, const string& server, const string&
 
     http_get(gc, server_url, [=](PurpleHttpConnection*, PurpleHttpResponse* response) {
         // Connection has been cancelled due to account being disconnected.
-        if (conn_data->is_closing())
+        if (get_data(gc).is_closing())
             return;
 
         if (purple_http_response_get_code(response) != 200) {
@@ -300,12 +298,12 @@ void process_message(PurpleConnection* gc, const picojson::value& v, LastMsg& la
         // See description in vk-common.h of corresponding members of VkConnData for details.
         vkcom_debug_info("Got outgoing message\n");
 
-        VkConnData* conn_data = get_conn_data(gc);
+        VkData& gc_data = get_data(gc);
         // The message has been sent by us, ignore it.
-        if (conn_data->sent_msg_ids.erase(mid) > 0)
+        if (gc_data.sent_msg_ids.erase(mid) > 0)
             return;
 
-        steady_duration since_last_msg_sent = steady_clock::now() - conn_data->last_msg_sent_time;
+        steady_duration since_last_msg_sent = steady_clock::now() - gc_data.last_msg_sent_time;
         if (to_milliseconds(since_last_msg_sent) >= 5000) {
             // This is fast path: the message is guaranteed to be sent from someplace else, no need for timeout.
             process_outgoing_message_internal(gc, mid, flags, user_id, move(text), timestamp);
@@ -316,7 +314,7 @@ void process_message(PurpleConnection* gc, const picojson::value& v, LastMsg& la
         purple_debug_warning("prpl-vkcom", "We sent message not long ago, let's have a check after timeout\n");
         timeout_add(gc, 5000, [=] {
             // Check again after 5 seconds, whether we sent the message or not.
-            if (conn_data->sent_msg_ids.erase(mid) > 0)
+            if (get_data(gc).sent_msg_ids.erase(mid) > 0)
                 return false;
 
             purple_debug_warning("prpl-vkcom", "We have sent a message not long ago, but not all msg id"

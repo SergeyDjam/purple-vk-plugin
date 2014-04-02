@@ -807,8 +807,7 @@ namespace {
 // mark_as_read_online_only option is enabled (the default).
 bool is_away(PurpleConnection* gc)
 {
-    VkConnData* conn_data = get_conn_data(gc);
-    if (conn_data->options().mark_as_read_online_only) {
+    if (get_data(gc).options().mark_as_read_online_only) {
         PurpleStatus* status = purple_account_get_active_status(purple_connection_get_account(gc));
         PurpleStatusPrimitive primitive_status = purple_status_type_get_primitive(purple_status_get_type(status));
         if (primitive_status != PURPLE_STATUS_AVAILABLE)
@@ -871,16 +870,16 @@ void mark_messages_as_read_impl(PurpleConnection* gc, const Cont& message_ids)
 
 void mark_message_as_read(PurpleConnection* gc, const VkReceivedMessage_vec& messages)
 {
-    VkConnData* conn_data = get_conn_data(gc);
+    VkData& gc_data = get_data(gc);
 
     // Check if we should defer all messages, because we are Away.
     if (is_away(gc)) {
-        append(conn_data->deferred_mark_as_read, messages);
+        append(gc_data.deferred_mark_as_read, messages);
         return;
     }
 
     uint64_vec message_ids;
-    if (conn_data->options().mark_as_read_inactive_tab) {
+    if (gc_data.options().mark_as_read_inactive_tab) {
         for (const VkReceivedMessage& msg: messages)
             message_ids.push_back(msg.msg_id);
     } else {
@@ -892,7 +891,7 @@ void mark_message_as_read(PurpleConnection* gc, const VkReceivedMessage_vec& mes
             if (message_in_active(msg, active_user_id, active_chat_id))
                 message_ids.push_back(msg.msg_id);
             else
-                conn_data->deferred_mark_as_read.push_back(msg);
+                gc_data.deferred_mark_as_read.push_back(msg);
         }
     }
 
@@ -905,23 +904,23 @@ void mark_deferred_messages_as_read(PurpleConnection* gc, bool active)
     if (is_away(gc) && !active)
         return;
 
-    VkConnData* conn_data = get_conn_data(gc);
+    VkData& gc_data = get_data(gc);
     uint64_vec message_ids;
-    if (conn_data->options().mark_as_read_inactive_tab) {
-        for (const VkReceivedMessage& msg: conn_data->deferred_mark_as_read)
+    if (gc_data.options().mark_as_read_inactive_tab) {
+        for (const VkReceivedMessage& msg: gc_data.deferred_mark_as_read)
             message_ids.push_back(msg.msg_id);
-        conn_data->deferred_mark_as_read.clear();
+        gc_data.deferred_mark_as_read.clear();
     } else {
         PurpleConversation* conv = find_active_conv(gc);
         uint64 active_user_id;
         uint64 active_chat_id;
         find_active_ids(conv, &active_user_id, &active_chat_id);
 
-        for (const VkReceivedMessage& msg: conn_data->deferred_mark_as_read)
+        for (const VkReceivedMessage& msg: gc_data.deferred_mark_as_read)
             if (message_in_active(msg, active_user_id, active_chat_id))
                 message_ids.push_back(msg.msg_id);
 
-        erase_if(conn_data->deferred_mark_as_read, [=](const VkReceivedMessage& msg) {
+        erase_if(gc_data.deferred_mark_as_read, [=](const VkReceivedMessage& msg) {
             return message_in_active(msg, active_user_id, active_chat_id);
         });
     }

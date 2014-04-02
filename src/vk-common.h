@@ -10,7 +10,7 @@
 // We get connection options and store in this structure on login because we have no way
 // of knowing when the account options have been changed, so we want to prevent potential
 // inconsistencies. As a bonus,it is more type-safe.
-struct VkConnOptions
+struct VkOptions
 {
     bool only_friends_in_blist;
     bool chats_in_blist;
@@ -106,11 +106,13 @@ void timeout_add(PurpleConnection* gc, unsigned milliseconds, const TimeoutCb& c
 
 // Data, associated with account. It contains all information, required for connecting and executing
 // API calls.
-class VkConnData
+class VkData
 {
 public:
-    VkConnData(PurpleConnection* gc, const string& email, const string& password);
-    ~VkConnData();
+    VkData(PurpleConnection* gc, const string& email, const string& password);
+    ~VkData();
+
+    DISABLE_COPYING(VkData)
 
     void authenticate(const SuccessCb& success_cb, const ErrorCb &error_cb);
 
@@ -127,7 +129,7 @@ public:
     }
 
     // Connection options, initialized on login.
-    const VkConnOptions& options() const
+    const VkOptions& options() const
     {
         return m_options;
     }
@@ -224,7 +226,7 @@ private:
     string m_access_token;
     uint64 m_self_user_id;
 
-    VkConnOptions m_options;
+    VkOptions m_options;
 
     PurpleConnection* m_gc;
     bool m_closing;
@@ -236,9 +238,9 @@ private:
     friend void timeout_add(PurpleConnection* gc, unsigned milliseconds, const TimeoutCb& callback);
 };
 
-inline VkConnData* get_conn_data(PurpleConnection* gc)
+inline VkData& get_data(PurpleConnection* gc)
 {
-    return (VkConnData*)purple_connection_get_protocol_data(gc);
+    return *(VkData*)purple_connection_get_protocol_data(gc);
 }
 
 

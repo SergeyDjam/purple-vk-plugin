@@ -32,8 +32,8 @@ void vk_call_api(PurpleConnection* gc, const char* method_name, const CallParams
 {
     vkcom_debug_info("    API call %s\n", method_name);
 
-    VkConnData* conn_data = get_conn_data(gc);
-    if (conn_data->is_closing()) {
+    VkData& gc_data = get_data(gc);
+    if (gc_data.is_closing()) {
         vkcom_debug_error("Programming error: API method %s called during logout\n", method_name);
         return;
     }
@@ -43,7 +43,7 @@ void vk_call_api(PurpleConnection* gc, const char* method_name, const CallParams
     call.params = params;
 
     string method_url = str_format("https://api.vk.com/method/%s?v=%s&access_token=%s", method_name,
-                                   api_version, conn_data->access_token().data());
+                                   api_version, gc_data.access_token().data());
     if (!params.empty()) {
         method_url += "&";
         method_url += urlencode_form(params);
@@ -64,7 +64,7 @@ void vk_call_api(PurpleConnection* gc, const char* method_name, const CallParams
     http_request(gc, req, [=](PurpleHttpConnection* http_conn, PurpleHttpResponse* response) {
         // Connection has been cancelled due to account being disconnected. Do not do any response
         // processing, as callbacks may initiate new HTTP requests.
-        if (conn_data->is_closing())
+        if (get_data(gc).is_closing())
             return;
 
         on_vk_call_cb(http_conn, response, call, success_cb, error_cb);
@@ -85,8 +85,7 @@ void vk_call_after_auth(PurpleConnection* gc, const VkCall& call,
 
     // This loop stops in case of failed authentication, because all timeouts die.
     timeout_add(gc, WAIT_AUTH_TIMEOUT, [=] {
-        VkConnData* conn_data = get_conn_data(gc);
-        if (conn_data->access_token().empty())
+        if (get_data(gc).access_token().empty())
             vk_call_after_auth(gc, call, success_cb, error_cb);
         else
             vk_call_api(gc, call.method_name.data(), call.params, success_cb, error_cb);
@@ -116,13 +115,13 @@ void process_error(PurpleHttpConnection* http_conn, const picojson::value& error
     int error_code = error.get("error_code").get<double>();
     if (error_code == VK_AUTHORIZATION_FAILED) {
         // Check if another authentication process has already started
-        VkConnData* conn_data = get_conn_data(gc);
-        if (conn_data->access_token().empty()) {
+        VkData& gc_data = get_data(gc);
+        if (gc_data.access_token().empty()) {
             vk_call_after_auth(gc, call, success_cb, error_cb);
         } else {
             vkcom_debug_info("Access token expired, doing a reauthorization\n");
 
-            conn_data->authenticate([=] {
+            gc_data.authenticate([=] {
                 vk_call_api(gc, call.method_name.data(), call.params, success_cb, error_cb);
             }, [=] {
                 if (error_cb)
@@ -166,7 +165,7 @@ void process_error(PurpleHttpConnection* http_conn, const picojson::value& error
         if (error_code != VK_CAPTCHA_NEEDED) {
             string error_string = error.serialize();
             // Vk.com returns access_token among other error fields, let's remove it from the logs.
-            str_replace(error_string, get_conn_data(gc)->access_token(), "XXX-ACCESS-TOKEN-XXX");
+            str_replace(error_string, get_data(gc).access_token(), "XXX-ACCESS-TOKEN-XXX");
             vkcom_debug_error("Vk.com call error: %s\n", error_string.data());
         }
 

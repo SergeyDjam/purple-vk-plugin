@@ -38,26 +38,26 @@ void update_buddies(PurpleConnection* gc, bool update_presence, const SuccessCb&
 {
     vkcom_debug_info("Updating full buddy list\n");
 
-    VkConnData* conn_data = get_conn_data(gc);
-    CallParams params = { {"user_id", to_string(conn_data->self_user_id())}, {"fields", user_fields} };
+    CallParams params = { {"user_id", to_string(get_data(gc).self_user_id())}, {"fields", user_fields} };
     vk_call_api(gc, "friends.get", params, [=](const picojson::value& result) {
-        conn_data->friend_user_ids = update_user_infos(gc, result, true, update_presence);
+        get_data(gc).friend_user_ids = update_user_infos(gc, result, true, update_presence);
         get_users_chats_from_dialogs(gc, [=]() {
+            VkData& gc_data = get_data(gc);
             uint64_set non_friend_user_ids;
-            if (!conn_data->options().only_friends_in_blist) {
-                append_if(non_friend_user_ids, conn_data->dialog_user_ids, [=](uint64 user_id) {
+            if (!gc_data.options().only_friends_in_blist) {
+                append_if(non_friend_user_ids, gc_data.dialog_user_ids, [=](uint64 user_id) {
                     return !user_is_friend(gc, user_id);
                 });
             }
 
             // We could've manually added buddy and he has become our friend later.
-            append_if(non_friend_user_ids, conn_data->manually_added_buddies, [=](uint64 user_id) {
+            append_if(non_friend_user_ids, gc_data.manually_added_buddies, [=](uint64 user_id) {
                 return !user_is_friend(gc, user_id);
             });
 
             // Add all chat participants. We do not really need that much information about them,
             // so in the future we could've asked only for the names.
-            for (const pair<uint64, VkChatInfo>& c: conn_data->chat_infos) {
+            for (const pair<uint64, VkChatInfo>& c: gc_data.chat_infos) {
                 append_if(non_friend_user_ids, c.second.participants, [=] (uint64 user_id) {
                     return !user_is_friend(gc, user_id);
                 });
@@ -121,8 +121,7 @@ uint64 update_user_info(PurpleConnection* gc, const picojson::value& fields, boo
     }
     uint64 user_id = fields.get("id").get<double>();
 
-    VkConnData* conn_data = get_conn_data(gc);
-    VkUserInfo& info = conn_data->user_infos[user_id];
+    VkUserInfo& info = get_data(gc).user_infos[user_id];
     info.real_name = fields.get("first_name").get<string>() + " " + fields.get("last_name").get<string>();
 
     // This usually means that user has been deleted.
@@ -239,8 +238,7 @@ bool user_should_be_in_blist(PurpleConnection* gc, uint64 user_id)
     if (is_user_manually_added(gc, user_id))
         return true;
 
-    VkConnData* conn_data = get_conn_data(gc);
-    if (!conn_data->options().only_friends_in_blist && had_dialog_with_user(gc, user_id))
+    if (!get_data(gc).options().only_friends_in_blist && had_dialog_with_user(gc, user_id))
         return true;
 
     return false;
@@ -256,8 +254,7 @@ bool chat_should_be_in_blist(PurpleConnection* gc, uint64 chat_id)
     if (is_chat_manually_added(gc, chat_id))
         return true;
 
-    VkConnData* conn_data = get_conn_data(gc);
-    if (conn_data->options().chats_in_blist && participant_in_chat(gc, chat_id))
+    if (get_data(gc).options().chats_in_blist && participant_in_chat(gc, chat_id))
         return true;
     else
         return false;
@@ -266,8 +263,7 @@ bool chat_should_be_in_blist(PurpleConnection* gc, uint64 chat_id)
 // Returns default group to add buddies to.
 PurpleGroup* get_default_group(PurpleConnection* gc)
 {
-    VkConnData* conn_data = get_conn_data(gc);
-    const string& group_name = conn_data->options().blist_default_group;
+    const string& group_name = get_data(gc).options().blist_default_group;
     if (!group_name.empty())
         return purple_group_new(group_name.data());
     else
@@ -277,8 +273,7 @@ PurpleGroup* get_default_group(PurpleConnection* gc)
 // Returns the default group to add chats to.
 PurpleGroup* get_chat_group(PurpleConnection* gc)
 {
-    VkConnData* conn_data = get_conn_data(gc);
-    const string& group_name = conn_data->options().blist_chat_group;
+    const string& group_name = get_data(gc).options().blist_chat_group;
     if (!group_name.empty())
         return purple_group_new(group_name.data());
     else
@@ -297,7 +292,7 @@ void check_buddy_alias(PurpleConnection* gc, PurpleBuddy* buddy)
     if (user_id == 0)
         return;
 
-    VkConnData* conn_data = get_conn_data(gc);
+    VkData& gc_data = get_data(gc);
     VkUserInfo* info = get_user_info(gc, user_id);
     // We still haven't updated user info.
     if (!info)
@@ -313,8 +308,8 @@ void check_buddy_alias(PurpleConnection* gc, PurpleBuddy* buddy)
             purple_blist_node_remove_setting(&buddy->node, "custom-alias");
     } else {
         // Check if buddy has been renamed since last check.
-        if (contains(conn_data->buddy_blist_last_alias, user_id)
-                && conn_data->buddy_blist_last_alias[user_id] != current_alias) {
+        if (contains(gc_data.buddy_blist_last_alias, user_id)
+                && gc_data.buddy_blist_last_alias[user_id] != current_alias) {
             vkcom_debug_info("Buddy alias for %s has been changed to custom: %s\n",
                               purple_buddy_get_name(buddy), current_alias);
 
@@ -334,7 +329,7 @@ void check_buddy_alias(PurpleConnection* gc, PurpleBuddy* buddy)
         }
     }
 
-    conn_data->buddy_blist_last_alias[user_id] = current_alias;
+    gc_data.buddy_blist_last_alias[user_id] = current_alias;
 }
 
 // Checks if chat alias has been changed, updates VkConnData::chat_blist_last_alias and "custom-alias" tag.
@@ -345,7 +340,7 @@ void check_chat_alias(PurpleConnection* gc, PurpleChat* chat)
     if (!chat_name)
         return;
 
-    VkConnData* conn_data = get_conn_data(gc);
+    VkData& gc_data = get_data(gc);
     uint64 chat_id = chat_id_from_name(chat_name);
     VkChatInfo* info = get_chat_info(gc, chat_id);
     if (!info)
@@ -361,8 +356,8 @@ void check_chat_alias(PurpleConnection* gc, PurpleChat* chat)
             purple_blist_node_remove_setting(&chat->node, "custom-alias");
     } else {
         // Check if chat has been renamed since last check.
-        if (contains(conn_data->chat_blist_last_alias, chat_id)
-                && conn_data->chat_blist_last_alias[chat_id] != current_alias) {
+        if (contains(gc_data.chat_blist_last_alias, chat_id)
+                && gc_data.chat_blist_last_alias[chat_id] != current_alias) {
             vkcom_debug_info("Chat alias for %s has been changed to custom: %s\n",
                               chat_name, current_alias);
 
@@ -375,7 +370,7 @@ void check_chat_alias(PurpleConnection* gc, PurpleChat* chat)
         }
     }
 
-    conn_data->chat_blist_last_alias[chat_id] = current_alias;
+    gc_data.chat_blist_last_alias[chat_id] = current_alias;
 }
 
 // Checks if buddy was moved from group to group, updates VkConnData::buddy_blist_last_group and "custom-group" tag.
@@ -386,32 +381,32 @@ void check_buddy_group(PurpleConnection* gc, PurpleBuddy* buddy)
     if (user_id == 0)
         return;
 
-    VkConnData* conn_data = get_conn_data(gc);
+    VkData& gc_data = get_data(gc);
     const char* current_group = purple_group_get_name(purple_buddy_get_group(buddy));
 
     if (purple_blist_node_get_bool(&buddy->node, "custom-group")) {
         // Check if buddy has been moved back to default group.
-        if (conn_data->options().blist_default_group == current_group)
+        if (gc_data.options().blist_default_group == current_group)
             purple_blist_node_remove_setting(&buddy->node, "custom-group");
     } else {
         // Check if buddy has been moved to another group since last check.
-        if (contains(conn_data->buddy_blist_last_group, user_id)
-                && conn_data->buddy_blist_last_group[user_id] != current_group) {
+        if (contains(gc_data.buddy_blist_last_group, user_id)
+                && gc_data.buddy_blist_last_group[user_id] != current_group) {
             vkcom_debug_info("Buddy group for %s has been changed to custom: %s\n",
                               purple_buddy_get_name(buddy), current_group);
 
             purple_blist_node_set_bool(&buddy->node, "custom-group", true);
         } else {
             // Check if default group has changed and move to new default group if needed.
-            if (!conn_data->options().blist_default_group.empty()
-                    && conn_data->options().blist_default_group != current_group) {
+            if (!gc_data.options().blist_default_group.empty()
+                    && gc_data.options().blist_default_group != current_group) {
                 purple_blist_add_buddy(buddy, nullptr, get_default_group(gc), nullptr);
-                current_group = conn_data->options().blist_default_group.data();
+                current_group = gc_data.options().blist_default_group.data();
             }
         }
     }
 
-    conn_data->buddy_blist_last_group[user_id] = current_group;
+    gc_data.buddy_blist_last_group[user_id] = current_group;
 }
 
 // Checks if was moved from group to group, updates VkConnData::chat_blist_last_group and "custom-group" tag.
@@ -422,33 +417,33 @@ void check_chat_group(PurpleConnection* gc, PurpleChat* chat)
     if (!chat_name)
         return;
 
-    VkConnData* conn_data = get_conn_data(gc);
+    VkData& gc_data = get_data(gc);
     uint64 chat_id = chat_id_from_name(chat_name);
     const char* current_group = purple_group_get_name(purple_chat_get_group(chat));
 
     if (purple_blist_node_get_bool(&chat->node, "custom-group")) {
         // Check if chat has been moved back to default group.
-        if (conn_data->options().blist_chat_group == current_group)
+        if (gc_data.options().blist_chat_group == current_group)
             purple_blist_node_remove_setting(&chat->node, "custom-group");
     } else {
         // Check if chat has been moved to another group since last check.
-        if (contains(conn_data->chat_blist_last_group, chat_id)
-                && conn_data->chat_blist_last_group[chat_id] != current_group) {
+        if (contains(gc_data.chat_blist_last_group, chat_id)
+                && gc_data.chat_blist_last_group[chat_id] != current_group) {
             vkcom_debug_info("Buddy group for %s has been changed to custom: %s\n", chat_name,
                               current_group);
 
             purple_blist_node_set_bool(&chat->node, "custom-group", true);
         } else {
             // Check if default group has changed and move to new default group if needed.
-            if (!conn_data->options().blist_chat_group.empty()
-                    && conn_data->options().blist_chat_group != current_group) {
+            if (!gc_data.options().blist_chat_group.empty()
+                    && gc_data.options().blist_chat_group != current_group) {
                 purple_blist_add_chat(chat, get_default_group(gc), nullptr);
-                current_group = conn_data->options().blist_chat_group.data();
+                current_group = gc_data.options().blist_chat_group.data();
             }
         }
     }
 
-    conn_data->chat_blist_last_group[chat_id] = current_group;
+    gc_data.chat_blist_last_group[chat_id] = current_group;
 }
 
 // Returns buddy status (in libpurple terms) from user info.
@@ -615,8 +610,8 @@ void add_buddies_if_needed(PurpleConnection* gc, const uint64_set& user_ids, con
 
     // This function is called when receiving or sending the message to someone, so we should
     // add them to the list of dialog user ids.
-    VkConnData* conn_data = get_conn_data(gc);
-    append(conn_data->dialog_user_ids, user_ids);
+    VkData& gc_data = get_data(gc);
+    append(gc_data.dialog_user_ids, user_ids);
 
     uint64_set unknown_user_ids;
     append_if(unknown_user_ids, user_ids, [=](uint64 user_id) {
@@ -703,8 +698,7 @@ void add_chats_if_needed(PurpleConnection* gc, const uint64_set& chat_ids, const
 
     // This function is called when receiving or sending the message to some chat, so we should
     // add it to the list of chat ids.
-    VkConnData* conn_data = get_conn_data(gc);
-    append(conn_data->chat_ids, chat_ids);
+    append(get_data(gc).chat_ids, chat_ids);
 
     uint64_set unknown_chat_ids;
     append_if(unknown_chat_ids, chat_ids, [=](uint64 chat_id) {
@@ -762,8 +756,8 @@ void update_chat_info(PurpleConnection* gc, const picojson::value& chat)
     }
 
     uint64 chat_id = chat.get("id").get<double>();
-    VkConnData* conn_data = get_conn_data(gc);
-    VkChatInfo& info = conn_data->chat_infos[chat_id];
+    VkData& gc_data = get_data(gc);
+    VkChatInfo& info = gc_data.chat_infos[chat_id];
     info.admin_id = chat.get("admin_id").get<double>();
     info.title = chat.get("title").get<string>();
     info.participants.clear();
@@ -777,7 +771,7 @@ void update_chat_info(PurpleConnection* gc, const picojson::value& chat)
 
         // E-mail participants are less than zero, let's just ignore them. Also, ignore the user.
         int64 user_id = u.get("id").get<double>();
-        if (user_id < 0 || conn_data->self_user_id() == (uint64)user_id)
+        if (user_id < 0 || gc_data.self_user_id() == (uint64)user_id)
             continue;
         info.participants.push_back(user_id);
 
@@ -845,7 +839,7 @@ void get_users_chats_from_dialogs_impl(PurpleConnection* gc, const SuccessCb& su
             return;
         }
 
-        VkConnData* conn_data = get_conn_data(gc);
+        VkData& gc_data = get_data(gc);
 
         uint64 count = v.get("count").get<double>();
         const picojson::array& items = v.get("items").get<picojson::array>();
@@ -875,7 +869,7 @@ void get_users_chats_from_dialogs_impl(PurpleConnection* gc, const SuccessCb& su
                 uint64 chat_id = message.get("chat_id").get<double>();
                 data->chat_ids.insert(chat_id);
 
-                VkChatInfo& info = conn_data->chat_infos[chat_id];
+                VkChatInfo& info = gc_data.chat_infos[chat_id];
                 info.admin_id = message.get("admin_id").get<double>();
                 info.title = message.get("title").get<string>();
                 info.participants.clear();
@@ -904,8 +898,8 @@ void get_users_chats_from_dialogs_impl(PurpleConnection* gc, const SuccessCb& su
         if (next_offset < count) {
             get_users_chats_from_dialogs_impl(gc, success_cb, data, next_offset);
         } else {
-            conn_data->chat_ids = std::move(data->chat_ids);
-            conn_data->dialog_user_ids = std::move(data->user_ids);
+            gc_data.chat_ids = std::move(data->chat_ids);
+            gc_data.dialog_user_ids = std::move(data->user_ids);
             success_cb();
         }
     }, [=](const picojson::value&) {
@@ -922,10 +916,10 @@ void get_users_chats_from_dialogs(PurpleConnection* gc, const SuccessCb& success
 void update_buddy_list(PurpleConnection* gc, bool update_presence)
 {
     PurpleAccount* account = purple_connection_get_account(gc);
-    VkConnData* conn_data = get_conn_data(gc);
+    VkData& gc_data = get_data(gc);
 
     // Check all currently known users if they should be added/updated to buddy list.
-    for (const pair<uint64, VkUserInfo>& p: conn_data->user_infos) {
+    for (const pair<uint64, VkUserInfo>& p: gc_data.user_infos) {
         uint64 user_id = p.first;
         if (!user_should_be_in_blist(gc, user_id))
             continue;
@@ -950,7 +944,7 @@ void update_buddy_list(PurpleConnection* gc, bool update_presence)
     g_slist_free(buddies_list);
 
     // Check all currently known chats if they should be added/updated to buddy list.
-    for (const pair<uint64, VkChatInfo>& p: conn_data->chat_infos) {
+    for (const pair<uint64, VkChatInfo>& p: gc_data.chat_infos) {
         uint64 chat_id = p.first;
         if (!chat_should_be_in_blist(gc, chat_id))
             continue;
@@ -979,8 +973,8 @@ void update_buddy_list(PurpleConnection* gc, bool update_presence)
 void update_open_conversation_presence(PurpleConnection *gc)
 {
     uint64_vec user_ids;
-    VkConnData* conn_data = get_conn_data(gc);
-    for (const auto& it: conn_data->user_infos) {
+    VkData& gc_data = get_data(gc);
+    for (const auto& it: gc_data.user_infos) {
         uint64 user_id = it.first;
         if (!user_is_friend(gc, user_id) && find_conv_for_id(gc, user_id, 0))
             user_ids.push_back(user_id);

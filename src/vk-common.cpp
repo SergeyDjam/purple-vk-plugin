@@ -121,7 +121,7 @@ string uploaded_docs_to_string(const map<uint64, VkUploadedDocInfo>& docs)
 
 } // End of anonymous namespace
 
-VkConnData::VkConnData(PurpleConnection* gc, const string& email, const string& password)
+VkData::VkData(PurpleConnection* gc, const string& email, const string& password)
     : m_email(email),
       m_password(password),
       m_gc(gc),
@@ -151,7 +151,7 @@ VkConnData::VkConnData(PurpleConnection* gc, const string& email, const string& 
     uploaded_docs = uploaded_docs_from_string(str);
 }
 
-VkConnData::~VkConnData()
+VkData::~VkData()
 {
     PurpleAccount* account = purple_connection_get_account(m_gc);
     string str = str_concat_int(',', manually_added_buddies);
@@ -176,7 +176,7 @@ VkConnData::~VkConnData()
         purple_http_keepalive_pool_unref(m_keepalive_pool);
 }
 
-void VkConnData::authenticate(const SuccessCb& success_cb, const ErrorCb& error_cb)
+void VkData::authenticate(const SuccessCb& success_cb, const ErrorCb& error_cb)
 {
     m_access_token.clear();
     vk_auth_user(m_gc, m_email, m_password, VK_CLIENT_ID, "friends,photos,audio,video,docs,messages",
@@ -205,7 +205,7 @@ void VkConnData::authenticate(const SuccessCb& success_cb, const ErrorCb& error_
     });
 }
 
-PurpleHttpKeepalivePool* VkConnData::get_keepalive_pool()
+PurpleHttpKeepalivePool* VkData::get_keepalive_pool()
 {
     if (!m_keepalive_pool)
         m_keepalive_pool = purple_http_keepalive_pool_new();
@@ -262,25 +262,25 @@ void timeout_add(PurpleConnection* gc, unsigned milliseconds, const TimeoutCb& c
     struct TimeoutCbData
     {
         TimeoutCb callback;
-        VkConnData* conn_data;
+        VkData& gc_data;
         uint id;
     };
 
-    VkConnData* conn_data = get_conn_data(gc);
-    if (conn_data->is_closing()) {
+    VkData& gc_data = get_data(gc);
+    if (gc_data.is_closing()) {
         vkcom_debug_error("Programming error: timeout_add(%d) called during logout\n", milliseconds);
         return;
     }
 
-    TimeoutCbData* data = new TimeoutCbData({ callback, conn_data, 0 });
+    TimeoutCbData* data = new TimeoutCbData({ callback, gc_data, 0 });
     data->id = g_timeout_add_full(G_PRIORITY_DEFAULT, milliseconds, [](void* user_data) -> gboolean {
         TimeoutCbData* data = (TimeoutCbData*)user_data;
         return data->callback();
     }, data, [](void* user_data) {
         TimeoutCbData* data = (TimeoutCbData*)user_data;
-        data->conn_data->timeout_ids.erase(data->id);
+        data->gc_data.timeout_ids.erase(data->id);
         delete data;
     });
 
-    conn_data->timeout_ids.insert(data->id);
+    gc_data.timeout_ids.insert(data->id);
 }

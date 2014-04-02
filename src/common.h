@@ -121,6 +121,11 @@ private:
     std::function<void(void)> m_deleter;
 };
 
+// Prevents compiler-generated copy-constructor and assignment operator.
+#define DISABLE_COPYING(CLASSNAME) \
+    CLASSNAME(const CLASSNAME&) = delete; \
+    CLASSNAME& operator=(const CLASSNAME&) = delete;
+
 // Miscellaneous string functions
 
 // Creates a new string, analogous to sprintf
