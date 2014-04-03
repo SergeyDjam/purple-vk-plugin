@@ -204,12 +204,12 @@ VkChatInfo* get_chat_info(PurpleConnection* gc, uint64 chat_id)
 
 bool is_user_manually_added(PurpleConnection* gc, uint64 user_id)
 {
-    return contains(get_data(gc).manually_added_buddies, user_id);
+    return contains(get_data(gc).manually_added_buddies(), user_id);
 }
 
 bool is_user_manually_removed(PurpleConnection* gc, uint64 user_id)
 {
-    return contains(get_data(gc).manually_removed_buddies, user_id);
+    return contains(get_data(gc).manually_removed_buddies(), user_id);
 }
 
 bool is_chat_manually_added(PurpleConnection* gc, uint64 chat_id)

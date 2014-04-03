@@ -335,10 +335,7 @@ void vk_remove_buddy(PurpleConnection* gc, PurpleBuddy* buddy, PurpleGroup*)
     if (user_id == 0)
         return;
 
-    VkData& gc_data = get_data(gc);
-    if (contains(gc_data.manually_added_buddies, user_id))
-        gc_data.manually_added_buddies.erase(user_id);
-    gc_data.manually_removed_buddies.insert(user_id);
+    get_data(gc).set_manually_remove_buddy(user_id);
 }
 
 void vk_chat_join(PurpleConnection* gc, GHashTable* components)
@@ -568,9 +565,7 @@ void vk_add_buddy_with_invite(PurpleConnection* gc, PurpleBuddy* buddy, PurpleGr
             return;
         }
 
-        VkData& gc_data = get_data(gc);
-        gc_data.manually_removed_buddies.erase(user_id);
-        gc_data.manually_added_buddies.insert(user_id);
+        get_data(gc).set_manually_added_buddy(user_id);
 
         add_buddy_if_needed(gc, user_id, [=] {
             PurpleBuddy* buddy = purple_find_buddy(purple_connection_get_account(gc),

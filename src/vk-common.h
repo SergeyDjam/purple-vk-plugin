@@ -198,10 +198,32 @@ public:
         m_last_msg_sent_time = sent_time;
     }
 
-    // These two sets are updated when user selects "Add buddy" or "Remove buddy" in the buddy list.
-    // They are permanently stored in account properties, loaded in VkConnData constructor and stored in destructor.
-    uint64_set manually_added_buddies;
-    uint64_set manually_removed_buddies;
+    // These two sets (manually_added_buddies and manually_removed_buddies) are updated when user selects
+    // "Add buddy" or "Remove buddy" in the buddy list. They are permanently stored in account properties,
+    // loaded in VkConnData constructor and stored in destructor.
+    const uint64_set& manually_added_buddies() const
+    {
+        return m_manually_added_buddies;
+    }
+
+    const uint64_set& manually_removed_buddies() const
+    {
+        return m_manually_removed_buddies;
+    }
+
+    // Adds user_id to manually added buddy list.
+    void set_manually_added_buddy(uint64 user_id)
+    {
+        m_manually_added_buddies.insert(user_id);
+        m_manually_removed_buddies.erase(user_id);
+    }
+
+    // Adds user_id to manually removed buddy list.
+    void set_manually_remove_buddy(uint64 user_id)
+    {
+        m_manually_removed_buddies.insert(user_id);
+        m_manually_added_buddies.erase(user_id);
+    }
 
     // These set is updated when user selects "Add chat" or "Join chat" in the buddy list.
     // They are permanently stored in account properties, loaded in VkConnData constructor and stored in destructor.
@@ -256,6 +278,9 @@ private:
 
     uint64_set m_sent_msg_ids;
     steady_time_point m_last_msg_sent_time;
+
+    uint64_set m_manually_added_buddies;
+    uint64_set m_manually_removed_buddies;
 
     PurpleConnection* m_gc;
     bool m_closing;

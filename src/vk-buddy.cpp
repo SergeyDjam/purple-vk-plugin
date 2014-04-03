@@ -58,7 +58,7 @@ void update_buddies(PurpleConnection* gc, bool update_presence, const SuccessCb&
             }
 
             // We could've manually added buddy and he has become our friend later.
-            append_if(non_friend_user_ids, gc_data.manually_added_buddies, [=](uint64 user_id) {
+            append_if(non_friend_user_ids, gc_data.manually_added_buddies(), [=](uint64 user_id) {
                 return !user_is_friend(gc, user_id);
             });
 

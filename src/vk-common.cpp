@@ -139,10 +139,10 @@ VkData::VkData(PurpleConnection* gc, const string& email, const string& password
     m_options.blist_chat_group = purple_account_get_string(account, "blist_chat_group", "");
 
     const char* str = purple_account_get_string(account, "manually_added_buddies", "");
-    manually_added_buddies = str_split_int(str);
+    m_manually_added_buddies = str_split_int(str);
 
     str = purple_account_get_string(account, "manually_removed_buddies", "");
-    manually_removed_buddies = str_split_int(str);
+    m_manually_removed_buddies = str_split_int(str);
 
     str = purple_account_get_string(account, "deferred_mark_as_read", "");
     deferred_mark_as_read = deferred_mark_as_read_from_string(str);
@@ -154,10 +154,10 @@ VkData::VkData(PurpleConnection* gc, const string& email, const string& password
 VkData::~VkData()
 {
     PurpleAccount* account = purple_connection_get_account(m_gc);
-    string str = str_concat_int(',', manually_added_buddies);
+    string str = str_concat_int(',', m_manually_added_buddies);
     purple_account_set_string(account, "manually_added_buddies", str.data());
 
-    str = str_concat_int(',', manually_removed_buddies);
+    str = str_concat_int(',', m_manually_removed_buddies);
     purple_account_set_string(account, "manually_removed_buddies", str.data());
 
     str = deferred_mark_as_read_to_string(deferred_mark_as_read);
