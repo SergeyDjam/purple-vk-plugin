@@ -3,7 +3,7 @@
 
 #pragma once
 
-// It gets set by CMake and is so much trouble to unset, so let's unset it here :-)
+// NDEBUG gets set by CMake and is so much trouble to unset, so let's unset it here :-)
 // On Linux it is used only for always enabling assert().
 #undef NDEBUG
 
@@ -286,48 +286,47 @@ inline bool contains(const Cont& cont, const Key& key)
     return cont.find(key) != cont.end();
 }
 
-// Appends one container to another, version for sets/maps.
+// Inserts contents of one container into another, used when DstCont = map or set.
 template<typename DstCont, typename SrcCont>
-inline void append(DstCont& dst, const SrcCont& src)
+inline void insert(DstCont& dst, const SrcCont& src)
 {
     for (auto it = src.cbegin(); it != src.cend(); ++it)
         dst.insert(*it);
 }
 
-// Appends one container to another, version for vector.
-template<typename ...DstArgs, typename SrcCont>
-inline void append(vector<DstArgs...>& dst, const SrcCont& src)
+// Appends one container to another.
+template<typename DstCont, typename SrcCont>
+inline void append(DstCont& dst, const SrcCont& src)
 {
     dst.insert(dst.end(), src.begin(), src.end());
 }
 
-// Appends all elements satisfying predicate from one container to another, version for sets/maps.
+// Inserts all elements satisfying predicate from one container to another.
 template<typename DstCont, typename SrcCont, typename Pred>
-inline void append_if(DstCont& dst, const SrcCont& src, Pred pred)
+inline void insert_if(DstCont& dst, const SrcCont& src, Pred pred)
 {
     for (auto it = src.cbegin(); it != src.cend(); ++it)
         if (pred(*it))
             dst.insert(*it);
 }
 
-// Appends all elements satisfying predicate from one container to another, version for vectors.
-template<typename ...DstArgs, typename SrcCont, typename Pred>
-inline void append_if(vector<DstArgs...>& dst, const SrcCont& src, Pred pred)
+// Appends all elements satisfying predicate from one container to another.
+template<typename DstCont, typename SrcCont, typename Pred>
+inline void append_if(DstCont& dst, const SrcCont& src, Pred pred)
 {
     for (auto it = src.cbegin(); it != src.cend(); ++it)
         if (pred(*it))
             dst.push_back(*it);
 }
 
-// Assigns contents of one container to another (used instead of operator= for different containers).
+// Assigns contents of one container to another, used instead of operator= when DstCont != SrcCont,
 template<typename DstCont, typename SrcCont>
 inline void assign(DstCont& dst, const SrcCont& src)
 {
-    dst.clear();
-    append(dst, src);
+    dst = DstCont(src.begin(), src.end());
 }
 
-// Removes all elements, satisfying predicate, version for sets/maps.
+// Removes all elements, satisfying predicate, Cont should be list/set/map.
 template<typename Cont, typename Pred>
 inline void erase_if(Cont& cont, Pred pred)
 {
@@ -340,18 +339,27 @@ inline void erase_if(Cont& cont, Pred pred)
     }
 }
 
-// Removes all elements, satisfying predicate, version for vectors.
-template<typename ...Args, typename Pred>
-inline void erase_if(vector<Args...>& cont, Pred pred)
+// Removes all elements, satisfying predicate, overload for erase_if when Cont is vector.
+// NOTE: remove_if really should be a container member function because it depends on internal
+// container structure.
+template<typename T, typename Alloc, typename Pred>
+inline void erase_if(vector<T, Alloc>& cont, Pred pred)
 {
     cont.erase(std::remove_if(cont.begin(), cont.end(), pred), cont.end());
 }
 
-// Removes sequential equal elements from vector.
-template<typename ...Params, typename Pred>
-inline void unique(vector<Params...>& cont, Pred pred)
+// Removes sequential equal elements. DstCont should be vector/deque.
+template<typename DstCont, typename Pred>
+inline void unique(DstCont& cont, Pred pred)
 {
     cont.erase(std::unique(cont.begin(), cont.end(), pred), cont.end());
+}
+
+// Converts container to vector.
+template<typename Cont>
+inline vector<typename Cont::value_type, typename Cont::allocator_type> to_vector(const Cont& cont)
+{
+    return vector<typename Cont::value_type, typename Cont::allocator_type>(cont.begin(), cont.end());
 }
 
 // Time functions

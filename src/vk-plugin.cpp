@@ -170,30 +170,32 @@ void vk_login(PurpleAccount* account)
             set_account_alias(gc);
         }
 
+        check_blist_on_login(gc);
+
         check_open_chat_convs(gc);
 
         // Start Long Poll event processing. Buddy list and unread messages will be retrieved there.
         start_long_poll(gc);
 
-        // Add updating buddy list every 15 minutes. If we do not update regularily, we might miss
-        // updates to buddy status text, buddy icon or other information. Do not update buddy presence,
-        // as it is now managed by longpoll.
+        // Add updating users and chats information every 15 minutes. If we do not update regularily, we might miss
+        // updates to buddy status text, buddy icon or other information. First time user and chat infos are
+        // updated when longpoll starts.
         timeout_add(gc, 15 * 60 * 1000, [=] {
-            update_buddies(gc, false);
+            update_user_chat_infos(gc);
             return true;
         });
 
         // Longpoll only notifies about status of friends. If we have conversations open with non-friends,
         // we update their status every minute.
         timeout_add(gc, 60 * 1000, [=] {
-            update_open_conversation_presence(gc);
+            update_open_conv_presence(gc);
             return true;
         });
 
-        vk_update_status(gc);
         // Update that we are online every 15 minutes.
+        update_status(gc);
         timeout_add(gc, 15 * 60 * 1000, [=] {
-            vk_update_status(gc);
+            update_status(gc);
             return true;
         });
 
@@ -207,12 +209,10 @@ void vk_close(PurpleConnection* gc)
 {
     vkcom_debug_info("Closing connection\n");
 
-    check_custom_alias_group(gc);
-
     purple_signal_disconnect(purple_conversations_get_handle(), "conversation-updated", gc,
                           PURPLE_CALLBACK(conversation_updated));
 
-    vk_set_offline(gc);
+    set_offline(gc);
     // Let's sleep 250 msec, so that setOffline executes successfully. Yes, it is ugly, but
     // we cannot defer destruction of PurpleConnection and doing the "right way" is such a bother.
     g_usleep(250000);
@@ -222,6 +222,8 @@ void vk_close(PurpleConnection* gc)
 
     purple_request_close_with_handle(gc);
     purple_http_conn_cancel_all(gc);
+
+    check_blist_on_logout(gc);
 
     purple_connection_set_protocol_data(gc, nullptr);
     delete &data;
@@ -315,7 +317,7 @@ void vk_set_status(PurpleAccount* account, PurpleStatus* status)
     PurpleStatusPrimitive primitive_status = purple_status_type_get_primitive(purple_status_get_type(status));
     if (primitive_status == PURPLE_STATUS_AVAILABLE)
         mark_deferred_messages_as_read(purple_account_get_connection(account), true);
-    vk_update_status(purple_account_get_connection(account));
+    update_status(purple_account_get_connection(account));
 }
 
 void vk_add_buddy_with_invite(PurpleConnection* gc, PurpleBuddy* buddy, PurpleGroup* group, const char*);
@@ -335,7 +337,7 @@ void vk_remove_buddy(PurpleConnection* gc, PurpleBuddy* buddy, PurpleGroup*)
     if (user_id == 0)
         return;
 
-    get_data(gc).set_manually_remove_buddy(user_id);
+    get_data(gc).set_manually_removed_buddy(user_id);
 }
 
 void vk_chat_join(PurpleConnection* gc, GHashTable* components)
@@ -437,8 +439,8 @@ int vk_chat_send(PurpleConnection* gc, int id, const char* message, PurpleMessag
 
     // Pidgin for some reason does not write outgoing messages when writing to the chat,
     // so we have to do it oruselves.
-    const char* alias = purple_account_get_name_for_display(purple_connection_get_account(gc));
-    serv_got_chat_in(gc, id, alias, PURPLE_MESSAGE_SEND, message, time(nullptr));
+    string from = get_self_chat_display_name(gc);
+    serv_got_chat_in(gc, id, from.data(), PURPLE_MESSAGE_SEND, message, time(nullptr));
 
     return send_chat_message(gc, chat_id, message);
 }
@@ -493,10 +495,13 @@ char* vk_get_cb_real_name(PurpleConnection* gc, int id, const char* who)
             user_id = get_data(gc).self_user_id();
     }
 
-    if (user_id != 0)
+    if (user_id != 0) {
+        // We will probably open the chat with the user, so let's add it to the buddy list.
+        add_buddy_if_needed(gc, user_id);
         return g_strdup(user_name_from_id(user_id).data());
-    else
+    } else {
         return nullptr;
+    }
 }
 
 void vk_set_chat_topic(PurpleConnection*, int, const char*)

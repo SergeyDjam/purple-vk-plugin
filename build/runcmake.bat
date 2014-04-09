@@ -1,14 +1,14 @@
 :: Path to unpacked sources of Pidgin. There is no need to compile Pidgin, only headers
 :: are needed.
-set PIDGINSRCPATH=c:\src\pidgin-2.10.9
+set PIDGINSRCPATH=\src\pidgin-2.10.9
 :: Path to unpacked sources of Glib-2.28. Copy glib\glibconfig.h.win32 to glib\glibconfig.h
 :: There is no need to compile Glib, only headers are needed.
-set GLIBSRCPATH=c:\src\glib-2.28.8
+set GLIBSRCPATH=\src\glib-2.28.8
 
 :: Path to directory, containing libpurple.dll, libglib-2.0-0.dll and libgio-2.0-0.dll
 :: from Pidgin installation. Path should not contain spaces, so we copy the files
 :: to a separate directory.
-set PIDGINBINPATH=c:\src\pidgin-bin\
+set PIDGINBINPATH=\src\pidgin-bin\
 
 :: The following mingw packages must be additionally installed:
 ::   mingw32-libiconv

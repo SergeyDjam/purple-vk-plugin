@@ -50,32 +50,12 @@ void remove_conv_id(PurpleConnection* gc, int conv_id)
 namespace
 {
 
-// Used when user has duplicate name with other user in chat, appends some unique id.
-string get_unique_display_name(PurpleConnection* gc, uint64 user_id)
-{
-    VkUserInfo* info = get_user_info(gc, user_id);
-    if (!info)
-        return user_name_from_id(user_id);
-
-    // Return either "Name (nickname)" or "Name (id)"
-    if (!info->domain.empty())
-        return str_format("%s (%s)", info->real_name.data(), info->domain.data());
-    else
-        return str_format("%s (%" PRIu64 ")", info->real_name.data(), user_id);
-}
-
 // Checks if all users are the same as listed in info, returns false if differ.
 bool are_equal_chat_users(PurpleConnection* gc, PurpleConvChat* conv, VkChatInfo* info)
 {
     string_set names;
-    for (uint64 user_id: info->participants) {
-        string user_name = get_user_display_name(gc, user_id);
-        if (contains(names, user_name)) {
-            names.insert(get_unique_display_name(gc, user_id));
-        } else {
-            names.insert(user_name);
-        }
-    }
+    for (const pair<string, uint64>& p: info->participant_ids)
+        names.insert(p.first);
     const char* self_alias = purple_account_get_alias(purple_connection_get_account(gc));
     names.insert(self_alias);
 
@@ -106,18 +86,9 @@ void update_open_chat_conv_impl(PurpleConnection* gc, PurpleConversation* conv, 
 
         purple_conv_chat_clear_users(PURPLE_CONV_CHAT(conv));
 
-        for (uint64 user_id: info->participants) {
-            string user_name = get_user_display_name(gc, user_id);
-
-            // Check if we already have user with this name in chat.
-            uint64 other_id = info->participant_names[user_name];
-            if (other_id == 0) {
-                info->participant_names[user_name] = user_id;
-            } else if (other_id != user_id) {
-                // We already have one user with this name in chat, get a unique one.
-                user_name = get_unique_display_name(gc, user_id);
-                info->participant_names[user_name] = user_id;
-            }
+        for (const pair<string, uint64>& p: info->participant_ids) {
+            const string& user_name = p.first;
+            uint64 user_id = p.second;
 
             PurpleConvChatBuddyFlags flags;
             if (user_id == info->admin_id)
@@ -126,19 +97,6 @@ void update_open_chat_conv_impl(PurpleConnection* gc, PurpleConversation* conv, 
                 flags = PURPLE_CBFLAGS_NONE;
             purple_conv_chat_add_user(PURPLE_CONV_CHAT(conv), user_name.data(), "", flags, false);
         }
-
-        // Add self
-        const char* self_alias = purple_account_get_alias(purple_connection_get_account(gc));
-        string self_name = str_format("%s (you)", self_alias);
-        VkData& gc_data = get_data(gc);
-        info->participant_names[self_name] = gc_data.self_user_id();
-
-        PurpleConvChatBuddyFlags flags;
-        if (gc_data.self_user_id() == info->admin_id)
-            flags = PURPLE_CBFLAGS_FOUNDER;
-        else
-            flags = PURPLE_CBFLAGS_NONE;
-        purple_conv_chat_add_user(PURPLE_CONV_CHAT(conv), self_name.data(), "", flags, false);
     }
 }
 
@@ -230,7 +188,7 @@ uint64 find_user_id_from_conv(PurpleConnection* gc, int conv_id, const char* who
         return 0;
     }
 
-    uint64 user_id = map_at(chat_info->participant_names, who, 0);
+    uint64 user_id = map_at(chat_info->participant_ids, who, 0);
     if (user_id == 0)
         vkcom_debug_error("Unknown user %s in chat%" PRIu64 "\n", who, chat_id);
     return user_id;

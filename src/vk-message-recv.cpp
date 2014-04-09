@@ -632,9 +632,9 @@ void replace_user_ids(const MessagesData_ptr& data)
     // Get all user ids, which are not present in user_infos.
     uint64_set unknown_user_ids;
     for (const Message& m: data->messages)
-        append(unknown_user_ids, m.unknown_user_ids);
+        insert(unknown_user_ids, m.unknown_user_ids);
 
-    add_or_update_user_infos(data->gc, unknown_user_ids, [=] {
+    update_user_infos(data->gc, unknown_user_ids, [=] {
         for (Message& m: data->messages) {
             for (unsigned i = 0; i < m.unknown_user_ids.size(); i++) {
                 uint64 id = m.unknown_user_ids[i];
@@ -679,38 +679,39 @@ void replace_group_ids(const MessagesData_ptr& data)
 
 void add_unknown_users_chats(const MessagesData_ptr& data)
 {
-    // Users to get information about: authors of every read incoming message (we need their real
-    // names when we write to the log) and all the users to be added to the buddy list (see below).
-    // Chat participants are updated when chat information is updated.
-    uint64_set unknown_user_ids;
+    // Chats to get information about: all incoming chats. Chat participants are updated
+    // when updating chat information.
+    uint64_set unknown_chat_ids;
     for (const Message& m: data->messages)
-        if (m.status != MESSAGE_OUTGOING && m.chat_id == 0 && is_unknown_user(data->gc, m.user_id))
-            unknown_user_ids.insert(m.user_id);
+        if (m.status != MESSAGE_OUTGOING && m.chat_id != 0 && is_unknown_chat(data->gc, m.chat_id))
+            unknown_chat_ids.insert(m.chat_id);
 
-    add_or_update_user_infos(data->gc, unknown_user_ids, [=] {
-        // Users to be added to buddy list: authors of unread non-chat messages. Chat participants
-        // are never added to buddy list (unless they are already there).
-        uint64_set user_ids_to_buddy_list;
+    update_chat_infos(data->gc, unknown_chat_ids, [=] {
+        // Chats to be added to buddy list: all unread incoming chats.
+        uint64_set chat_ids_to_buddy_list;
         for (const Message& m: data->messages)
-            if (m.status == MESSAGE_INCOMING_UNREAD && m.chat_id == 0 && !user_in_buddy_list(data->gc, m.user_id))
-                user_ids_to_buddy_list.insert(m.user_id);
+            if (m.status == MESSAGE_INCOMING_UNREAD && m.chat_id != 0 && !chat_in_buddy_list(data->gc, m.chat_id))
+                chat_ids_to_buddy_list.insert(m.chat_id);
 
-        add_buddies_if_needed(data->gc, user_ids_to_buddy_list, [=] {
-            // Chats to get information about: all incoming chats. Chat participants are updated
-            // when updating chat information.
-            uint64_set unknown_chat_ids;
+        add_chats_if_needed(data->gc, chat_ids_to_buddy_list, [=] {
+            // Users to get information about: authors of every read incoming message (we need their real
+            // names when we write to the log) and all the users to be added to the buddy list (see below).
+            // Not all chat participants have been updated when chat information was updated due to chats
+            // being deactivated, so let's update info for them.
+            uint64_set unknown_user_ids;
             for (const Message& m: data->messages)
-                if (m.status != MESSAGE_OUTGOING && m.chat_id != 0 && is_unknown_chat(data->gc, m.chat_id))
-                    unknown_chat_ids.insert(m.chat_id);
+                if (m.status != MESSAGE_OUTGOING && is_unknown_user(data->gc, m.user_id))
+                    unknown_user_ids.insert(m.user_id);
 
-            add_or_update_chat_infos(data->gc, unknown_chat_ids, [=] {
-                // Chats to be added to buddy list: all unread incoming chats.
-                uint64_set chat_ids_to_buddy_list;
+            update_user_infos(data->gc, unknown_user_ids, [=] {
+                // Users to be added to buddy list: authors of unread non-chat messages. Chat participants
+                // are never added to buddy list (unless they are already there).
+                uint64_set user_ids_to_buddy_list;
                 for (const Message& m: data->messages)
-                    if (m.status == MESSAGE_INCOMING_UNREAD && m.chat_id != 0 && !chat_in_buddy_list(data->gc, m.chat_id))
-                        chat_ids_to_buddy_list.insert(m.chat_id);
+                    if (m.status == MESSAGE_INCOMING_UNREAD && m.chat_id == 0 && !user_in_buddy_list(data->gc, m.user_id))
+                        user_ids_to_buddy_list.insert(m.user_id);
 
-                add_chats_if_needed(data->gc, chat_ids_to_buddy_list, [=] {
+                add_buddies_if_needed(data->gc, user_ids_to_buddy_list, [=] {
                     finish_receiving(data);
                 });
             });
@@ -754,11 +755,16 @@ void finish_receiving(const MessagesData_ptr& data)
             string from;
             PurpleMessageFlags flags;
             if (m.status == MESSAGE_INCOMING_READ) {
-                // TODO: Add getting username from chat information for chat messages.
-                from = get_user_display_name(data->gc, m.user_id);
+                if (m.chat_id != 0)
+                    from = get_user_display_name(data->gc, m.user_id, m.chat_id);
+                else
+                    from = get_user_display_name(data->gc, m.user_id);
                 flags = PURPLE_MESSAGE_RECV;
             } else {
-                from = purple_account_get_name_for_display(purple_connection_get_account(data->gc));
+                if (m.chat_id != 0)
+                    from = get_self_chat_display_name(data->gc);
+                else
+                    from = purple_account_get_name_for_display(purple_connection_get_account(data->gc));
                 flags = PURPLE_MESSAGE_SEND;
             }
 

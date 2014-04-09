@@ -33,7 +33,7 @@ uint64 load_last_msg_id(PurpleConnection* gc);
 void save_last_msg_id(PurpleConnection* gc, uint64 last_msg_id);
 
 // Helper for start_long_poll.
-void start_long_poll_internal(PurpleConnection* gc, uint64 last_msg_id);
+void start_long_poll_impl(PurpleConnection* gc, uint64 last_msg_id);
 
 } // End of anonymous namespace
 
@@ -41,7 +41,7 @@ void start_long_poll(PurpleConnection* gc)
 {
     uint64 last_msg_id = load_last_msg_id(gc);
     vkcom_debug_info("Starting Long Poll with last msg id %" PRIu64 "\n", last_msg_id);
-    start_long_poll_internal(gc, last_msg_id);
+    start_long_poll_impl(gc, last_msg_id);
 }
 
 namespace
@@ -78,7 +78,7 @@ void request_long_poll(PurpleConnection* gc, const string& server, const string&
 // Disconnects account on Long Poll errors as we do not have anything to do after that really.
 void long_poll_fatal(PurpleConnection* gc);
 
-void start_long_poll_internal(PurpleConnection* gc, uint64 last_msg_id)
+void start_long_poll_impl(PurpleConnection* gc, uint64 last_msg_id)
 {
     CallParams params = { {"use_ssl", "1"} };
     vk_call_api(gc, "messages.getLongPollServer", params, [=](const picojson::value& v) {
@@ -92,8 +92,11 @@ void start_long_poll_internal(PurpleConnection* gc, uint64 last_msg_id)
 
         // First, we update buddy presence and receive unread messages and only then start processing
         // events. We won't miss any events because we already got starting timestamp from server.
-        update_buddies(gc, true, [=] {
+        update_friends_presence(gc, [=] {
             receive_messages_range(gc, last_msg_id,  [=](uint64 max_msg_id) {
+                // Start updaing user and chat infos, buddy list.
+                update_user_chat_infos(gc);
+
                 // We've received no new messages.
                 if (max_msg_id == 0)
                     max_msg_id = last_msg_id;
@@ -161,7 +164,7 @@ void request_long_poll(PurpleConnection* gc, const string& server, const string&
 
         if (root.contains("failed")) {
             vkcom_debug_info("Long Poll got tired, re-requesting Long Poll server address\n");
-            start_long_poll_internal(gc, last_msg.id);
+            start_long_poll_impl(gc, last_msg.id);
             return;
         }
 
@@ -295,7 +298,7 @@ void process_message(PurpleConnection* gc, const picojson::value& v, LastMsg& la
         process_incoming_message_internal(gc, msg_id, flags, user_id, move(text), timestamp);
     } else {
         // Process outgoing message. This message could've been sent either by us, or by another connected client.
-        // See description in vk-common.h of corresponding members of VkConnData for details.
+        // See description in vk-common.h of corresponding members of VkData for details.
         vkcom_debug_info("Got outgoing message\n");
 
         VkData& gc_data = get_data(gc);
@@ -430,7 +433,7 @@ void process_online(PurpleConnection* gc, const picojson::value& v, bool online)
             info->online = false;
             info->online_mobile = false;
         }
-        update_presence_in_buddy_list(gc, user_id);
+        update_presence_in_blist(gc, user_id);
     }
 }
 

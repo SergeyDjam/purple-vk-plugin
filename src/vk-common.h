@@ -42,7 +42,7 @@ enum VkErrorCodes {
 struct VkUserInfo
 {
     // Pair name+surname. It is saved, because we can set custom alias for the user,
-    // but still display original name in "Get Info" dialog
+    // but still display original name in "Get Info" dialog.
     string real_name;
 
     string activity;
@@ -84,19 +84,25 @@ struct VkChatInfo
 {
     uint64 admin_id;
     string title;
-    uint64_vec participants;
-    // We store both participant uids and participant names, so that we can get the name -> uid
-    // mapping back for vk_get_cb_real_name. This map gets updated only when conversation
-    // is open.
-    //
-    // General notes regarding names in chats: unlike users in buddy list where we can separately set
-    // whichever alias we like (and we set username to idXXX and alias to real name) Pidgin does not
-    // allow manually specifying aliases for chat participants (2.x versions still allow it, but 3.0
-    // will forbid). We resort to somewhat complex scheme of using real name or real name + nickname/idXXX
-    // as chat user name.
-    map<string, uint64> participant_names;
+    // We store both participant uids and participant names, because we can get two users with the
+    // same real_name in one chat and no way to differentiate them --- no avatars etc.). We use
+    // real name + nickname or real name + id if we have two users with equal real names.
+    // These two containers should be merged into a bimap.
+    map<uint64, string> participant_names;
+    map<string, uint64> participant_ids;
 };
 
+// A structure, which holds the previous state of node in buddy list. Motivation: we store
+// the previous version of buddy list in order to check whether the user has changed anything
+// (e.g. aliased buddy, moved buddy to another group, removed buddy, aliased chat, moved chat
+// to another group, removed chat). While we can get notifications from libpurple for
+// the first three events, libpurple does not report changes for chats, so we do both buddies
+// and chats uniformly.
+struct VkBlistNode
+{
+    string alias;
+    string group;
+};
 
 // All timed events must be added via this timeout_add, because only then they will be properly
 // destroyed upon closing connection.
@@ -199,8 +205,8 @@ public:
     }
 
     // These two sets (manually_added_buddies and manually_removed_buddies) are updated when user selects
-    // "Add buddy" or "Remove buddy" in the buddy list. They are permanently stored in account properties,
-    // loaded in VkConnData constructor and stored in destructor.
+    // "Add buddy" or "Remove" in the buddy list. They are permanently stored in account properties,
+    // loaded in VkData constructor and stored in destructor.
     const uint64_set& manually_added_buddies() const
     {
         return m_manually_added_buddies;
@@ -219,15 +225,38 @@ public:
     }
 
     // Adds user_id to manually removed buddy list.
-    void set_manually_remove_buddy(uint64 user_id)
+    void set_manually_removed_buddy(uint64 user_id)
     {
         m_manually_removed_buddies.insert(user_id);
         m_manually_added_buddies.erase(user_id);
     }
 
-    // These set is updated when user selects "Add chat" or "Join chat" in the buddy list.
-    // They are permanently stored in account properties, loaded in VkConnData constructor and stored in destructor.
-    uint64_set manually_added_chats;
+    // These two sets (manually_added_chats and manually_removed_chats) are updated when user selects "Add chat",
+    // "Join chat" or "Remove" in the buddy list. They are permanently stored in account properties, loaded
+    // in VkData constructor and stored in destructor.
+    const uint64_set& manually_added_chats() const
+    {
+        return m_manually_added_chats;
+    }
+
+    const uint64_set& manually_removed_chats() const
+    {
+        return m_manually_removed_chats;
+    }
+
+    // Adds chat_id to manually added chat list.
+    void set_manually_added_chat(uint64 chat_id)
+    {
+        m_manually_added_chats.insert(chat_id);
+        m_manually_removed_chats.erase(chat_id);
+    }
+
+    // Adds chat_id to manually removed chat list.
+    void set_manually_removed_chat(uint64 chat_id)
+    {
+        m_manually_removed_chats.insert(chat_id);
+        m_manually_added_chats.erase(chat_id);
+    }
 
     // A collection of messages, which should be marked as read later (when user starts
     // typing or activates tab or changes status to Available). Must be stored and loaded, so that
@@ -238,17 +267,15 @@ public:
     // from settings.
     map<uint64, VkUploadedDocInfo> uploaded_docs;
 
-    // We store buddy and chat names, buddy and chat groups names in order to check later if user has move buddies
-    // or chats to new groups. See check_custom_alias_group(). Buddy and chat names most of the time are duplicate
-    // with the data in user_infos (unless user has changed the name).
-    map<uint64, string> buddy_blist_last_alias;
-    map<uint64, string> chat_blist_last_alias;
-    map<uint64, string> buddy_blist_last_group;
-    map<uint64, string> chat_blist_last_group;
+    // The following two maps store the previous version of buddy list. See comments on VkBlistNode
+    // for more info.
+    map<uint64, VkBlistNode> blist_buddies;
+    map<uint64, VkBlistNode> blist_chats;
 
     // Unfortunately, Pidgin requires each open chat to have a unique int identifier. This vector stores mapping
     // from Vk.com chat ids to Pidgin open chat conversation ids. See more in NOTE for chat_name_from_id
     // in vk-common.cpp.
+    // This container should be changed into bimap.
     vector<pair<int, uint64>> chat_conv_ids;
 
     // If true, connection is in "closing" state. This is set in vk_close and is used in longpoll
@@ -281,6 +308,8 @@ private:
 
     uint64_set m_manually_added_buddies;
     uint64_set m_manually_removed_buddies;
+    uint64_set m_manually_added_chats;
+    uint64_set m_manually_removed_chats;
 
     PurpleConnection* m_gc;
     bool m_closing;

@@ -9,21 +9,27 @@
 #include "vk-common.h"
 
 
-// Set account alias to user full name (first name + second name).
+// Sets account alias to user full name (first name + second name).
 void set_account_alias(PurpleConnection* gc);
 
 // Finds links to photo/video/docs on vk.com and returns attachment string, describing them as required
 // by message.send API call.
 string parse_vkcom_attachments(const string& message);
 
-// Gets name used for display for user.
+// Gets display name for user.
 string get_user_display_name(PurpleConnection* gc, uint64 user_id);
+
+// Gets display name for user in chat.
+string get_user_display_name(PurpleConnection *gc, uint64 user_id, uint64 chat_id);
+
+// Gets display name for self in chats (with " (you)" appended).
+string get_self_chat_display_name(PurpleConnection* gc);
 
 // Returns true if user_id is present in buddy list.
 bool user_in_buddy_list(PurpleConnection* gc, uint64 user_id);
 
 // Returns true if user_id is a friend.
-bool user_is_friend(PurpleConnection* gc, uint64 user_id);
+bool is_user_friend(PurpleConnection* gc, uint64 user_id);
 
 // Returns true if user ever had a dialog with user_id.
 bool had_dialog_with_user(PurpleConnection* gc, uint64 user_id);
@@ -38,7 +44,7 @@ bool have_conversation_with_user(PurpleConnection* gc, uint64 user_id);
 bool chat_in_buddy_list(PurpleConnection* gc, uint64 chat_id);
 
 // Returns true if user is a participant in chat_id.
-bool participant_in_chat(PurpleConnection* gc, uint64 chat_id);
+bool is_participant_in_chat(PurpleConnection* gc, uint64 chat_id);
 
 // Returns true if chat is not present even in chat infos.
 bool is_unknown_chat(PurpleConnection* gc, uint64 chat_id);
@@ -47,17 +53,20 @@ bool is_unknown_chat(PurpleConnection* gc, uint64 chat_id);
 VkUserInfo* get_user_info(PurpleBuddy* buddy);
 VkUserInfo* get_user_info(PurpleConnection* gc, uint64 user_id);
 
-// Return VkChatInfo or nullptr if infostill has not been added.
+// Returns VkChatInfo or nullptr if infostill has not been added.
 VkChatInfo* get_chat_info(PurpleConnection* gc, uint64 chat_id);
 
-// Check if buddy has been manually added to the buddy list.
+// Checks if buddy has been manually added to the buddy list.
 bool is_user_manually_added(PurpleConnection* gc, uint64 user_id);
 
-// Check if buddy has been manually removed from the buddy list.
+// Checks if buddy has been manually removed from the buddy list.
 bool is_user_manually_removed(PurpleConnection* gc, uint64 user_id);
 
-// Check if chat has been manually added to the buddy list.
+// Checks if chat has been manually added to the buddy list.
 bool is_chat_manually_added(PurpleConnection* gc, uint64 chat_id);
+
+// Checks if chat has manually removed from the buddy list.
+bool is_chat_manually_removed(PurpleConnection* gc, uint64 chat_id);
 
 // Map of several PurpleLogs (one for each user), so that they are not created for each received message.
 // Used in vk-message-recv.cpp

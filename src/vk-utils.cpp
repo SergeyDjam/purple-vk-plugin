@@ -121,12 +121,31 @@ string get_user_display_name(PurpleConnection* gc, uint64 user_id)
         return user_name_from_id(user_id);
 }
 
+
+string get_user_display_name(PurpleConnection* gc, uint64 user_id, uint64 chat_id)
+{
+    VkChatInfo* info = get_chat_info(gc, chat_id);
+    if (!info)
+        return get_user_display_name(gc, user_id);
+
+    if (!contains(info->participant_names, user_id))
+        return get_user_display_name(gc, user_id);
+
+    return info->participant_names[user_id];
+}
+
+string get_self_chat_display_name(PurpleConnection* gc)
+{
+    const char* self_alias = purple_account_get_alias(purple_connection_get_account(gc));
+    return str_format("%s (you)", self_alias);
+}
+
 bool user_in_buddy_list(PurpleConnection* gc, uint64 user_id)
 {
     return buddy_from_user_id(gc, user_id) != nullptr;
 }
 
-bool user_is_friend(PurpleConnection* gc, uint64 user_id)
+bool is_user_friend(PurpleConnection* gc, uint64 user_id)
 {
     return contains(get_data(gc).friend_user_ids, user_id);
 }
@@ -138,7 +157,14 @@ bool had_dialog_with_user(PurpleConnection* gc, uint64 user_id)
 
 bool is_unknown_user(PurpleConnection* gc, uint64 user_id)
 {
-    return !contains(get_data(gc).user_infos, user_id);
+    VkUserInfo* info = get_user_info(gc, user_id);
+    if (!info)
+        return true;
+    // We added user_infos entry in update_friends_presence but still haven't updated
+    // it with real information.
+    if (info->real_name.empty())
+        return true;
+    return false;
 }
 
 bool have_conversation_with_user(PurpleConnection* gc, uint64 user_id)
@@ -153,7 +179,7 @@ bool chat_in_buddy_list(PurpleConnection* gc, uint64 chat_id)
     return find_purple_chat_by_id(gc, chat_id) != nullptr;
 }
 
-bool participant_in_chat(PurpleConnection* gc, uint64 chat_id)
+bool is_participant_in_chat(PurpleConnection* gc, uint64 chat_id)
 {
     return contains(get_data(gc).chat_ids, chat_id);
 }
@@ -214,9 +240,13 @@ bool is_user_manually_removed(PurpleConnection* gc, uint64 user_id)
 
 bool is_chat_manually_added(PurpleConnection* gc, uint64 chat_id)
 {
-    return contains(get_data(gc).manually_added_chats, chat_id);
+    return contains(get_data(gc).manually_added_chats(), chat_id);
 }
 
+bool is_chat_manually_removed(PurpleConnection* gc, uint64 chat_id)
+{
+    return contains(get_data(gc).manually_removed_chats(), chat_id);
+}
 
 PurpleLogCache::PurpleLogCache(PurpleConnection* gc)
     : m_gc(gc)

@@ -1,9 +1,5 @@
  * Add warning on uploading unsupported types? Automatically add to zip archive?
  * Add support for setting status according to the current music (does every player implement MPRIS now?)
  * Add (optional) pseudo-user for informing on replies/comments to photos/whatever.
- * Test bad connections with netem (emulate large packet loss, huge pings, random disconnects/timeouts)
  * Add support for receiving geo-information.
  * Add groups (PurpleBuddys will have duplicate names, is it ok?)
- * Add fast setting of user presences via friends.getOnline and update all other user information later.
-   Currently friends.get returns about 800 bytes per friend, which is a lot for mobile connections and modern
-   Vk.com users with thousands of friends.
