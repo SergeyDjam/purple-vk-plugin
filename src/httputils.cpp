@@ -9,6 +9,8 @@ PurpleHttpConnection* http_get(PurpleConnection* gc, const string& url, const Ht
 {
     PurpleHttpRequest* request = purple_http_request_new(url.data());
     PurpleHttpConnection* hc = http_request(gc, request, callback);
+    if (!hc)
+        return nullptr;
     purple_http_request_unref(request);
     return hc;
 }

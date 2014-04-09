@@ -221,6 +221,8 @@ void vk_close(PurpleConnection* gc)
     data.set_closing();
 
     purple_request_close_with_handle(gc);
+    // TODO: Pidgin crashes if we cancel more than one http_get request in here. Either do not
+    // run parallel requests when fetching buddy icons or do something with timeouts.
     purple_http_conn_cancel_all(gc);
 
     check_blist_on_logout(gc);

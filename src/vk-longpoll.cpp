@@ -362,22 +362,36 @@ void process_incoming_message_internal(PurpleConnection* gc, uint64 msg_id, int 
 void process_outgoing_message_internal(PurpleConnection* gc, uint64 msg_id, int flags, uint64 user_id, string text,
                                        uint64 timestamp)
 {
-    // See NOTE in process_incoming_message_internal
-    if (user_id > CHAT_ID_OFFSET || flags & MESSAGE_FLAG_MEDIA) {
+    // See NOTE in process_incoming_message_internal. Unlik incoming messages, we know perfectly well who is
+    // the message author for outgoing messages.
+    if (flags & MESSAGE_FLAG_MEDIA) {
         receive_messages(gc, { msg_id });
     } else {
         replace_emoji_with_text(text);
 
         // Check if the conversation is open, so that we write to the conversation, not the log.
         // TODO: Remove code duplication with vk-message-recv.cpp
-        PurpleConversation* conv = find_conv_for_id(gc, user_id, 0);
-        string from = purple_account_get_name_for_display(purple_connection_get_account(gc));
-        if (conv) {
-            purple_conv_im_write(PURPLE_CONV_IM(conv), from.data(), text.data(), PURPLE_MESSAGE_SEND, timestamp);
+        if (user_id < CHAT_ID_OFFSET) {
+            PurpleConversation* conv = find_conv_for_id(gc, user_id, 0);
+            string from = purple_account_get_name_for_display(purple_connection_get_account(gc));
+            if (conv) {
+                purple_conv_im_write(PURPLE_CONV_IM(conv), from.data(), text.data(), PURPLE_MESSAGE_SEND, timestamp);
+            } else {
+                PurpleLogCache logs(gc);
+                PurpleLog* log = logs.for_user(user_id);
+                purple_log_write(log, PURPLE_MESSAGE_SEND, from.data(), timestamp, text.data());
+            }
         } else {
-            PurpleLogCache logs(gc);
-            PurpleLog* log = logs.for_user(user_id);
-            purple_log_write(log, PURPLE_MESSAGE_SEND, from.data(), timestamp, text.data());
+            uint64 chat_id = user_id - CHAT_ID_OFFSET;
+            PurpleConversation* conv = find_conv_for_id(gc, 0, chat_id);
+            string from = get_self_chat_display_name(gc);
+            if (conv) {
+                purple_conv_chat_write(PURPLE_CONV_CHAT(conv), from.data(), text.data(), PURPLE_MESSAGE_SEND, timestamp);
+            } else {
+                PurpleLogCache logs(gc);
+                PurpleLog* log = logs.for_chat(chat_id);
+                purple_log_write(log, PURPLE_MESSAGE_SEND, from.data(), timestamp, text.data());
+            }
         }
     }
 }
