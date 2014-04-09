@@ -269,8 +269,8 @@ inline bool map_update(Map& map, const Key& key, const Value& value)
 }
 
 // Returns value for key or default value without inserting into map.
-template<typename Map, typename Key, typename Value = typename Map::value_type>
-inline Value map_at(const Map& map, const Key& key, const Value& default_value = Value())
+template<typename Map, typename Key, typename Value = typename Map::mapped_type>
+inline typename Map::mapped_type map_at(const Map& map, const Key& key, const Value& default_value = Value())
 {
     auto it = map.find(key);
     if (it == map.end())

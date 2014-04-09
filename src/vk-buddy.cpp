@@ -896,35 +896,6 @@ string get_unique_display_name(PurpleConnection* gc, uint64 user_id)
         return str_format("%s (%" PRIu64 ")", info->real_name.data(), user_id);
 }
 
-// Updates participant_names map in chat.
-void update_chat_participant_names_ids(PurpleConnection* gc, VkChatInfo* info)
-{
-    for (const auto& p: info->participant_names) {
-        uint64 user_id = p.first;
-        string user_name = get_user_display_name(gc, user_id);
-
-        vkcom_debug_error("GOT USER ID %d, name %s\n", (int)user_id, user_name.data());
-        // Check if we already have user with this name in chat.
-        uint64 other_id = info->participant_ids[user_name];
-        if (other_id == 0) {
-            info->participant_ids[user_name] = user_id;
-            info->participant_names[user_id] = user_name;
-        } else if (other_id != user_id) {
-            // We already have one user with this name in chat, get a unique one.
-            user_name = get_unique_display_name(gc, user_id);
-            info->participant_ids[user_name] = user_id;
-            info->participant_names[user_id] = user_name;
-        }
-    }
-
-    // Adding self.
-    string self_name = get_self_chat_display_name(gc);
-    uint64 self_user_id = get_data(gc).self_user_id();
-    vkcom_debug_error("GOT SELF ID %d, name %s\n", (int)self_user_id, self_name.data());
-    info->participant_ids[self_name] = self_user_id;
-    info->participant_names[self_user_id] = self_name;
-}
-
 // Updates one entry in chat_infos.
 void update_chat_info_from(PurpleConnection* gc, const picojson::value& chat)
 {
@@ -940,8 +911,10 @@ void update_chat_info_from(PurpleConnection* gc, const picojson::value& chat)
     VkChatInfo& info = gc_data.chat_infos[chat_id];
     info.admin_id = chat.get("admin_id").get<double>();
     info.title = chat.get("title").get<string>();
-    info.participant_names.clear();
-    info.participant_ids.clear();
+
+    info.participants.clear();
+    string_set already_used_names;
+
     const picojson::array& users = chat.get("users").get<picojson::array>();
     for (const picojson::value& u: users) {
         if (!field_is_present<double>(u, "id")) {
@@ -954,14 +927,22 @@ void update_chat_info_from(PurpleConnection* gc, const picojson::value& chat)
         int64 user_id = u.get("id").get<double>();
         if (user_id < 0 || gc_data.self_user_id() == (uint64)user_id)
             continue;
-        info.participant_names.insert({ user_id, "" });
 
         // Do not update already known users.
         if (is_unknown_user(gc, user_id))
             update_user_info_from(gc, u);
+
+        string user_name = get_user_display_name(gc, user_id);
+        if (contains(already_used_names, user_name))
+            user_name = get_unique_display_name(gc, user_id);
+        already_used_names.insert(user_name);
+        info.participants.insert({ user_id, user_name });
     }
 
-    update_chat_participant_names_ids(gc, &info);
+    // Adding self
+    string self_name = get_self_chat_display_name(gc);
+    uint64 self_user_id = get_data(gc).self_user_id();
+    info.participants.insert({ self_user_id, self_name });
 
     int conv_id = chat_id_to_conv_id(gc, chat_id);
     if (conv_id != 0)
@@ -1181,11 +1162,9 @@ void check_blist_on_logout(PurpleConnection* gc)
     VkData& gc_data = get_data(gc);
     for (auto& p: gc_data.blist_buddies) {
         uint64 user_id = p.first;
+        PurpleBuddy* buddy = map_at(buddies, user_id, nullptr);
         VkBlistNode* node = &p.second;
-        if (contains(buddies, user_id))
-            check_customized_buddy(gc, user_id, buddies[user_id], node);
-        else
-            check_customized_buddy(gc, user_id, nullptr, node);
+        check_customized_buddy(gc, user_id, buddy, node);
     }
 
     map<uint64, PurpleChat*> chats;
@@ -1204,10 +1183,8 @@ void check_blist_on_logout(PurpleConnection* gc)
 
     for (auto& p: gc_data.blist_chats) {
         uint64 chat_id = p.first;
+        PurpleChat* chat = map_at(chats, chat_id, nullptr);
         VkBlistNode* node = &p.second;
-        if (contains(chats, chat_id))
-            check_customized_chat(gc, chat_id, chats[chat_id], node);
-        else
-            check_customized_chat(gc, chat_id, nullptr, node);
+        check_customized_chat(gc, chat_id, chat, node);
     }
 }

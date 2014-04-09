@@ -87,9 +87,7 @@ struct VkChatInfo
     // We store both participant uids and participant names, because we can get two users with the
     // same real_name in one chat and no way to differentiate them --- no avatars etc.). We use
     // real name + nickname or real name + id if we have two users with equal real names.
-    // These two containers should be merged into a bimap.
-    map<uint64, string> participant_names;
-    map<string, uint64> participant_ids;
+    map<uint64, string> participants;
 };
 
 // A structure, which holds the previous state of node in buddy list. Motivation: we store

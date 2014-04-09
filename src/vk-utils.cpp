@@ -128,10 +128,11 @@ string get_user_display_name(PurpleConnection* gc, uint64 user_id, uint64 chat_i
     if (!info)
         return get_user_display_name(gc, user_id);
 
-    if (!contains(info->participant_names, user_id))
+    auto it = info->participants.find(user_id);
+    if (it == info->participants.end())
         return get_user_display_name(gc, user_id);
-
-    return info->participant_names[user_id];
+    else
+        return it->second;
 }
 
 string get_self_chat_display_name(PurpleConnection* gc)

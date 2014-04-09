@@ -54,8 +54,8 @@ namespace
 bool are_equal_chat_users(PurpleConnection* gc, PurpleConvChat* conv, VkChatInfo* info)
 {
     string_set names;
-    for (const pair<string, uint64>& p: info->participant_ids)
-        names.insert(p.first);
+    for (const auto& p: info->participants)
+        names.insert(p.second);
     const char* self_alias = purple_account_get_alias(purple_connection_get_account(gc));
     names.insert(self_alias);
 
@@ -86,9 +86,9 @@ void update_open_chat_conv_impl(PurpleConnection* gc, PurpleConversation* conv, 
 
         purple_conv_chat_clear_users(PURPLE_CONV_CHAT(conv));
 
-        for (const pair<string, uint64>& p: info->participant_ids) {
-            const string& user_name = p.first;
-            uint64 user_id = p.second;
+        for (const auto& p: info->participants) {
+            uint64 user_id = p.first;
+            const string& user_name = p.second;
 
             PurpleConvChatBuddyFlags flags;
             if (user_id == info->admin_id)
@@ -188,8 +188,10 @@ uint64 find_user_id_from_conv(PurpleConnection* gc, int conv_id, const char* who
         return 0;
     }
 
-    uint64 user_id = map_at(chat_info->participant_ids, who, 0);
-    if (user_id == 0)
-        vkcom_debug_error("Unknown user %s in chat%" PRIu64 "\n", who, chat_id);
-    return user_id;
+    for (const auto& p: chat_info->participants)
+        if (p.second == who)
+            return p.first;
+
+    vkcom_debug_error("Unknown user %s in chat%" PRIu64 "\n", who, chat_id);
+    return 0;
 }
