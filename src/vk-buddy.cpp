@@ -879,9 +879,6 @@ void update_user_infos(PurpleConnection* gc, const uint64_set& user_ids, const S
 namespace
 {
 
-// Parameters, we are requesting for chat participants.
-const char chat_user_fields[] = "first_name,last_name,online";
-
 // Used when user has duplicate name with other user in chat, appends some unique id.
 string get_unique_display_name(PurpleConnection* gc, uint64 user_id)
 {
@@ -962,7 +959,7 @@ void update_chat_infos(PurpleConnection* gc, const uint64_set& chat_ids, const S
     string chat_ids_str = str_concat_int(',', chat_ids);
     vkcom_debug_info("Updating information for chats %s\n", chat_ids_str.data());
 
-    CallParams params = { {"fields", chat_user_fields} };
+    CallParams params = { {"fields", user_fields} };
     vk_call_api_ids(gc, "messages.getChat", params, "chat_ids", to_vector(chat_ids), [=](const picojson::value& v) {
         if (!v.is<picojson::array>()) {
             vkcom_debug_error("Strange response from messages.getChat: %s\n", v.serialize().data());
