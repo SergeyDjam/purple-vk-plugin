@@ -8,6 +8,7 @@
 #include "miscutils.h"
 #include "vk-api.h"
 #include "vk-buddy.h"
+#include "vk-chat.h"
 #include "vk-common.h"
 #include "vk-message-recv.h"
 #include "vk-utils.h"
@@ -125,7 +126,9 @@ void start_long_poll_impl(PurpleConnection* gc, uint64 last_msg_id)
 // Reads and processes an event from updates array.
 void process_update(PurpleConnection* gc, const picojson::value& v, LastMsg& last_msg);
 
-const char* long_poll_url = "https://%s?act=a_check&key=%s&ts=%llu&wait=25&mode=64";
+// We request platform to detect desktop/mobile status and attachments to get "from"
+// in chats.
+const char* long_poll_url = "https://%s?act=a_check&key=%s&ts=%llu&wait=25&mode=66";
 
 void request_long_poll(PurpleConnection* gc, const string& server, const string& key, uint64 ts,
                        LastMsg last_msg)
@@ -253,18 +256,16 @@ void process_update(PurpleConnection* gc, const picojson::value& v, LastMsg& las
 // Process incoming and outgoing messages respectively. In general, there is duplication between these functions
 // and vk-message-recv code, they should somehow be refactored.
 void process_incoming_message_internal(PurpleConnection* gc, uint64 msg_id, int flags, uint64 user_id, string text,
-                                       uint64 timestamp);
+                                       uint64 timestamp, const picojson::value *attachments);
 void process_outgoing_message_internal(PurpleConnection* gc, uint64 msg_id, int flags, uint64 user_id, string text,
                                        uint64 timestamp);
 
 void process_message(PurpleConnection* gc, const picojson::value& v, LastMsg& last_msg)
 {
-    using std::move;
-
     if (!v.contains(6) || !v.get(1).is<double>() || !v.get(2).is<double>() || !v.get(3).is<double>()
             || !v.get(4).is<double>() || !v.get(6).is<string>()) {
-        vkcom_debug_error("Strange response from Long Poll in updates: %s\n",
-                           v.serialize().data());
+        vkcom_debug_error("Strange response from Long Poll in updates: %s\n", v.serialize().data());
+        purple_connection_error_reason(gc, PURPLE_CONNECTION_ERROR_NETWORK_ERROR, "Unable to receive message");
         return;
     }
     uint64 msg_id = v.get(1).get<double>();
@@ -291,11 +292,15 @@ void process_message(PurpleConnection* gc, const picojson::value& v, LastMsg& la
     // * Smileys are returned as Unicode emoji (both emoji and pseudocode smileys are accepted on message send).
     string text = v.get(6).get<string>();
 
+    const picojson::value* attachments = nullptr;
+    if (v.contains(7))
+        attachments = &v.get(7);
+
     if (!(flags & MESSAGE_FLAGS_OUTBOX)) {
         // Processing incoming message
         vkcom_debug_info("Got incoming message from %" PRIu64 "\n", user_id);
 
-        process_incoming_message_internal(gc, msg_id, flags, user_id, move(text), timestamp);
+        process_incoming_message_internal(gc, msg_id, flags, user_id, std::move(text), timestamp, attachments);
     } else {
         // Process outgoing message. This message could've been sent either by us, or by another connected client.
         // See description in vk-common.h of corresponding members of VkData for details.
@@ -309,7 +314,7 @@ void process_message(PurpleConnection* gc, const picojson::value& v, LastMsg& la
         steady_duration since_last_msg_sent = steady_clock::now() - gc_data.last_msg_sent_time();
         if (to_milliseconds(since_last_msg_sent) >= 5000) {
             // This is fast path: the message is guaranteed to be sent from someplace else, no need for timeout.
-            process_outgoing_message_internal(gc, msg_id, flags, user_id, move(text), timestamp);
+            process_outgoing_message_internal(gc, msg_id, flags, user_id, std::move(text), timestamp);
             return;
         }
 
@@ -322,7 +327,7 @@ void process_message(PurpleConnection* gc, const picojson::value& v, LastMsg& la
 
             purple_debug_warning("prpl-vkcom", "We have sent a message not long ago, but not all msg id"
                                  "are belong to us (msg id %" PRIu64 ")\n", msg_id);
-            process_outgoing_message_internal(gc, msg_id, flags, user_id, move(text), timestamp);
+            process_outgoing_message_internal(gc, msg_id, flags, user_id, std::move(text), timestamp);
             return false;
         });
     }
@@ -335,7 +340,7 @@ const uint64 CHAT_ID_OFFSET = 2000000000LL;
 const uint PLATFORM_WEB = 7;
 
 void process_incoming_message_internal(PurpleConnection* gc, uint64 msg_id, int flags, uint64 user_id, string text,
-                                       uint64 timestamp)
+                                       uint64 timestamp, const picojson::value* attachments)
 {
     // NOTE:
     //  There are two ways of processing messages with attachments:
@@ -347,15 +352,44 @@ void process_incoming_message_internal(PurpleConnection* gc, uint64 msg_id, int 
     //     is prohibited and we can only show links to the corresponding page;
     //   * there is no video.getById so we can show no information on video;
     //   * it takes at least one additional call per message (receive_messages takes exactly one call).
-    if (user_id > CHAT_ID_OFFSET || flags & MESSAGE_FLAG_MEDIA) {
+    if (flags & MESSAGE_FLAG_MEDIA) {
         receive_messages(gc, { msg_id });
     } else {
         replace_emoji_with_text(text);
 
-        add_buddy_if_needed(gc, user_id, [=] {
-            serv_got_im(gc, user_name_from_id(user_id).data(), text.data(), PURPLE_MESSAGE_RECV, timestamp);
-            mark_message_as_read(gc, { VkReceivedMessage({ msg_id, user_id, 0 }) });
-        });
+        if (user_id < CHAT_ID_OFFSET) {
+            add_buddy_if_needed(gc, user_id, [=] {
+                serv_got_im(gc, user_name_from_id(user_id).data(), text.data(), PURPLE_MESSAGE_RECV, timestamp);
+                mark_message_as_read(gc, { VkReceivedMessage({ msg_id, user_id, 0 }) });
+            });
+        } else {
+            uint64 chat_id = user_id - CHAT_ID_OFFSET;
+
+            if (!attachments || !attachments->contains("from") || !attachments->get("from").is<string>()) {
+                vkcom_debug_error("Chat message has wrong attachments: %s\n", attachments
+                                  ? attachments->serialize().data() : "null");
+                // Let's try to receive the message the other way.
+                receive_messages(gc, { msg_id });
+                return;
+            }
+
+            const string& from_user_id_str = attachments->get("from").get<string>();
+            uint64 from_user_id = std::stoll(from_user_id_str);
+            if (from_user_id == 0) {
+                vkcom_debug_error("Chat message has wrong attachments: %s\n", attachments
+                                  ? attachments->serialize().data() : "null");
+                // Let's try to receive the message the other way.
+                receive_messages(gc, { msg_id });
+                return;
+            }
+
+            // TODO: Remove code duplication with vk-message-recv.cpp
+            open_chat_conv(gc, chat_id, [=] {
+                int conv_id = chat_id_to_conv_id(gc, chat_id);
+                string from = get_user_display_name(gc, from_user_id, chat_id);
+                serv_got_chat_in(gc, conv_id, from.data(), PURPLE_MESSAGE_RECV, text.data(), timestamp);
+            });
+        }
     }
 }
 

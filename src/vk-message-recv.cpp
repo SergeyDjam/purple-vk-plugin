@@ -744,7 +744,7 @@ void finish_receiving(const MessagesData_ptr& data)
                 // context.
                 open_chat_conv(data->gc, m.chat_id, [=] {
                     int conv_id = chat_id_to_conv_id(data->gc, m.chat_id);
-                    string from = get_user_display_name(data->gc, m.user_id);
+                    string from = get_user_display_name(data->gc, m.user_id, m.chat_id);
                     serv_got_chat_in(data->gc, conv_id, from.data(), PURPLE_MESSAGE_RECV, m.text.data(),
                                      m.timestamp);
                 });
