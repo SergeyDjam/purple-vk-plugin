@@ -896,8 +896,9 @@ string get_unique_display_name(PurpleConnection* gc, uint64 user_id)
         return str_format("%s (%" PRIu64 ")", info->real_name.data(), user_id);
 }
 
-// Updates one entry in chat_infos.
-void update_chat_info_from(PurpleConnection* gc, const picojson::value& chat)
+// Updates one entry in chat_infos. update_blist has the same meaning as in update_chat_infos
+void update_chat_info_from(PurpleConnection* gc, const picojson::value& chat,
+                           bool update_blist = false)
 {
     if (!field_is_present<double>(chat, "id") || !field_is_present<string>(chat, "title")
             || !field_is_present<double>(chat, "admin_id") || !field_is_present<picojson::array>(chat, "users")) {
@@ -944,6 +945,9 @@ void update_chat_info_from(PurpleConnection* gc, const picojson::value& chat)
     uint64 self_user_id = get_data(gc).self_user_id();
     info.participants.insert({ self_user_id, self_name });
 
+    if (update_blist && chat_should_be_in_blist(gc, chat_id))
+        update_blist_chat(gc, chat_id, info);
+
     int conv_id = chat_id_to_conv_id(gc, chat_id);
     if (conv_id != 0)
         update_open_chat_conv(gc, conv_id);
@@ -951,7 +955,7 @@ void update_chat_info_from(PurpleConnection* gc, const picojson::value& chat)
 
 } // namespace
 
-void update_chat_infos(PurpleConnection* gc, const uint64_set& chat_ids, const SuccessCb& on_update_cb)
+void update_chat_infos(PurpleConnection* gc, const uint64_set& chat_ids, const SuccessCb& on_update_cb, bool update_blist)
 {
     if (chat_ids.empty()) {
         if (on_update_cb)
@@ -960,7 +964,7 @@ void update_chat_infos(PurpleConnection* gc, const uint64_set& chat_ids, const S
     }
 
     string chat_ids_str = str_concat_int(',', chat_ids);
-    vkcom_debug_info("Updating information for chats %s\n", chat_ids_str.data());
+    vkcom_debug_info("Updating information on chats %s\n", chat_ids_str.data());
 
     CallParams params = { {"fields", chat_user_fields} };
     vk_call_api_ids(gc, "messages.getChat", params, "chat_ids", to_vector(chat_ids), [=](const picojson::value& v) {
@@ -972,7 +976,7 @@ void update_chat_infos(PurpleConnection* gc, const uint64_set& chat_ids, const S
 
         const picojson::array& a = v.get<picojson::array>();
         for (const picojson::value& chat: a)
-            update_chat_info_from(gc, chat);
+            update_chat_info_from(gc, chat, update_blist);
     }, [=] {
         if (on_update_cb)
             on_update_cb();

@@ -30,8 +30,10 @@ void update_open_conv_presence(PurpleConnection* gc);
 // Adds or updates information on chats.
 void update_user_infos(PurpleConnection* gc, const uint64_set& user_ids, const SuccessCb& on_update_cb);
 
-// Adds or updates information on chats.
-void update_chat_infos(PurpleConnection* gc, const uint64_set& chat_ids, const SuccessCb& on_update_cb);
+// Adds or updates information on chats. If update_blist is true, corresponding buddy list node
+// is updated too if it exists.
+void update_chat_infos(PurpleConnection* gc, const uint64_set& chat_ids, const SuccessCb& on_update_cb,
+                       bool update_blist = false);
 
 
 // Updates only presence status of the given buddy in buddy list according to information in user_infos.

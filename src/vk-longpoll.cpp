@@ -223,6 +223,8 @@ enum MessageFlags
 void process_message(PurpleConnection* gc, const picojson::value& v, LastMsg& last_msg);
 // Processes user online/offline event.
 void process_online(PurpleConnection* gc, const picojson::value& v, bool online);
+// Processes update of chat parameters.
+void process_chat_update(PurpleConnection* gc, const picojson::value& v);
 // Processes user typing event.
 void process_typing(PurpleConnection* gc, const picojson::value& v);
 
@@ -244,6 +246,9 @@ void process_update(PurpleConnection* gc, const picojson::value& v, LastMsg& las
         break;
     case LONG_POLL_OFFLINE:
         process_online(gc, v, false);
+        break;
+    case LONG_POLL_CHAT_PARAMS_UPDATED:
+        process_chat_update(gc, v);
         break;
     case LONG_POLL_USER_STARTED_TYPING:
         process_typing(gc, v);
@@ -483,6 +488,20 @@ void process_online(PurpleConnection* gc, const picojson::value& v, bool online)
         }
         update_presence_in_blist(gc, user_id);
     }
+}
+
+void process_chat_update(PurpleConnection* gc, const picojson::value& v)
+{
+    if (!v.contains(1) || !v.get(1).is<double>()) {
+        vkcom_debug_error("Strange respone form Long Poll in updates: %s\n",
+                          v.serialize().data());
+        return;
+    }
+    uint64 chat_id = v.get(1).get<double>();
+
+    vkcom_debug_info("Updating parameters for chat %" PRIu64 "\n", chat_id);
+
+    update_chat_infos(gc, { chat_id }, nullptr, true);
 }
 
 void process_typing(PurpleConnection* gc, const picojson::value& v)
