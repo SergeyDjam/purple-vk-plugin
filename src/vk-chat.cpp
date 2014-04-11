@@ -35,7 +35,7 @@ int add_new_conv_id(PurpleConnection* gc, uint64 chat_id)
 
     // We probably do not open more than one conversation per second, so the keys will be exhausted in 2 ** 31 seconds,
     // quite a lot of time.
-    gc_data.chat_conv_ids.push_back({ conv_id, chat_id });
+    gc_data.chat_conv_ids.emplace_back(conv_id, chat_id);
     return conv_id;
 }
 
@@ -145,7 +145,7 @@ void check_open_chat_convs(PurpleConnection* gc)
             continue;
 
         int conv_id = purple_conv_chat_get_id(PURPLE_CONV_CHAT(conv));
-        get_data(gc).chat_conv_ids.push_back({ conv_id, chat_id });
+        get_data(gc).chat_conv_ids.emplace_back(conv_id, chat_id);
     }
 }
 

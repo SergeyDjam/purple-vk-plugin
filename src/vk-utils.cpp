@@ -386,7 +386,6 @@ void get_groups_info(PurpleConnection* gc, uint64_vec group_ids, const GroupInfo
 
             uint64 id = v.get("id").get<double>();
             VkGroupInfo& info = infos[id];
-
             info.name = v.get("name").get<string>();
             info.type = v.get("type").get<string>();
             if (field_is_present<string>(v, "screen_name"))

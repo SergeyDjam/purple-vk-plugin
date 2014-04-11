@@ -72,7 +72,7 @@ void request_captcha(PurpleConnection* gc, const string& captcha_img, const Capt
         purple_request_field_string_set_masked(field, false);
         purple_request_field_group_add_field(field_group, field);
 
-        CaptchaRequestData* data = new CaptchaRequestData({ captcha_input_cb, error_cb, gc, captcha_img });
+        CaptchaRequestData* data = new CaptchaRequestData{ captcha_input_cb, error_cb, gc, captcha_img };
         purple_request_fields(gc, "Are you classified as human?", "Are you classified as human?", nullptr, fields,
                               "Ok", G_CALLBACK(request_captcha_ok), "Cancel", G_CALLBACK(request_captcha_cancel),
                               purple_connection_get_account(gc), nullptr, nullptr, data);

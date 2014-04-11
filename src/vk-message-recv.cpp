@@ -244,8 +244,7 @@ void process_message(const MessagesData_ptr& data, const picojson::value& fields
         return;
     }
 
-    data->messages.push_back(Message());
-    Message& message = data->messages.back();
+    Message message;
     message.mid = fields.get("id").get<double>();
     message.user_id = fields.get("user_id").get<double>();
     message.chat_id = 0;
@@ -271,6 +270,7 @@ void process_message(const MessagesData_ptr& data, const picojson::value& fields
         for (const picojson::value& m: fwd_messages)
             process_fwd_message(data->gc, m, message);
     }
+    data->messages.push_back(std::move(message));
 }
 
 void process_attachments(PurpleConnection* gc, const picojson::array& items, Message& message)

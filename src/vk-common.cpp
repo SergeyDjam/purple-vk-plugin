@@ -39,14 +39,14 @@ vector<VkReceivedMessage> deferred_mark_as_read_from_string(const char* str)
         return {};
     }
 
-    vector<VkReceivedMessage> messages;
+    VkReceivedMessage_vec messages;
     const picojson::array& a = v.get<picojson::array>();
     for (const picojson::value& d: a) {
-        messages.push_back(VkReceivedMessage());
-        VkReceivedMessage& msg = messages.back();
+        VkReceivedMessage msg;
         msg.msg_id = d.get("msg_id").get<double>();
         msg.user_id = d.get("user_id").get<double>();
         msg.chat_id = d.get("chat_id").get<double>();
+        messages.push_back(std::move(msg));
     }
 
     vkcom_debug_info("%d messages marked as unread\n", (int)messages.size());
@@ -284,7 +284,7 @@ void timeout_add(PurpleConnection* gc, unsigned milliseconds, const TimeoutCb& c
         return;
     }
 
-    TimeoutCbData* data = new TimeoutCbData({ callback, gc_data, 0 });
+    TimeoutCbData* data = new TimeoutCbData{ callback, gc_data, 0 };
     data->id = g_timeout_add_full(G_PRIORITY_DEFAULT, milliseconds, [](void* user_data) -> gboolean {
         TimeoutCbData* data = (TimeoutCbData*)user_data;
         return data->callback();

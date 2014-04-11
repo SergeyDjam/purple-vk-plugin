@@ -493,7 +493,7 @@ void fetch_next_buddy_icon()
 // Starts downloading buddy icon and sets it upon finishing.
 void fetch_buddy_icon(PurpleConnection* gc, const string& buddy_name, const string& icon_url)
 {
-    fetch_queue.push_back(FetchBuddyIcon({ gc, buddy_name, icon_url }));
+    fetch_queue.push_back(FetchBuddyIcon{ gc, buddy_name, icon_url });
     if (fetches_running < MAX_FETCHES_RUNNING)
         fetch_next_buddy_icon();
 }
@@ -934,13 +934,13 @@ void update_chat_info_from(PurpleConnection* gc, const picojson::value& chat,
         if (contains(already_used_names, user_name))
             user_name = get_unique_display_name(gc, user_id);
         already_used_names.insert(user_name);
-        info.participants.insert({ user_id, user_name });
+        info.participants[user_id] = user_name;
     }
 
     // Adding self
     string self_name = get_self_chat_display_name(gc);
     uint64 self_user_id = get_data(gc).self_user_id();
-    info.participants.insert({ self_user_id, self_name });
+    info.participants[self_user_id] = self_name;
 
     if (update_blist && chat_should_be_in_blist(gc, chat_id))
         update_blist_chat(gc, chat_id, info);
