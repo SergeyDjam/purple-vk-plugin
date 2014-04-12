@@ -284,7 +284,7 @@ void timeout_add(PurpleConnection* gc, unsigned milliseconds, const TimeoutCb& c
         return;
     }
 
-    TimeoutCbData* data = new TimeoutCbData{ callback, gc_data, 0 };
+    TimeoutCbData* data = new TimeoutCbData({ callback, gc_data, 0 });
     data->id = g_timeout_add_full(G_PRIORITY_DEFAULT, milliseconds, [](void* user_data) -> gboolean {
         TimeoutCbData* data = (TimeoutCbData*)user_data;
         return data->callback();
