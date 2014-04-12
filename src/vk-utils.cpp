@@ -425,7 +425,7 @@ string get_group_href(uint64 group_id, const VkGroupInfo& info)
 
 PurpleConversation* find_conv_for_id(PurpleConnection* gc, uint64 user_id, uint64 chat_id)
 {
-    if (user_id != 0)
+    if (chat_id == 0)
         return purple_find_conversation_with_account(PURPLE_CONV_TYPE_IM, user_name_from_id(user_id).data(),
                                                      purple_connection_get_account(gc));
     else
