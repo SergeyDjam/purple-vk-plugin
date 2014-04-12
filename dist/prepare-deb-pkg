@@ -23,7 +23,7 @@ mkdir debian/build
 tar cvzf debian/build/$PACKAGENAME\_$PACKAGEVERSION.orig.tar.gz $PACKAGENAME-$PACKAGEVERSION
 rm -rf $PACKAGENAME-$PACKAGEVERSION
 
-for distro in "precise" "saucy"; do
+for distro in "precise" "saucy" "trusty"; do
   mkdir debian/build/$distro
 
   ln -sf ../$PACKAGENAME\_$PACKAGEVERSION.orig.tar.gz debian/build/$distro
