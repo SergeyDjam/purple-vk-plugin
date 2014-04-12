@@ -43,7 +43,20 @@ RequestExecutionLevel highest
 
 Function .onInit
   ReadRegStr $INSTDIR HKLM ${PIDGIN_REG_KEY} ""
+
+  ;Run the uninstaller
+  ReadRegStr $0 HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\PACKAGENAME" "UninstallString"
+  StrCmp $0 "" done
+ 
+  MessageBox MB_OKCANCEL|MB_ICONEXCLAMATION "Plugin is already installed. Click `OK` to remove the previous version or `Cancel` to cancel this upgrade." IDOK uninst
+  Abort
+ 
+uninst:
+  ClearErrors
+  ExecWait '$0 _?=$INSTDIR' ;Do not copy the uninstaller to a temp file
+done:
 FunctionEnd
+
 
 Section
   SetOutPath "$INSTDIR\plugins"

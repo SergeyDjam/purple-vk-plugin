@@ -9,7 +9,7 @@ set PATH=%PATH%;C:\Program Files\NSIS;C:\Program Files (x86)\NSIS;%MSYSPATH%
 
 mingw32-strip ../build/libpurple-vk-plugin.dll
 
-mkdir windows/build
+mkdir windows\build
 
 sh -c ". version; cat windows/purple-vk-plugin.nsi.template | sed s/PACKAGENAME/$PACKAGENAME/g | sed s/PACKAGEVERSION/$PACKAGEVERSION/g > windows/build/purple-vk-plugin.nsi"
 
