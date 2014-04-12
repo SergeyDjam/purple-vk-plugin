@@ -170,9 +170,8 @@ void vk_login(PurpleAccount* account)
             set_account_alias(gc);
         }
 
+        // Remember current aliases and groups of buddies and chats to check whether user has modified them later.
         check_blist_on_login(gc);
-
-        check_open_chat_convs(gc);
 
         // Start Long Poll event processing. Buddy list and unread messages will be retrieved there.
         start_long_poll(gc);

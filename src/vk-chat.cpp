@@ -127,28 +127,6 @@ void open_chat_conv(PurpleConnection* gc, uint64 chat_id, const SuccessCb& succe
     });
 }
 
-void check_open_chat_convs(PurpleConnection* gc)
-{
-    PurpleAccount* account = purple_connection_get_account(gc);
-
-    for (GList* it = purple_get_conversations(); it != NULL; it = it->next) {
-        PurpleConversation* conv = (PurpleConversation *)it->data;
-
-        if (purple_conversation_get_account(conv) != account)
-            continue;
-
-        if (purple_conversation_get_type(conv) != PURPLE_CONV_TYPE_CHAT)
-            continue;
-
-        uint64 chat_id = chat_id_from_name(purple_conversation_get_name(conv));
-        if (chat_id == 0)
-            continue;
-
-        int conv_id = purple_conv_chat_get_id(PURPLE_CONV_CHAT(conv));
-        get_data(gc).chat_conv_ids.emplace_back(conv_id, chat_id);
-    }
-}
-
 
 void update_open_chat_conv(PurpleConnection* gc, int conv_id)
 {
