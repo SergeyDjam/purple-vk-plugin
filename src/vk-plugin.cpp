@@ -112,24 +112,24 @@ void conversation_updated(PurpleConversation* conv, PurpleConvUpdateType type, g
     }
 }
 
-GList* vk_chat_join_info(PurpleConnection*)
-{
-    proto_chat_entry* pce = g_new0(proto_chat_entry, 1);
-    pce->label = "_Title:";
-    pce->identifier = "title";
-    pce->required = true;
-    return g_list_append(nullptr, pce);
-}
+//GList* vk_chat_join_info(PurpleConnection*)
+//{
+//    proto_chat_entry* pce = g_new0(proto_chat_entry, 1);
+//    pce->label = "_Title:";
+//    pce->identifier = "title";
+//    pce->required = true;
+//    return g_list_append(nullptr, pce);
+//}
 
-GHashTable* vk_chat_info_defaults(PurpleConnection*, const char* chat_name)
-{
-    GHashTable *defaults = g_hash_table_new_full(g_str_hash, g_str_equal, nullptr, g_free);
+//GHashTable* vk_chat_info_defaults(PurpleConnection*, const char* chat_name)
+//{
+//    GHashTable *defaults = g_hash_table_new_full(g_str_hash, g_str_equal, nullptr, g_free);
 
-    if (chat_name != NULL)
-        g_hash_table_insert(defaults, (void*)"id", g_strdup(chat_name));
+//    if (chat_name != NULL)
+//        g_hash_table_insert(defaults, (void*)"id", g_strdup(chat_name));
 
-    return defaults;
-}
+//    return defaults;
+//}
 
 
 // Sets option with given name to value if not already set.
@@ -355,35 +355,7 @@ void vk_chat_join(PurpleConnection* gc, GHashTable* components)
             purple_conversation_present(conv);
         });
     } else {
-        vkcom_debug_error("FUCK WHAT TO DO NO ID\n");
     }
-
-//    whatsapp_connection *wconn = purple_connection_get_protocol_data(gc);
-//    const char *groupname = g_hash_table_lookup(data, "subject");
-//    char *id = g_hash_table_lookup(data, "id");
-
-//    if (!id) {
-//        gchar *tmp = g_strdup_printf("Joining %s requires an invitation.", groupname);
-//        purple_notify_error(gc, "Invitation only", "Invitation only", tmp);
-//        g_free(tmp);
-//        return;
-//    }
-
-//    int prplid = chatid_to_convo(id);
-//    purple_debug_info(WHATSAPP_ID, "joining group %s\n", groupname);
-
-//    if (!purple_find_chat(gc, prplid)) {
-//        char *subject, *owner, *part;
-//        if (!waAPI_getgroupinfo(wconn->waAPI, id, &subject, &owner, &part))
-//            return;
-
-//        /* Notify chat add */
-//        PurpleConversation *conv = serv_got_joined_chat(gc, prplid, groupname);
-
-//        /* Add people in the chat */
-//        purple_debug_info(WHATSAPP_ID, "group info ID(%s) SUBJECT(%s) OWNER(%s)\n", id, subject, owner);
-//        conv_add_participants(conv, part, owner);
-//    }
 }
 
 char* vk_get_chat_name(GHashTable* components)
@@ -397,24 +369,9 @@ char* vk_get_chat_name(GHashTable* components)
         return g_strdup("CHAT NOT CREATED");
 }
 
-void vk_chat_invite(PurpleConnection*, int, const char*, const char*)
-{
-    vkcom_debug_error("CHAT INVITE\n");
-
-//    whatsapp_connection *wconn = purple_connection_get_protocol_data(gc);
-//    PurpleConversation *convo = purple_find_chat(gc, id);
-//    PurpleChat *ch = blist_find_chat_by_convo(gc, id);
-//    GHashTable *hasht = purple_chat_get_components(ch);
-//    char *chat_id = g_hash_table_lookup(hasht, "id");
-
-//    if (strstr(name, "@s.whatsapp.net") == 0)
-//        name = g_strdup_printf("%s@s.whatsapp.net", name);
-//    waAPI_manageparticipant(wconn->waAPI, chat_id, name, "add");
-
-//    purple_conv_chat_add_user(purple_conversation_get_chat_data(convo), name, "", PURPLE_CBFLAGS_NONE, FALSE);
-
-//    waprpl_check_output(gc);
-}
+//void vk_chat_invite(PurpleConnection* gc, int conv_id, const char*, const char* who)
+//{
+//}
 
 void vk_chat_leave(PurpleConnection* gc, int id)
 {
@@ -616,8 +573,8 @@ PurplePluginProtocolInfo prpl_info = {
     vk_tooltip_text, /* tooltip_text */
     vk_status_types, /* status_types */
     nullptr, /* blist_node_menu */
-    vk_chat_join_info, /* chat_info */
-    vk_chat_info_defaults, /* chat_info_defaults */
+    nullptr, //    vk_chat_join_info, /* chat_info */
+    nullptr, //    vk_chat_info_defaults, /* chat_info_defaults */
     vk_login, /* login */
     vk_close, /* close */
     vk_send_im, /* send_im */
@@ -639,7 +596,7 @@ PurplePluginProtocolInfo prpl_info = {
     vk_chat_join, /* join_chat */
     nullptr, /* reject_chat */
     vk_get_chat_name, /* get_chat_name */
-    vk_chat_invite, /* chat_invite */
+    nullptr, //    vk_chat_invite, /* chat_invite */
     vk_chat_leave, /* chat_leave */
     nullptr, /* chat_whisper */
     vk_chat_send, /* chat_send */
@@ -656,7 +613,7 @@ PurplePluginProtocolInfo prpl_info = {
     nullptr, /* set_buddy_icon */
     nullptr, /* remove_group */
     vk_get_cb_real_name, /* get_cb_real_name */
-    vk_set_chat_topic, /* set_chat_topic */
+    nullptr, //    vk_set_chat_topic, /* set_chat_topic */
     vk_find_blist_chat, /* find_blist_chat */
     nullptr, /* roomlist_get_list */
     nullptr, /* roomlist_cancel */
