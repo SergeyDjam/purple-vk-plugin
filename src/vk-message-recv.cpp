@@ -854,9 +854,9 @@ void find_active_ids(PurpleConversation* conv, uint64* user_id, uint64* chat_id)
 // and active_chat_id, returned from find_active_ids.
 bool message_in_active(const VkReceivedMessage& msg, uint64 active_user_id, uint64 active_chat_id)
 {
-    if (active_user_id != 0 && msg.user_id == active_user_id)
-        return true;
     if (active_chat_id != 0 && msg.chat_id == active_chat_id)
+        return true;
+    if (active_user_id != 0 && msg.user_id == active_user_id && msg.chat_id == 0)
         return true;
     return false;
 }

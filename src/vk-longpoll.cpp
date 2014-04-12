@@ -393,6 +393,7 @@ void process_incoming_message_internal(PurpleConnection* gc, uint64 msg_id, int 
                 int conv_id = chat_id_to_conv_id(gc, chat_id);
                 string from = get_user_display_name(gc, from_user_id, chat_id);
                 serv_got_chat_in(gc, conv_id, from.data(), PURPLE_MESSAGE_RECV, text.data(), timestamp);
+                mark_message_as_read(gc, { VkReceivedMessage{ msg_id, from_user_id, chat_id } });
             });
         }
     }
