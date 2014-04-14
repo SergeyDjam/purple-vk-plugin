@@ -397,8 +397,9 @@ int vk_chat_send(PurpleConnection* gc, int id, const char* message, PurpleMessag
 
     // Pidgin for some reason does not write outgoing messages when writing to the chat,
     // so we have to do it oruselves.
+    PurpleConversation* conv = purple_find_chat(gc, id);
     string from = get_self_chat_display_name(gc);
-    serv_got_chat_in(gc, id, from.data(), PURPLE_MESSAGE_SEND, message, time(nullptr));
+    purple_conv_chat_write(PURPLE_CONV_CHAT(conv), from.data(), message, PURPLE_MESSAGE_SEND, time(nullptr));
 
     return send_chat_message(gc, chat_id, message);
 }
