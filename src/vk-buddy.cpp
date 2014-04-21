@@ -190,7 +190,9 @@ typedef shared_ptr<GetUsersChatsData> GetUsersChatsData_ptr;
 void get_users_chats_from_dialogs_impl(PurpleConnection* gc, const SuccessCb& success_cb,
                                        const GetUsersChatsData_ptr& data, uint offset)
 {
-    CallParams params = { {"count", "200"}, {"offset", to_string(offset)} };
+    CallParams params = { {"count", "200"},
+                          {"offset", to_string(offset)},
+                          {"preview_length", "1"} };
     vk_call_api(gc, "messages.getDialogs", params, [=](const picojson::value& v) {
         if (!field_is_present<double>(v, "count") || !field_is_present<picojson::array>(v, "items")) {
             vkcom_debug_error("Strange response from messages.getDialogs: %s\n", v.serialize().data());
