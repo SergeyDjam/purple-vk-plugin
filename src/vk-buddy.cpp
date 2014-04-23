@@ -124,17 +124,17 @@ void update_user_info_from(PurpleConnection* gc, const picojson::value& fields)
 }
 
 // Returns all "id" elements from each item in items.
-uint64_set get_ids_from_items(const picojson::array& items)
+set<uint64> get_ids_from_items(const picojson::array& items)
 {
-    uint64_set ret;
+    set<uint64> ret;
     for (const picojson::value& it: items) {
         if (!it.is<picojson::object>()) {
             vkcom_debug_error("Strange response: %s\n", it.serialize().data());
-            return uint64_set();
+            return set<uint64>();
         }
         if (!field_is_present<double>(it, "id")) {
             vkcom_debug_error("Strange response: %s\n", it.serialize().data());
-            return uint64_set();
+            return set<uint64>();
         }
         uint64 id = it.get("id").get<double>();
         ret.insert(id);
@@ -182,8 +182,8 @@ void update_friends_info(PurpleConnection* gc, const SuccessCb& success_cb)
 // We fill in members of this structure and then move them to corresponding VkData fields.
 struct GetUsersChatsData
 {
-    uint64_set user_ids;
-    uint64_set chat_ids;
+    set<uint64> user_ids;
+    set<uint64> chat_ids;
 };
 typedef shared_ptr<GetUsersChatsData> GetUsersChatsData_ptr;
 
@@ -702,7 +702,7 @@ void update_user_chat_infos(PurpleConnection* gc)
     update_friends_info(gc, [=] {
         get_users_chats_from_dialogs(gc, [=]() {
             VkData& gc_data = get_data(gc);
-            uint64_set non_friend_user_ids;
+            set<uint64> non_friend_user_ids;
             // Do not update user infos if we will not show users in blist anyway.
             if (!gc_data.options().only_friends_in_blist) {
                 insert_if(non_friend_user_ids, gc_data.dialog_user_ids, [=](uint64 user_id) {
@@ -738,7 +738,7 @@ void update_friends_presence(PurpleConnection* gc, const SuccessCb& on_update_cb
         }
 
         VkData& gc_data = get_data(gc);
-        uint64_set friend_user_ids;
+        set<uint64> friend_user_ids;
 
         const picojson::array& online = result.get("online").get<picojson::array>();
         for (const picojson::value& v: online) {
@@ -789,7 +789,7 @@ void update_friends_presence(PurpleConnection* gc, const SuccessCb& on_update_cb
 
 void update_open_conv_presence(PurpleConnection *gc)
 {
-    uint64_vec user_ids;
+    vector<uint64> user_ids;
     VkData& gc_data = get_data(gc);
     for (const auto& it: gc_data.user_infos) {
         uint64 user_id = it.first;
@@ -840,7 +840,7 @@ void update_open_conv_presence(PurpleConnection *gc)
     }, nullptr, nullptr);
 }
 
-void update_user_infos(PurpleConnection* gc, const uint64_set& user_ids, const SuccessCb& on_update_cb)
+void update_user_infos(PurpleConnection* gc, const set<uint64>& user_ids, const SuccessCb& on_update_cb)
 {
     if (user_ids.empty()) {
         if (on_update_cb)
@@ -913,7 +913,7 @@ void update_chat_info_from(PurpleConnection* gc, const picojson::value& chat,
     info.title = chat.get("title").get<string>();
 
     info.participants.clear();
-    string_set already_used_names;
+    set<string> already_used_names;
 
     const picojson::array& users = chat.get("users").get<picojson::array>();
     for (const picojson::value& u: users) {
@@ -954,7 +954,7 @@ void update_chat_info_from(PurpleConnection* gc, const picojson::value& chat,
 
 } // namespace
 
-void update_chat_infos(PurpleConnection* gc, const uint64_set& chat_ids, const SuccessCb& on_update_cb, bool update_blist)
+void update_chat_infos(PurpleConnection* gc, const set<uint64>& chat_ids, const SuccessCb& on_update_cb, bool update_blist)
 {
     if (chat_ids.empty()) {
         if (on_update_cb)
@@ -999,7 +999,7 @@ void update_presence_in_blist(PurpleConnection *gc, uint64 user_id)
 }
 
 
-void add_buddies_if_needed(PurpleConnection* gc, const uint64_set& user_ids, const SuccessCb& on_update_cb)
+void add_buddies_if_needed(PurpleConnection* gc, const set<uint64>& user_ids, const SuccessCb& on_update_cb)
 {
     if (user_ids.empty()) {
         if (on_update_cb)
@@ -1011,7 +1011,7 @@ void add_buddies_if_needed(PurpleConnection* gc, const uint64_set& user_ids, con
     // add them to the list of dialog user ids.
     insert(get_data(gc).dialog_user_ids, user_ids);
 
-    uint64_set unknown_user_ids;
+    set<uint64> unknown_user_ids;
     insert_if(unknown_user_ids, user_ids, [=](uint64 user_id) {
         return is_unknown_user(gc, user_id);
     });
@@ -1055,7 +1055,7 @@ void remove_buddy_if_needed(PurpleConnection* gc, uint64 user_id)
     remove_blist_buddy(gc, buddy, user_id);
 }
 
-void add_chats_if_needed(PurpleConnection* gc, const uint64_set& chat_ids, const SuccessCb& on_update_cb)
+void add_chats_if_needed(PurpleConnection* gc, const set<uint64>& chat_ids, const SuccessCb& on_update_cb)
 {
     if (chat_ids.empty()) {
         if (on_update_cb)
@@ -1067,7 +1067,7 @@ void add_chats_if_needed(PurpleConnection* gc, const uint64_set& chat_ids, const
     // add it to the list of chat ids.
     insert(get_data(gc).chat_ids, chat_ids);
 
-    uint64_set unknown_chat_ids;
+    set<uint64> unknown_chat_ids;
     insert_if(unknown_chat_ids, chat_ids, [=](uint64 chat_id) {
         return is_unknown_chat(gc, chat_id);
     });

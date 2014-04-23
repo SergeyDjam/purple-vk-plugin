@@ -77,7 +77,7 @@ namespace
 
 // Parses and removes <img id="X"> out of message and returns cleaned message (without <img> tags)
 // and list of img ids.
-void remove_img_tags(const char* message, string* clean_message, int_vec* img_ids)
+void remove_img_tags(const char* message, string* clean_message, vector<int>* img_ids)
 {
     static GRegex* img_regex = nullptr;
     static OnExit img_regex_deleter([=] {
@@ -125,7 +125,7 @@ void remove_img_tags(const char* message, string* clean_message, int_vec* img_id
 struct UploadImgstoreImages
 {
     // List remaining all img_ids to upload.
-    int_vec img_ids;
+    vector<int> img_ids;
     // Attachments created from the already uploaded img_ids.
     string attachments;
 };
@@ -181,7 +181,7 @@ void upload_imgstore_images_impl(PurpleConnection* gc, const UploadImgstoreImage
 
 // Uploads a number of images, stored in imgstore and returns the list of attachments to be added
 // to the message which contained the images.
-void upload_imgstore_images(PurpleConnection* gc, const int_vec& img_ids, const ImagesUploadedCb& uploaded_cb,
+void upload_imgstore_images(PurpleConnection* gc, const vector<int>& img_ids, const ImagesUploadedCb& uploaded_cb,
                             const ErrorCb& error_cb)
 {
     if (img_ids.empty()) {
@@ -201,7 +201,7 @@ int send_message(PurpleConnection* gc, uint64 user_id, uint64 chat_id, const cha
     // We remove all <img id="X">, inserted via "Insert image", upload the images to server
     // and append to the attachment.
     string no_imgs_message;
-    int_vec img_ids;
+    vector<int> img_ids;
     remove_img_tags(raw_message, &no_imgs_message, &img_ids);
 
     // Strip HTML tags from the message (<a> gets replaced with link title + url, most other

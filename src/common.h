@@ -27,21 +27,11 @@ using std::set;
 using std::shared_ptr;
 using std::vector;
 
-// NOTE: Should change string alias to __gnu_cxx::vstring;
 typedef std::string string;
-typedef map<string, string> string_map;
-typedef pair<string, string> string_pair;
-typedef set<string> string_set;
-typedef vector<string> string_vec;
 
 typedef unsigned int uint;
-typedef vector<int> int_vec;
-typedef set<uint> uint_set;
 typedef int64_t int64;
 typedef uint64_t uint64;
-typedef vector<uint64> uint64_vec;
-typedef set<uint64> uint64_set;
-
 
 // GCC 4.6 supported only pre-C++11 monotonic_clock
 #if __GNUC__ != 4 || __GNUC_MINOR__ != 6
@@ -372,7 +362,7 @@ inline std::chrono::milliseconds::rep to_milliseconds(T duration)
 }
 
 
-// Debugging macroses
+// Debugging macros
 
 #define vkcom_debug_info(fmt, ...) \
     purple_debug_info("prpl-vkcom", fmt, ##__VA_ARGS__)

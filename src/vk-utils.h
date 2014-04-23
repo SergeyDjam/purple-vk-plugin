@@ -103,7 +103,7 @@ struct VkGroupInfo
 };
 
 typedef function_ptr<void(const map<uint64, VkGroupInfo>& infos)> GroupInfoFetchedCb;
-void get_groups_info(PurpleConnection* gc, uint64_vec group_ids, const GroupInfoFetchedCb& fetched_cb);
+void get_groups_info(PurpleConnection* gc, vector<uint64> group_ids, const GroupInfoFetchedCb& fetched_cb);
 
 // Gets href, which points to the user page.
 string get_user_href(uint64 user_id, const VkUserInfo& info);

@@ -12,9 +12,9 @@ const char VK_CLIENT_ID[] = "3833170";
 namespace {
 
 // Splits the comma-separated string of integers.
-uint64_set str_split_int(const char* str)
+set<uint64> str_split_int(const char* str)
 {
-    uint64_set ret;
+    set<uint64> ret;
     while (*str) {
         char* next;
         uint64 i = strtoll(str, &next, 10);
@@ -39,7 +39,7 @@ vector<VkReceivedMessage> deferred_mark_as_read_from_string(const char* str)
         return {};
     }
 
-    VkReceivedMessage_vec messages;
+    vector<VkReceivedMessage> messages;
     const picojson::array& a = v.get<picojson::array>();
     for (const picojson::value& d: a) {
         VkReceivedMessage msg;
@@ -180,7 +180,7 @@ VkData::~VkData()
 
     // g_source_remove calls timeout_destroy_cb, which modifies timeout_ids, so we make a copy before
     // calling g_source_remove. Damned mutability.
-    uint_set timeout_ids_copy = timeout_ids;
+    set<uint> timeout_ids_copy = timeout_ids;
     for (uint id: timeout_ids_copy)
         g_source_remove(id);
 

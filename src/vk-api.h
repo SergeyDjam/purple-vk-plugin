@@ -9,7 +9,7 @@
 #include "contrib/picojson.h"
 
 // Calls method with params.
-typedef vector<string_pair> CallParams;
+typedef vector<pair<string, string>> CallParams;
 typedef function_ptr<void(const picojson::value& result)> CallSuccessCb;
 typedef function_ptr<void(const picojson::value& error)> CallErrorCb;
 void vk_call_api(PurpleConnection* gc, const char* method_name, const CallParams& params,
@@ -33,5 +33,5 @@ void vk_call_api_items(PurpleConnection* gc, const char* method_name, const Call
 // to fit into the URL limits. success_cb may be called multiple times and either call_finished_cb or error_cb
 // will be called.
 void vk_call_api_ids(PurpleConnection* gc, const char* method_name, const CallParams& params,
-                     const char* id_param_name, const uint64_vec& id_values, const CallSuccessCb& success_cb,
+                     const char* id_param_name, const vector<uint64>& id_values, const CallSuccessCb& success_cb,
                      const CallFinishedCb& call_finished_cb, const CallErrorCb& error_cb);

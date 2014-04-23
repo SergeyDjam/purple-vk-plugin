@@ -67,8 +67,6 @@ struct VkReceivedMessage
     uint64 chat_id;
 };
 
-typedef vector<VkReceivedMessage> VkReceivedMessage_vec;
-
 // A structure, describing a previously uploaded doc. It is used to check whether the doc
 // has already been uploaded before and not upload it again.
 struct VkUploadedDocInfo
@@ -88,6 +86,7 @@ struct VkChatInfo
     // same real_name in one chat and no way to differentiate them --- no avatars etc.). We use
     // real name + nickname or real name + id if we have two users with equal real names.
     map<uint64, string> participants;
+    set<uint64> i;
 };
 
 // A structure, which holds the previous state of node in buddy list. Motivation: we store
@@ -141,11 +140,11 @@ public:
     // Set of user ids of friends. Updated upon login and on timer by update_users. We generally do
     // not care if this is a bit outdated. This set is updated only upon login and ones per
     // some time interval.
-    uint64_set friend_user_ids;
+    set<uint64> friend_user_ids;
 
     // Set of user ids of all buddies (including friends) which the user has dialog with. This set
     // is updated upon login, ones per some time interval and each time we send message (if needed).
-    uint64_set dialog_user_ids;
+    set<uint64> dialog_user_ids;
 
     // Map from user identifier to user information. All users from friend_user_ids and dialog_user_ids
     // and all chat participants must be present in this map. Gets updated periodically (once in 15 minutes).
@@ -153,7 +152,7 @@ public:
     map<uint64, VkUserInfo> user_infos;
 
     // Set of ids of all chats user participates with.
-    uint64_set chat_ids;
+    set<uint64> chat_ids;
 
     // Map from chat identifier to chat information. Items are only added to this map and NEVER removed.
     map<uint64, VkChatInfo> chat_infos;
@@ -205,12 +204,12 @@ public:
     // These two sets (manually_added_buddies and manually_removed_buddies) are updated when user selects
     // "Add buddy" or "Remove" in the buddy list. They are permanently stored in account properties,
     // loaded in VkData constructor and stored in destructor.
-    const uint64_set& manually_added_buddies() const
+    const set<uint64>& manually_added_buddies() const
     {
         return m_manually_added_buddies;
     }
 
-    const uint64_set& manually_removed_buddies() const
+    const set<uint64>& manually_removed_buddies() const
     {
         return m_manually_removed_buddies;
     }
@@ -232,12 +231,12 @@ public:
     // These two sets (manually_added_chats and manually_removed_chats) are updated when user selects "Add chat",
     // "Join chat" or "Remove" in the buddy list. They are permanently stored in account properties, loaded
     // in VkData constructor and stored in destructor.
-    const uint64_set& manually_added_chats() const
+    const set<uint64>& manually_added_chats() const
     {
         return m_manually_added_chats;
     }
 
-    const uint64_set& manually_removed_chats() const
+    const set<uint64>& manually_removed_chats() const
     {
         return m_manually_removed_chats;
     }
@@ -259,7 +258,7 @@ public:
     // A collection of messages, which should be marked as read later (when user starts
     // typing or activates tab or changes status to Available). Must be stored and loaded, so that
     // we do not lose any read statuses.
-    VkReceivedMessage_vec deferred_mark_as_read;
+    vector<VkReceivedMessage> deferred_mark_as_read;
 
     // We check this collection on each file xfer and update it after upload to Vk.com. It gets stored and loaded
     // from settings.
@@ -301,18 +300,18 @@ private:
 
     VkOptions m_options;
 
-    uint64_set m_sent_msg_ids;
+    set<uint64> m_sent_msg_ids;
     steady_time_point m_last_msg_sent_time;
 
-    uint64_set m_manually_added_buddies;
-    uint64_set m_manually_removed_buddies;
-    uint64_set m_manually_added_chats;
-    uint64_set m_manually_removed_chats;
+    set<uint64> m_manually_added_buddies;
+    set<uint64> m_manually_removed_buddies;
+    set<uint64> m_manually_added_chats;
+    set<uint64> m_manually_removed_chats;
 
     PurpleConnection* m_gc;
     bool m_closing;
 
-    uint_set timeout_ids;
+    set<uint> timeout_ids;
 
     PurpleHttpKeepalivePool* m_keepalive_pool;
 

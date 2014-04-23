@@ -28,11 +28,11 @@ void update_friends_presence(PurpleConnection* gc, const SuccessCb& on_update_cb
 void update_open_conv_presence(PurpleConnection* gc);
 
 // Adds or updates information on chats.
-void update_user_infos(PurpleConnection* gc, const uint64_set& user_ids, const SuccessCb& on_update_cb);
+void update_user_infos(PurpleConnection* gc, const set<uint64>& user_ids, const SuccessCb& on_update_cb);
 
 // Adds or updates information on chats. If update_blist is true, corresponding buddy list node
 // is updated too if it exists.
-void update_chat_infos(PurpleConnection* gc, const uint64_set& chat_ids, const SuccessCb& on_update_cb,
+void update_chat_infos(PurpleConnection* gc, const set<uint64>& chat_ids, const SuccessCb& on_update_cb,
                        bool update_blist = false);
 
 
@@ -43,7 +43,7 @@ void update_presence_in_blist(PurpleConnection* gc, uint64 user_id);
 
 // Checks if users are not present in buddy list and adds them to buddy list (regardless
 // of account options). Used when receiving message from user (user must be present in the buddy list).
-void add_buddies_if_needed(PurpleConnection* gc, const uint64_set& user_ids, const SuccessCb& on_update_cb = nullptr);
+void add_buddies_if_needed(PurpleConnection* gc, const set<uint64>& user_ids, const SuccessCb& on_update_cb = nullptr);
 
 // An overload for add_buddies_if_needed.
 void add_buddy_if_needed(PurpleConnection* gc, uint64 user_id, const SuccessCb& on_update_cb = nullptr);
@@ -55,7 +55,7 @@ void remove_buddy_if_needed(PurpleConnection* gc, uint64 user_id);
 
 // Checks if chats are not present in buddy list and adds them to buddy list (regardless of
 // account options). Used when receiving chat message (chat must be present in the buddy list).
-void add_chats_if_needed(PurpleConnection* gc, const uint64_set& chat_ids, const SuccessCb& on_update_cb);
+void add_chats_if_needed(PurpleConnection* gc, const set<uint64>& chat_ids, const SuccessCb& on_update_cb);
 
 // An overload for add_chats_if_needed
 void add_chat_if_needed(PurpleConnection* gc, uint64 chat_id, const SuccessCb& on_update_cb);

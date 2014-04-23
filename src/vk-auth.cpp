@@ -16,7 +16,8 @@ struct HtmlForm
 {
     string action_url;
     string method;
-    string_map params; // Mapping from param name to param value if one exists
+    // Mapping from param name to param value if one exists
+    map<string, string> params;
 };
 
 // Finds <form> element in the document
@@ -100,7 +101,7 @@ struct AuthData
     ErrorCb error_cb;
 };
 
-typedef std::shared_ptr<AuthData> AuthData_ptr;
+typedef shared_ptr<AuthData> AuthData_ptr;
 
 // Starts authentication process.
 void start_auth(const AuthData_ptr& data);
@@ -269,7 +270,7 @@ void on_fetch_vk_access_token(const AuthData_ptr& data, PurpleHttpConnection* ht
     }
 
     const char* url_params = strchr(url, '#') + 1;
-    string_map params = parse_urlencoded_form(url_params);
+    map<string, string> params = parse_urlencoded_form(url_params);
     string access_token = params["access_token"];
     if (access_token.empty()) {
         vkcom_debug_error("access_token not present in %s\n", url_params);

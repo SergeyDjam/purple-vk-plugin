@@ -140,7 +140,7 @@ void receive_messages_range(PurpleConnection* gc, uint64 last_msg_id, const Rece
 namespace
 {
 
-void receive_messages_impl(PurpleConnection* gc, const uint64_vec& message_ids, size_t offset)
+void receive_messages_impl(PurpleConnection* gc, const vector<uint64>& message_ids, size_t offset)
 {
     if (message_ids.empty())
         return;
@@ -149,7 +149,7 @@ void receive_messages_impl(PurpleConnection* gc, const uint64_vec& message_ids, 
     data->gc = gc;
     data->received_cb = nullptr;
 
-    size_t num = max_urlencoded_int(message_ids.begin() + offset, message_ids.end());
+    size_t num = max_urlencoded_int(message_ids.data() + offset, message_ids.data() + message_ids.size());
     string ids_str = str_concat_int(',', message_ids.begin() + offset, message_ids.begin() + offset + num);
     CallParams params = { {"message_ids", ids_str} };
     vk_call_api_items(data->gc, "messages.getById", params, false, [=](const picojson::value& message) {
@@ -167,7 +167,7 @@ void receive_messages_impl(PurpleConnection* gc, const uint64_vec& message_ids, 
 
 }
 
-void receive_messages(PurpleConnection* gc, const uint64_vec& message_ids)
+void receive_messages(PurpleConnection* gc, const vector<uint64>& message_ids)
 {
     receive_messages_impl(gc, message_ids, 0);
 }
@@ -630,7 +630,7 @@ void download_thumbnail(const MessagesData_ptr& data, size_t msg_num, size_t thu
 void replace_user_ids(const MessagesData_ptr& data)
 {
     // Get all user ids, which are not present in user_infos.
-    uint64_set unknown_user_ids;
+    set<uint64> unknown_user_ids;
     for (const Message& m: data->messages)
         insert(unknown_user_ids, m.unknown_user_ids);
 
@@ -655,7 +655,7 @@ void replace_user_ids(const MessagesData_ptr& data)
 
 void replace_group_ids(const MessagesData_ptr& data)
 {
-    uint64_vec group_ids;
+    vector<uint64> group_ids;
     for (const Message& m: data->messages)
         append(group_ids, m.unknown_group_ids);
 
@@ -681,14 +681,14 @@ void add_unknown_users_chats(const MessagesData_ptr& data)
 {
     // Chats to get information about: all incoming chats. Chat participants are updated
     // when updating chat information.
-    uint64_set unknown_chat_ids;
+    set<uint64> unknown_chat_ids;
     for (const Message& m: data->messages)
         if (m.status != MESSAGE_OUTGOING && m.chat_id != 0 && is_unknown_chat(data->gc, m.chat_id))
             unknown_chat_ids.insert(m.chat_id);
 
     update_chat_infos(data->gc, unknown_chat_ids, [=] {
         // Chats to be added to buddy list: all unread incoming chats.
-        uint64_set chat_ids_to_buddy_list;
+        set<uint64> chat_ids_to_buddy_list;
         for (const Message& m: data->messages)
             if (m.status == MESSAGE_INCOMING_UNREAD && m.chat_id != 0 && !chat_in_buddy_list(data->gc, m.chat_id))
                 chat_ids_to_buddy_list.insert(m.chat_id);
@@ -698,7 +698,7 @@ void add_unknown_users_chats(const MessagesData_ptr& data)
             // names when we write to the log) and all the users to be added to the buddy list (see below).
             // Not all chat participants have been updated when chat information was updated due to chats
             // being deactivated, so let's update info for them.
-            uint64_set unknown_user_ids;
+            set<uint64> unknown_user_ids;
             for (const Message& m: data->messages)
                 if (m.status != MESSAGE_OUTGOING && is_unknown_user(data->gc, m.user_id))
                     unknown_user_ids.insert(m.user_id);
@@ -706,7 +706,7 @@ void add_unknown_users_chats(const MessagesData_ptr& data)
             update_user_infos(data->gc, unknown_user_ids, [=] {
                 // Users to be added to buddy list: authors of unread non-chat messages. Chat participants
                 // are never added to buddy list (unless they are already there).
-                uint64_set user_ids_to_buddy_list;
+                set<uint64> user_ids_to_buddy_list;
                 for (const Message& m: data->messages)
                     if (m.status == MESSAGE_INCOMING_UNREAD && m.chat_id == 0 && !user_in_buddy_list(data->gc, m.user_id))
                         user_ids_to_buddy_list.insert(m.user_id);
@@ -790,7 +790,7 @@ void finish_receiving(const MessagesData_ptr& data)
     }
 
     // Mark incoming messages as read.
-    VkReceivedMessage_vec unread_messages;
+    vector<VkReceivedMessage> unread_messages;
     for (const Message& m: data->messages)
         if (m.status == MESSAGE_INCOMING_UNREAD)
             unread_messages.push_back(VkReceivedMessage{ m.mid, m.user_id, m.chat_id });
@@ -874,7 +874,7 @@ void mark_messages_as_read_impl(PurpleConnection* gc, const Cont& message_ids)
 
 } // namespace
 
-void mark_message_as_read(PurpleConnection* gc, const VkReceivedMessage_vec& messages)
+void mark_message_as_read(PurpleConnection* gc, const vector<VkReceivedMessage>& messages)
 {
     VkData& gc_data = get_data(gc);
 
@@ -884,7 +884,7 @@ void mark_message_as_read(PurpleConnection* gc, const VkReceivedMessage_vec& mes
         return;
     }
 
-    uint64_vec message_ids;
+    vector<uint64> message_ids;
     if (gc_data.options().mark_as_read_inactive_tab) {
         for (const VkReceivedMessage& msg: messages)
             message_ids.push_back(msg.msg_id);
@@ -911,7 +911,7 @@ void mark_deferred_messages_as_read(PurpleConnection* gc, bool active)
         return;
 
     VkData& gc_data = get_data(gc);
-    uint64_vec message_ids;
+    vector<uint64> message_ids;
     if (gc_data.options().mark_as_read_inactive_tab) {
         for (const VkReceivedMessage& msg: gc_data.deferred_mark_as_read)
             message_ids.push_back(msg.msg_id);

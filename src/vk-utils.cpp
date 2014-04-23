@@ -354,7 +354,7 @@ void replace_emoji_with_text(string& message)
 }
 
 
-void get_groups_info(PurpleConnection* gc, uint64_vec group_ids, const GroupInfoFetchedCb& fetched_cb)
+void get_groups_info(PurpleConnection* gc, vector<uint64> group_ids, const GroupInfoFetchedCb& fetched_cb)
 {
     if (group_ids.empty()) {
         fetched_cb(map<uint64, VkGroupInfo>());

@@ -35,12 +35,12 @@ string urlencode_form(Iter first, Iter last)
 
 } // End anonymous namespace
 
-string urlencode_form(const string_map& params)
+string urlencode_form(const map<string, string>& params)
 {
     return urlencode_form(params.begin(), params.end());
 }
 
-string urlencode_form(const vector<string_pair>& params)
+string urlencode_form(const vector<pair<string, string>>& params)
 {
     return urlencode_form(params.begin(), params.end());
 }
@@ -63,9 +63,9 @@ string urldecode(const char* s, int len)
 
 } // End anonymous namespace
 
-string_map parse_urlencoded_form(const char* encoded)
+map<string, string> parse_urlencoded_form(const char* encoded)
 {
-    string_map params;
+    map<string, string> params;
 
     const char* key = encoded;
     while (true) {
@@ -140,10 +140,10 @@ size_t max_urlencoded_prefix(const char *s, size_t max_urlencoded_len)
 }
 
 
-size_t max_urlencoded_int(uint64_vec::const_iterator start, uint64_vec::const_iterator end, size_t max_urlencoded_len)
+size_t max_urlencoded_int(const uint64* start, const uint64* end, size_t max_urlencoded_len)
 {
     size_t len = 0;
-    for (uint64_vec::const_iterator it = start; it != end; ++it) {
+    for (const uint64* it = start; it != end; ++it) {
         len += int(log10(*it) + 1) + 3; // Comma is URLencoded
         if (len > max_urlencoded_len)
             return it - start;

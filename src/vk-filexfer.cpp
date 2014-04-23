@@ -151,7 +151,7 @@ void clean_nonexisting_docs(PurpleConnection* gc, const SuccessCb& success_cb)
     vkcom_debug_info("Checking for stale information about uploaded documents\n");
 
     // A set of document ids, which are still available.
-    shared_ptr<uint64_set> existing_doc_ids{ new uint64_set() };
+    shared_ptr<set<uint64>> existing_doc_ids{ new set<uint64>() };
 
     vk_call_api_items(gc, "docs.get", CallParams(), true, [=](const picojson::value& v) {
         if (!field_is_present<double>(v, "id") || !field_is_present<string>(v, "title")

@@ -219,7 +219,7 @@ typedef shared_ptr<CallParams> CallParams_ptr;
 // Adds or replaces existing parameter value in CallParams.
 void add_or_replace_call_param(CallParams& params, const char* name, const char* value)
 {
-    for (string_pair& pair: params) {
+    for (pair<string, string>& pair: params) {
         if (pair.first == name) {
             pair.second = value;
             return;
@@ -279,13 +279,13 @@ namespace
 {
 
 // We do not want to copy id_values when storing in lambda, the easiest way is storing them in shared_ptr.
-typedef shared_ptr<uint64_vec> IdValues_ptr;
+typedef shared_ptr<vector<uint64>> IdValues_ptr;
 
 void vk_call_api_ids_impl(PurpleConnection* gc, const char* method_name, const CallParams_ptr& params,
                           const char* id_param_name, const IdValues_ptr& id_values, const CallSuccessCb& success_cb,
                           const CallFinishedCb& call_finished_cb, const CallErrorCb& error_cb, size_t offset)
 {
-    size_t num = max_urlencoded_int(id_values->begin() + offset, id_values->end());
+    size_t num = max_urlencoded_int(id_values->data() + offset, id_values->data() + id_values->size());
     string ids_str = str_concat_int(',', id_values->begin() + offset, id_values->begin() + offset + num);
     add_or_replace_call_param(*params, id_param_name, ids_str.data());
 
@@ -308,11 +308,11 @@ void vk_call_api_ids_impl(PurpleConnection* gc, const char* method_name, const C
 
 
 void vk_call_api_ids(PurpleConnection* gc, const char* method_name, const CallParams& params,
-                     const char* id_param_name, const uint64_vec& id_values, const CallSuccessCb& success_cb,
+                     const char* id_param_name, const vector<uint64>& id_values, const CallSuccessCb& success_cb,
                      const CallFinishedCb& call_finished_cb, const CallErrorCb& error_cb)
 {
     CallParams_ptr params_ptr{ new CallParams(params) };
-    IdValues_ptr id_values_ptr{ new uint64_vec(id_values) };
+    IdValues_ptr id_values_ptr{ new vector<uint64>(id_values) };
 
     vk_call_api_ids_impl(gc, method_name, params_ptr, id_param_name, id_values_ptr, success_cb,
                          call_finished_cb, error_cb, 0);

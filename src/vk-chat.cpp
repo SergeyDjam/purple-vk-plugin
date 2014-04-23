@@ -53,7 +53,7 @@ namespace
 // Checks if all users are the same as listed in info, returns false if differ.
 bool are_equal_chat_users(PurpleConnection* gc, PurpleConvChat* conv, VkChatInfo* info)
 {
-    string_set names;
+    set<string> names;
     for (const auto& p: info->participants)
         names.insert(p.second);
     const char* self_alias = purple_account_get_alias(purple_connection_get_account(gc));

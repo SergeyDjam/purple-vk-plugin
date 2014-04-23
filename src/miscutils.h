@@ -14,11 +14,11 @@
 string get_xml_node_prop(xmlNode* node, const char* tag, const char* default_value = "");
 
 // Returns an x-www-form-urlencoded representation of a set of parameters.
-string urlencode_form(const string_map& params);
-string urlencode_form(const vector<string_pair>& params);
+string urlencode_form(const map<string, string>& params);
+string urlencode_form(const vector<pair<string, string>>& params);
 
 // Returns mapping key -> value from urlencoded form.
-string_map parse_urlencoded_form(const char* encoded);
+map<string, string> parse_urlencoded_form(const char* encoded);
 
 // A rather specific function, which returns the length of prefix (the first part of the string),
 // urlencoded version of which is no longer than max_urlencoded_len. Used when you have large
@@ -29,7 +29,7 @@ const size_t MAX_URLENCODED_STRING = 1700;
 size_t max_urlencoded_prefix(const char* s, size_t max_urlencoded_len = MAX_URLENCODED_STRING);
 
 // A version of max_urlencoded_prefix, which works with arrays of integers (prefix is the subarray).
-size_t max_urlencoded_int(uint64_vec::const_iterator start, uint64_vec::const_iterator end,
+size_t max_urlencoded_int(const uint64* start, const uint64* end,
                           size_t max_urlencoded_len = MAX_URLENCODED_STRING);
 
 // Checks if JSON value is an object, contains key and the type of value for that key is T.

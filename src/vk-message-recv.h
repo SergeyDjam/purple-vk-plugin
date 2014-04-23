@@ -16,10 +16,10 @@ typedef function_ptr<void(uint64 max_msg_id)> ReceivedCb;
 void receive_messages_range(PurpleConnection* gc, uint64 last_msg_id, const ReceivedCb& received_cb);
 
 // Receives messages with given ids. Suitable for small amount of message_ids (< 100).
-void receive_messages(PurpleConnection* gc, const uint64_vec& message_ids);
+void receive_messages(PurpleConnection* gc, const vector<uint64>& message_ids);
 
 // Marks messages as read or defers marking them until it is appropriate to mark them as read.
-void mark_message_as_read(PurpleConnection* gc, const VkReceivedMessage_vec& messages);
+void mark_message_as_read(PurpleConnection* gc, const vector<VkReceivedMessage>& messages);
 
 // Marks appropriate messages, which have been previously deferred, as read. Used when user does
 // something: changes status to available, starts typing or switches the active conversation.
