@@ -631,8 +631,11 @@ void replace_user_ids(const MessagesData_ptr& data)
 {
     // Get all user ids, which are not present in user_infos.
     set<uint64> unknown_user_ids;
-    for (const Message& m: data->messages)
-        insert(unknown_user_ids, m.unknown_user_ids);
+    for (const Message& message: data->messages) {
+        insert_if(unknown_user_ids, message.unknown_user_ids, [=](uint64 user_id) {
+            return is_unknown_user(gc, user_id);
+        });
+    }
 
     update_user_infos(data->gc, unknown_user_ids, [=] {
         for (Message& m: data->messages) {

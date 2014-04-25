@@ -94,10 +94,9 @@ void start_long_poll_impl(PurpleConnection* gc, uint64 last_msg_id)
         // First, we update buddy presence and receive unread messages and only then start processing
         // events. We won't miss any events because we already got starting timestamp from server.
         update_friends_presence(gc, [=] {
+            // Start updaing user and chat infos, buddy list.
+            update_user_chat_infos(gc);
             receive_messages_range(gc, last_msg_id,  [=](uint64 max_msg_id) {
-                // Start updaing user and chat infos, buddy list.
-                update_user_chat_infos(gc);
-
                 // We've received no new messages.
                 if (max_msg_id == 0)
                     max_msg_id = last_msg_id;
