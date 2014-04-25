@@ -269,6 +269,17 @@ inline typename Map::mapped_type map_at(const Map& map, const Key& key, const Va
         return it->second;
 }
 
+// Returns pointer to value for key or nullptr.
+template<typename Map, typename Key, typename Value = typename Map::mapped_type>
+inline typename Map::mapped_type* map_at_ptr(Map& map, const Key& key)
+{
+    auto it = map.find(key);
+    if (it == map.end())
+        return nullptr;
+    else
+        return &it->second;
+}
+
 // Returns true if map or set contains key.
 template<typename Cont, typename Key>
 inline bool contains(const Cont& cont, const Key& key)
@@ -359,6 +370,13 @@ template<typename T>
 inline std::chrono::milliseconds::rep to_milliseconds(T duration)
 {
     return std::chrono::duration_cast<std::chrono::milliseconds>(duration).count();
+}
+
+// Converts the given duration to seconds.
+template<typename T>
+inline std::chrono::seconds::rep to_seconds(T duration)
+{
+    return std::chrono::duration_cast<std::chrono::seconds>(duration).count();
 }
 
 

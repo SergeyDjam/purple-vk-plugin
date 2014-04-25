@@ -86,7 +86,17 @@ struct VkChatInfo
     // same real_name in one chat and no way to differentiate them --- no avatars etc.). We use
     // real name + nickname or real name + id if we have two users with equal real names.
     map<uint64, string> participants;
-    set<uint64> i;
+};
+
+// A structure, describing one group.
+struct VkGroupInfo
+{
+    string name;
+    string type;
+    string screen_name;
+    // Group information is not updated periodically, only on demand, so we store the timepoint
+    // of last update.
+    steady_time_point last_updated;
 };
 
 // A structure, which holds the previous state of node in buddy list. Motivation: we store
@@ -156,6 +166,10 @@ public:
 
     // Map from chat identifier to chat information. Items are only added to this map and NEVER removed.
     map<uint64, VkChatInfo> chat_infos;
+
+    // Map from group identifier to group information. Items are added on demand and get
+    // updated only when info is re-requested and is stale.
+    map<uint64, VkGroupInfo> group_infos;
 
     // There is a problem with processing outgoing messages: either they are sent by us and need no further
     // processing, or they are sent by some other client (or from website) and we need to at least append

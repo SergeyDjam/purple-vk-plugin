@@ -97,7 +97,7 @@ void append_thumbnail_placeholder(const string& thumbnail_url, Message& message,
 // Returns user/group placeholder, which should be appended to the message text. It will
 // be replaced with actual user/group name and link to the page later in replace_user/group_ids().
 string get_user_placeholder(PurpleConnection* gc, uint64 user_id, Message& message);
-string get_group_placeholder(uint64 group_id, Message& message);
+string get_group_placeholder(PurpleConnection* gc, uint64 group_id, Message& message);
 
 // Downloads the given thumbnail for given message, modifies corresponding message text
 // and calls either next download_thumbnail() or finish(). message is index into m_messages,
@@ -460,7 +460,7 @@ void process_wall_attachment(PurpleConnection* gc, const picojson::value& fields
     if (to_id > 0) {
         message.text += get_user_placeholder(gc, to_id, message);
     } else {
-        message.text += get_group_placeholder(-to_id, message);
+        message.text += get_group_placeholder(gc, -to_id, message);
     }
 
     string wall_url = str_format("https://vk.com/wall%" PRIi64 "_%" PRIu64, to_id, id);
@@ -574,7 +574,8 @@ string get_user_placeholder(PurpleConnection* gc, uint64 user_id, Message& messa
         return "";
 
     VkUserInfo* info = get_user_info(gc, user_id);
-    if (info) {
+    // We can have user_info, but the user can be unknown.
+    if (info && !is_unknown_user(gc, user_id)) {
         return get_user_href(user_id, *info);
     } else {
         // We will get user information later and replace the placeholder.
@@ -584,15 +585,21 @@ string get_user_placeholder(PurpleConnection* gc, uint64 user_id, Message& messa
     }
 }
 
-string get_group_placeholder(uint64 group_id, Message& message)
+string get_group_placeholder(PurpleConnection* gc, uint64 group_id, Message& message)
 {
     if (group_id == 0)
         return "";
 
-    // We will get group information later and replace the placeholder.
-    string text = str_format("<group-placeholder-%d>", message.unknown_group_ids.size());
-    message.unknown_group_ids.push_back(group_id);
-    return text;
+    VkGroupInfo* info = get_group_info(gc, group_id);
+    // We can have group_info, but the group can be unknown.
+    if (info && !is_unknown_group(gc, group_id)) {
+        return get_group_href(group_id, *info);
+    } else {
+        // We will get group information later and replace the placeholder.
+        string text = str_format("<group-placeholder-%d>", message.unknown_group_ids.size());
+        message.unknown_group_ids.push_back(group_id);
+        return text;
+    }
 }
 
 void download_thumbnail(const MessagesData_ptr& data, size_t msg_num, size_t thumb_num)
@@ -633,7 +640,7 @@ void replace_user_ids(const MessagesData_ptr& data)
     set<uint64> unknown_user_ids;
     for (const Message& message: data->messages) {
         insert_if(unknown_user_ids, message.unknown_user_ids, [=](uint64 user_id) {
-            return is_unknown_user(gc, user_id);
+            return is_unknown_user(data->gc, user_id);
         });
     }
 
@@ -659,19 +666,23 @@ void replace_user_ids(const MessagesData_ptr& data)
 void replace_group_ids(const MessagesData_ptr& data)
 {
     vector<uint64> group_ids;
-    for (const Message& m: data->messages)
-        append(group_ids, m.unknown_group_ids);
+    for (const Message& m: data->messages) {
+        append_if(group_ids, m.unknown_group_ids, [=](uint64 group_id) {
+            return is_unknown_group(data->gc, group_id);
+        });
+    }
 
-    get_groups_info(data->gc, group_ids, [=](const map<uint64, VkGroupInfo>& infos) {
+    update_groups_info(data->gc, group_ids, [=] {
         for (Message& m: data->messages) {
             for (unsigned i = 0; i < m.unknown_group_ids.size(); i++) {
                 uint64 group_id = m.unknown_group_ids[i];
-                string placeholder = str_format("<group-placeholder-%d>", i);
+                VkGroupInfo* info = get_group_info(data->gc, group_id);
                 // Getting the group info could fail.
-                if (!contains(infos, group_id))
+                if (!info)
                     continue;
 
-                string href = get_group_href(group_id, infos.at(group_id));
+                string placeholder = str_format("<group-placeholder-%d>", i);
+                string href = get_group_href(group_id, *info);
                 str_replace(m.text, placeholder, href);
             }
         }

@@ -209,24 +209,14 @@ VkUserInfo* get_user_info(PurpleConnection* gc, uint64 user_id)
 {
     if (user_id == 0)
         return nullptr;
-
-    VkData& gc_data = get_data(gc);
-    auto it = gc_data.user_infos.find(user_id);
-    if (it == gc_data.user_infos.end())
-        return nullptr;
-    return &it->second;
+    return map_at_ptr(get_data(gc).user_infos, user_id);
 }
 
 VkChatInfo* get_chat_info(PurpleConnection* gc, uint64 chat_id)
 {
     if (chat_id == 0)
         return nullptr;
-
-    VkData& gc_data = get_data(gc);
-    auto it = gc_data.chat_infos.find(chat_id);
-    if (it == gc_data.chat_infos.end())
-        return nullptr;
-    return &it->second;
+    return map_at_ptr(get_data(gc).chat_infos, chat_id);
 }
 
 bool is_user_manually_added(PurpleConnection* gc, uint64 user_id)
@@ -354,46 +344,65 @@ void replace_emoji_with_text(string& message)
 }
 
 
-void get_groups_info(PurpleConnection* gc, vector<uint64> group_ids, const GroupInfoFetchedCb& fetched_cb)
+bool is_unknown_group(PurpleConnection* gc, uint64 group_id)
+{
+    VkGroupInfo* info = get_group_info(gc, group_id);
+    if (!info)
+        return true;
+    steady_time_point now = steady_clock::now();
+    if (to_seconds(now - info->last_updated) > 15 * 60)
+        return true;
+    return false;
+}
+
+VkGroupInfo* get_group_info(PurpleConnection* gc, uint64 group_id)
+{
+    if (group_id == 0)
+        return nullptr;
+    return map_at_ptr(get_data(gc).group_infos, group_id);
+}
+
+void update_groups_info(PurpleConnection* gc, vector<uint64> group_ids, const SuccessCb& success_cb)
 {
     if (group_ids.empty()) {
-        fetched_cb(map<uint64, VkGroupInfo>());
+        if (success_cb)
+            success_cb();
         return;
     }
 
     string group_ids_str = str_concat_int(',', group_ids);
     vkcom_debug_info("Getting infos for groups %s\n", group_ids_str.data());
 
-    CallParams params = { {"group_ids", group_ids_str} };
-    vk_call_api(gc, "groups.getById", params, [=](const picojson::value& result) {
+    vk_call_api_ids(gc, "groups.getById", CallParams(), "group_ids", group_ids, [=](const picojson::value& result) {
         if (!result.is<picojson::array>()) {
             vkcom_debug_error("Wrong type returned as users.get call result: %s\n",
                                result.serialize().data());
-            fetched_cb(map<uint64, VkGroupInfo>());
             return;
         }
 
-        map<uint64, VkGroupInfo> infos;
         const picojson::array& groups = result.get<picojson::array>();
         for (const picojson::value& v: groups) {
             if (!field_is_present<double>(v, "id") || !field_is_present<string>(v, "name")
                     || !field_is_present<string>(v, "type")) {
                 vkcom_debug_error("Wrong type returned as users.get call result: %s\n",
                                    result.serialize().data());
-                fetched_cb(map<uint64, VkGroupInfo>());
                 return;
             }
 
             uint64 id = v.get("id").get<double>();
-            VkGroupInfo& info = infos[id];
+            VkGroupInfo& info = get_data(gc).group_infos[id];
             info.name = v.get("name").get<string>();
             info.type = v.get("type").get<string>();
             if (field_is_present<string>(v, "screen_name"))
                 info.screen_name = v.get("screen_name").get<string>();
+            info.last_updated = steady_clock::now();
         }
-        fetched_cb(infos);
+    }, [=] {
+        if (success_cb)
+            success_cb();
     }, [=](const picojson::value&) {
-        fetched_cb(map<uint64, VkGroupInfo>());
+        if (success_cb)
+            success_cb();
     });
 }
 

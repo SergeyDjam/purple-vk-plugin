@@ -53,7 +53,7 @@ bool is_unknown_chat(PurpleConnection* gc, uint64 chat_id);
 VkUserInfo* get_user_info(PurpleBuddy* buddy);
 VkUserInfo* get_user_info(PurpleConnection* gc, uint64 user_id);
 
-// Returns VkChatInfo or nullptr if infostill has not been added.
+// Returns VkChatInfo or nullptr if info still has not been added.
 VkChatInfo* get_chat_info(PurpleConnection* gc, uint64 chat_id);
 
 // Checks if buddy has been manually added to the buddy list.
@@ -94,16 +94,14 @@ private:
 // (as Unicode symbols).
 void replace_emoji_with_text(string& message);
 
-// Returns some information about group, used when receiving reposts of group messages.
-struct VkGroupInfo
-{
-    string name;
-    string type;
-    string screen_name;
-};
+// Returns true if group_id is not present even in group infos or group info is stale.
+bool is_unknown_group(PurpleConnection* gc, uint64 group_id);
 
-typedef function_ptr<void(const map<uint64, VkGroupInfo>& infos)> GroupInfoFetchedCb;
-void get_groups_info(PurpleConnection* gc, vector<uint64> group_ids, const GroupInfoFetchedCb& fetched_cb);
+// Returns VkGroupInfo or nullptr if info still has not been added.
+VkGroupInfo* get_group_info(PurpleConnection* gc, uint64 group_id);
+
+// Updates information about groups in VkData.
+void update_groups_info(PurpleConnection* gc, vector<uint64> group_ids, const SuccessCb& success_cb);
 
 // Gets href, which points to the user page.
 string get_user_href(uint64 user_id, const VkUserInfo& info);
