@@ -881,20 +881,6 @@ void update_user_infos(PurpleConnection* gc, const set<uint64>& user_ids, const 
 namespace
 {
 
-// Used when user has duplicate name with other user in chat, appends some unique id.
-string get_unique_display_name(PurpleConnection* gc, uint64 user_id)
-{
-    VkUserInfo* info = get_user_info(gc, user_id);
-    if (!info)
-        return user_name_from_id(user_id);
-
-    // Return either "Name (nickname)" or "Name (id)"
-    if (!info->domain.empty())
-        return str_format("%s (%s)", info->real_name.data(), info->domain.data());
-    else
-        return str_format("%s (%" PRIu64 ")", info->real_name.data(), user_id);
-}
-
 // Updates one entry in chat_infos. update_blist has the same meaning as in update_chat_infos
 void update_chat_info_from(PurpleConnection* gc, const picojson::value& chat,
                            bool update_blist = false)
