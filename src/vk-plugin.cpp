@@ -478,19 +478,6 @@ char* vk_get_cb_real_name(PurpleConnection* gc, int id, const char* who)
     }
 }
 
-void vk_set_chat_topic(PurpleConnection* gc, int conv_id, const char* title)
-{
-    uint64 chat_id = conv_id_to_chat_id(gc, conv_id);
-    if (chat_id == 0) {
-        PurpleConversation* conv = purple_find_chat(gc, conv_id);
-        purple_conv_chat_write(PURPLE_CONV_CHAT(conv), nullptr, "Unable to set chat topic of still not created chat",
-                               PURPLE_MESSAGE_ERROR, time(nullptr));
-        return;
-    }
-
-    set_chat_title(gc, chat_id, title);
-}
-
 gboolean vk_can_receive_file(PurpleConnection*, const char*)
 {
     return true;
@@ -637,7 +624,7 @@ PurplePluginProtocolInfo prpl_info = {
     nullptr, /* set_buddy_icon */
     nullptr, /* remove_group */
     vk_get_cb_real_name, /* get_cb_real_name */
-    vk_set_chat_topic, /* set_chat_topic */
+    nullptr, /* set_chat_topic */
     vk_find_blist_chat, /* find_blist_chat */
     nullptr, /* roomlist_get_list */
     nullptr, /* roomlist_cancel */
