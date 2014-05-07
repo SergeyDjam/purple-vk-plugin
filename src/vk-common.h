@@ -15,7 +15,6 @@ struct VkOptions
     bool only_friends_in_blist;
     bool chats_in_blist;
     bool mark_as_read_online_only;
-    bool mark_as_read_inactive_tab;
     bool imitate_mobile_client;
     string blist_default_group;
     string blist_chat_group;

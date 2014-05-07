@@ -694,9 +694,6 @@ void vkcom_prpl_init(PurplePlugin*)
     option = purple_account_option_bool_new("Do not mark messages as read when away", "mark_as_read_online_only", true);
     prpl_info.protocol_options = g_list_append(prpl_info.protocol_options, option);
 
-    option = purple_account_option_bool_new("Mark messages as read even if in inactive tab", "mark_as_read_inactive_tab", false);
-    prpl_info.protocol_options = g_list_append(prpl_info.protocol_options, option);
-
     option = purple_account_option_bool_new("Imitate using mobile client", "imitate_mobile_client", false);
     prpl_info.protocol_options = g_list_append(prpl_info.protocol_options, option);
 

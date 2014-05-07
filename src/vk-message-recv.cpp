@@ -899,20 +899,15 @@ void mark_message_as_read(PurpleConnection* gc, const vector<VkReceivedMessage>&
     }
 
     vector<uint64> message_ids;
-    if (gc_data.options().mark_as_read_inactive_tab) {
-        for (const VkReceivedMessage& msg: messages)
+    PurpleConversation* conv = find_active_conv(gc);
+    uint64 active_user_id;
+    uint64 active_chat_id;
+    find_active_ids(conv, &active_user_id, &active_chat_id);
+    for (const VkReceivedMessage& msg: messages) {
+        if (message_in_active(msg, active_user_id, active_chat_id))
             message_ids.push_back(msg.msg_id);
-    } else {
-        PurpleConversation* conv = find_active_conv(gc);
-        uint64 active_user_id;
-        uint64 active_chat_id;
-        find_active_ids(conv, &active_user_id, &active_chat_id);
-        for (const VkReceivedMessage& msg: messages) {
-            if (message_in_active(msg, active_user_id, active_chat_id))
-                message_ids.push_back(msg.msg_id);
-            else
-                gc_data.deferred_mark_as_read.push_back(msg);
-        }
+        else
+            gc_data.deferred_mark_as_read.push_back(msg);
     }
 
     mark_messages_as_read_impl(gc, message_ids);
@@ -926,24 +921,18 @@ void mark_deferred_messages_as_read(PurpleConnection* gc, bool active)
 
     VkData& gc_data = get_data(gc);
     vector<uint64> message_ids;
-    if (gc_data.options().mark_as_read_inactive_tab) {
-        for (const VkReceivedMessage& msg: gc_data.deferred_mark_as_read)
+    PurpleConversation* conv = find_active_conv(gc);
+    uint64 active_user_id;
+    uint64 active_chat_id;
+    find_active_ids(conv, &active_user_id, &active_chat_id);
+
+    for (const VkReceivedMessage& msg: gc_data.deferred_mark_as_read)
+        if (message_in_active(msg, active_user_id, active_chat_id))
             message_ids.push_back(msg.msg_id);
-        gc_data.deferred_mark_as_read.clear();
-    } else {
-        PurpleConversation* conv = find_active_conv(gc);
-        uint64 active_user_id;
-        uint64 active_chat_id;
-        find_active_ids(conv, &active_user_id, &active_chat_id);
 
-        for (const VkReceivedMessage& msg: gc_data.deferred_mark_as_read)
-            if (message_in_active(msg, active_user_id, active_chat_id))
-                message_ids.push_back(msg.msg_id);
-
-        erase_if(gc_data.deferred_mark_as_read, [=](const VkReceivedMessage& msg) {
-            return message_in_active(msg, active_user_id, active_chat_id);
-        });
-    }
+    erase_if(gc_data.deferred_mark_as_read, [=](const VkReceivedMessage& msg) {
+        return message_in_active(msg, active_user_id, active_chat_id);
+    });
 
     mark_messages_as_read_impl(gc, message_ids);
 }
