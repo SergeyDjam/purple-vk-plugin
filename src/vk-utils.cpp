@@ -141,6 +141,19 @@ string get_self_chat_display_name(PurpleConnection* gc)
     return str_format("%s (you)", self_alias);
 }
 
+string get_unique_display_name(PurpleConnection* gc, uint64 user_id)
+{
+    VkUserInfo* info = get_user_info(gc, user_id);
+    if (!info)
+        return user_name_from_id(user_id);
+
+    // Return either "Name (nickname)" or "Name (id)"
+    if (!info->domain.empty())
+        return str_format("%s (%s)", info->real_name.data(), info->domain.data());
+    else
+        return str_format("%s (%" PRIu64 ")", info->real_name.data(), user_id);
+}
+
 bool user_in_buddy_list(PurpleConnection* gc, uint64 user_id)
 {
     return buddy_from_user_id(gc, user_id) != nullptr;

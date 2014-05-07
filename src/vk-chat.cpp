@@ -1,5 +1,6 @@
 #include <debug.h>
 
+#include "vk-api.h"
 #include "vk-buddy.h"
 #include "vk-common.h"
 #include "vk-utils.h"
@@ -145,6 +146,16 @@ void update_open_chat_conv(PurpleConnection* gc, int conv_id)
     update_open_chat_conv_impl(gc, conv, chat_id);
 }
 
+
+void update_chat_conv(PurpleConnection* gc, uint64 chat_id)
+{
+    PurpleConversation* conv = find_conv_for_id(gc, 0, chat_id);
+    if (!conv)
+        return;
+
+    update_open_chat_conv_impl(gc, conv, chat_id);
+}
+
 void update_all_open_chat_convs(PurpleConnection* gc)
 {
     for (pair<int, uint64> p: get_data(gc).chat_conv_ids)
@@ -172,4 +183,96 @@ uint64 find_user_id_from_conv(PurpleConnection* gc, int conv_id, const char* who
 
     vkcom_debug_error("Unknown user %s in chat%" PRIu64 "\n", who, chat_id);
     return 0;
+}
+
+namespace
+{
+
+// Writes an error message about adding the user to the chat.
+void show_add_user_error(PurpleConnection* gc, uint64 chat_id, uint64 user_id)
+{
+    PurpleConversation* conv = find_conv_for_id(gc, 0, chat_id);
+    string error_msg = str_format("Unable to add user %" PRIu64, user_id);
+    purple_conversation_write(conv, nullptr, error_msg.data(), PURPLE_MESSAGE_ERROR, time(nullptr));
+}
+
+// Adds user to corresponding chat_info participants.
+void add_user_to_chat_info(PurpleConnection* gc, uint64 chat_id, uint64 user_id)
+{
+    VkChatInfo& info = get_data(gc).chat_infos[chat_id];
+    string user_name = get_user_display_name(gc, user_id);
+    for (const pair<uint64, string>& p: info.participants) {
+        // Somehow we have already added this user.
+        if (user_id == p.first)
+            return;
+
+        if (user_name == p.second) {
+            user_name = get_unique_display_name(gc, user_id);
+            break;
+        }
+    }
+
+    info.participants[user_id] = user_name;
+}
+
+// Writes an error message about setting title to the chat.
+void show_set_title_error(PurpleConnection* gc, uint64 chat_id)
+{
+    PurpleConversation* conv = find_conv_for_id(gc, 0, chat_id);
+    string error_msg = str_format("Unable to set chat title");
+    purple_conversation_write(conv, nullptr, error_msg.data(), PURPLE_MESSAGE_ERROR, time(nullptr));
+}
+
+}
+
+void add_user_to_chat(PurpleConnection* gc, uint64 chat_id, uint64 user_id)
+{
+    CallParams params = {
+        { "chat_id", to_string(chat_id) },
+        { "user_id", to_string(user_id) }
+    };
+    vk_call_api(gc, "messages.addChatUser", params, [=] (const picojson::value& result) {
+        if (!result.is<double>()) {
+            show_add_user_error(gc, chat_id, user_id);
+            return;
+        }
+
+        if (result.get<double>() != 1.0) {
+            show_add_user_error(gc, chat_id, user_id);
+            return;
+        }
+
+        add_user_to_chat_info(gc, chat_id, user_id);
+        update_chat_conv(gc, chat_id);
+    }, [=] (const picojson::value&) {
+        show_add_user_error(gc, chat_id, user_id);
+    });
+}
+
+
+void set_chat_title(PurpleConnection* gc, uint64 chat_id, const char* title)
+{
+    // We need to store title to update it in callback.
+    string title_str = title;
+    CallParams params = {
+        { "chat_id", to_string(chat_id) },
+        { "title", title_str }
+    };
+    vk_call_api(gc, "messages.editChat", params, [=](const picojson::value& result) {
+        if (!result.is<double>()) {
+            show_set_title_error(gc, chat_id);
+            return;
+        }
+
+        if (result.get<double>() != 1.0) {
+            show_set_title_error(gc, chat_id);
+            return;
+        }
+
+        VkChatInfo& info = get_data(gc).chat_infos[chat_id];
+        info.title = title_str;
+        update_chat_conv(gc, chat_id);
+    }, [=](const picojson::value&) {
+        show_set_title_error(gc, chat_id);
+    });
 }

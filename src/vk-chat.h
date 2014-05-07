@@ -27,8 +27,20 @@ void open_chat_conv(PurpleConnection* gc, uint64 chat_id, const SuccessCb& succe
 // (updates user names etc.)
 void update_open_chat_conv(PurpleConnection* gc, int conv_id);
 
+// Updates chat conversation for chat_id the information from VkData::chat_infos
+// (updates user names etc.) if it is open.
+void update_chat_conv(PurpleConnection* gc, uint64 chat_id);
+
 // Updates all open chat conversations (see update_open_chat_conv).
 void update_all_open_chat_convs(PurpleConnection* gc);
 
 // Returns user id for user named who in open chat conv_id.
 uint64 find_user_id_from_conv(PurpleConnection* gc, int conv_id, const char* who);
+
+
+// Adds user to chat, updates corresponding chat info.
+void add_user_to_chat(PurpleConnection* gc, uint64 chat_id, uint64 user_id);
+
+
+// Sets chat title, updates corresponding chat info and .
+void set_chat_title(PurpleConnection* gc, uint64 chat_id, const char* title);

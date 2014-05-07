@@ -25,6 +25,10 @@ string get_user_display_name(PurpleConnection *gc, uint64 user_id, uint64 chat_i
 // Gets display name for self in chats (with " (you)" appended).
 string get_self_chat_display_name(PurpleConnection* gc);
 
+// Gets unique display name for user, used when user has duplicate name with other user in chat,
+// appends some unique id.
+string get_unique_display_name(PurpleConnection* gc, uint64 user_id);
+
 // Returns true if user_id is present in buddy list.
 bool user_in_buddy_list(PurpleConnection* gc, uint64 user_id);
 
