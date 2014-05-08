@@ -1,7 +1,9 @@
 /* NOTE: This file was retrieved from https://raw.github.com/kazuho/picojson/master/picojson.h
  *  Latest commit: 7dcebad242
  *
- * The only modifications to the files concern fixing the build warnings.
+ * The modifications to the file:
+ *  * fixing the build warnings;
+ *  * fixing parsing numbers ending in several zeroes.
  */
 
 // NOTE: Added in purple-vk-plugin to clean build warnings.
@@ -579,6 +581,13 @@ namespace picojson {
     }
     char* endp;
     out = strtod(num_str.c_str(), &endp);
+    // Apparently, some strtod implementations return endp pointing to dot
+    // when num_str == "1234.0000" (i.e. ignore the whole dot and trailing zeroes).
+    // Let's skip this part ourselves.
+    if (*endp == '.')
+        endp++;
+    while (*endp == '0')
+        endp++;
     return endp == num_str.c_str() + num_str.size();
   }
   
