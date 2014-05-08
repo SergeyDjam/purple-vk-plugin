@@ -215,6 +215,21 @@ void add_user_to_chat_info(PurpleConnection* gc, uint64 chat_id, uint64 user_id)
     info.participants[user_id] = user_name;
 }
 
+// Writes an error message about removing the user to the chat.
+void show_remove_user_error(PurpleConnection* gc, uint64 chat_id, uint64 user_id)
+{
+    PurpleConversation* conv = find_conv_for_id(gc, 0, chat_id);
+    string error_msg = str_format("Unable to remove user %" PRIu64, user_id);
+    purple_conversation_write(conv, nullptr, error_msg.data(), PURPLE_MESSAGE_ERROR, time(nullptr));
+}
+
+// Removes user from corresponding chat_info participants.
+void remove_user_from_chat_info(PurpleConnection* gc, uint64 chat_id, uint64 user_id)
+{
+    VkChatInfo& info = get_data(gc).chat_infos[chat_id];
+    info.participants.erase(user_id);
+}
+
 // Writes an error message about setting title to the chat.
 void show_set_title_error(PurpleConnection* gc, uint64 chat_id)
 {
@@ -250,8 +265,34 @@ void add_user_to_chat(PurpleConnection* gc, uint64 chat_id, uint64 user_id)
 }
 
 
+void remove_user_from_chat(PurpleConnection* gc, uint64 chat_id, uint64 user_id)
+{
+    CallParams params = {
+        { "chat_id", to_string(chat_id) },
+        { "user_id", to_string(user_id) }
+    };
+    vk_call_api(gc, "messages.removeChatUser", params, [=] (const picojson::value& result) {
+        if (!result.is<double>()) {
+            show_remove_user_error(gc, chat_id, user_id);
+            return;
+        }
+
+        if (result.get<double>() != 1.0) {
+            show_remove_user_error(gc, chat_id, user_id);
+            return;
+        }
+
+        remove_user_from_chat_info(gc, chat_id, user_id);
+        update_chat_conv(gc, chat_id);
+    }, [=] (const picojson::value&) {
+        show_remove_user_error(gc, chat_id, user_id);
+    });
+}
+
 void set_chat_title(PurpleConnection* gc, uint64 chat_id, const char* title)
 {
+    vkcom_debug_info("Setting title of chat %" PRIu64 " to %s\n", chat_id, title);
+
     // We need to store title to update it in callback.
     string title_str = title;
     CallParams params = {
@@ -276,3 +317,4 @@ void set_chat_title(PurpleConnection* gc, uint64 chat_id, const char* title)
         show_set_title_error(gc, chat_id);
     });
 }
+

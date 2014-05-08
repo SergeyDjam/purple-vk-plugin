@@ -112,25 +112,6 @@ void conversation_updated(PurpleConversation* conv, PurpleConvUpdateType type, g
     }
 }
 
-//GList* vk_chat_join_info(PurpleConnection*)
-//{
-//    proto_chat_entry* pce = g_new0(proto_chat_entry, 1);
-//    pce->label = "_Title:";
-//    pce->identifier = "title";
-//    pce->required = true;
-//    return g_list_append(nullptr, pce);
-//}
-
-//GHashTable* vk_chat_info_defaults(PurpleConnection*, const char* chat_name)
-//{
-//    GHashTable *defaults = g_hash_table_new_full(g_str_hash, g_str_equal, nullptr, g_free);
-
-//    if (chat_name != NULL)
-//        g_hash_table_insert(defaults, (void*)"id", g_strdup(chat_name));
-
-//    return defaults;
-//}
-
 
 // Sets option with given name to value if not already set.
 void convert_option_bool(PurpleAccount* account, const char* name, bool previous_value)
@@ -354,6 +335,7 @@ void vk_chat_join(PurpleConnection* gc, GHashTable* components)
             purple_conversation_present(conv);
         });
     } else {
+        vkcom_debug_error("Trying to join some unknown chat\n");
     }
 }
 
@@ -400,23 +382,59 @@ void vk_chat_leave(PurpleConnection* gc, int id)
     remove_chat_if_needed(gc, chat_id);
 }
 
-int vk_chat_send(PurpleConnection* gc, int id, const char* message, PurpleMessageFlags)
+int vk_chat_send(PurpleConnection* gc, int conv_id, const char* message, PurpleMessageFlags)
 {
-    uint64 chat_id = conv_id_to_chat_id(gc, id);
+    uint64 chat_id = conv_id_to_chat_id(gc, conv_id);
     if (chat_id == 0) {
-        vkcom_debug_info("Trying to send message to unknown chat %d\n", id);
+        vkcom_debug_info("Trying to send message to unknown chat %d\n", conv_id);
         return 0;
     }
 
     mark_deferred_messages_as_read(gc, true);
 
-    // Pidgin for some reason does not write outgoing messages when writing to the chat,
-    // so we have to do it oruselves.
-    PurpleConversation* conv = purple_find_chat(gc, id);
-    string from = get_self_chat_display_name(gc);
-    purple_conv_chat_write(PURPLE_CONV_CHAT(conv), from.data(), message, PURPLE_MESSAGE_SEND, time(nullptr));
+    // Check for chat-specific commands. Pidgin has an actual API for slash commands,
+    // but it seems to be the harder way to accomplish an easy task.
+    if (g_str_has_prefix(message, "/title ")) {
+        string new_title = str_trimmed(message + 6);
 
-    return send_chat_message(gc, chat_id, message);
+        set_chat_title(gc, chat_id, new_title.data());
+
+        return 1;
+    } else if (g_str_has_prefix(message, "/add ")) {
+        string user_name = str_trimmed(message + 4);
+        call_func_for_user(gc, user_name.data(), [=] (uint64 user_id) {
+            if (user_id == 0) {
+                PurpleConversation* conv = purple_find_chat(gc, conv_id);
+                string error_msg = str_format("Unknown user %s", user_name.data());
+                purple_conversation_write(conv, nullptr, error_msg.data(), PURPLE_MESSAGE_ERROR, time(nullptr));
+                return;
+            }
+
+            add_user_to_chat(gc, chat_id, user_id);
+        });
+        return 1;
+    } else if (g_str_has_prefix(message, "/rem ")) {
+        string user_name = str_trimmed(message + 4);
+        call_func_for_user(gc, user_name.data(), [=] (uint64 user_id) {
+            if (user_id == 0) {
+                PurpleConversation* conv = purple_find_chat(gc, conv_id);
+                string error_msg = str_format("Unknown user %s", user_name.data());
+                purple_conversation_write(conv, nullptr, error_msg.data(), PURPLE_MESSAGE_ERROR, time(nullptr));
+                return;
+            }
+
+            remove_user_from_chat(gc, chat_id, user_id);
+        });
+        return 1;
+    } else {
+        // Pidgin for some reason does not write outgoing messages when writing to the chat,
+        // so we have to do it oruselves.
+        PurpleConversation* conv = purple_find_chat(gc, conv_id);
+        string from = get_self_chat_display_name(gc);
+        purple_conv_chat_write(PURPLE_CONV_CHAT(conv), from.data(), message, PURPLE_MESSAGE_SEND, time(nullptr));
+
+        return send_chat_message(gc, chat_id, message);
+    }
 }
 
 void vk_alias_buddy(PurpleConnection* gc, const char *, const char *)
@@ -584,8 +602,8 @@ PurplePluginProtocolInfo prpl_info = {
     vk_tooltip_text, /* tooltip_text */
     vk_status_types, /* status_types */
     nullptr, /* blist_node_menu */
-    nullptr, //    vk_chat_join_info, /* chat_info */
-    nullptr, //    vk_chat_info_defaults, /* chat_info_defaults */
+    nullptr, /* chat_info */
+    nullptr, /* chat_info_defaults */
     vk_login, /* login */
     vk_close, /* close */
     vk_send_im, /* send_im */

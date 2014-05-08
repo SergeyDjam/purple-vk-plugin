@@ -602,6 +602,7 @@ void update_blist_chat(PurpleConnection* gc, uint64 chat_id, const VkChatInfo& i
 
         GHashTable* components = g_hash_table_new_full(g_str_hash, g_str_equal, g_free, g_free);
         g_hash_table_insert(components, g_strdup("id"), g_strdup(name.data()));
+        g_hash_table_insert(components, g_strdup("title"), g_strdup(info.title.data()));
         chat = purple_chat_new(account, info.title.data(), components);
         purple_blist_add_chat(chat, group, nullptr);
         purple_blist_alias_chat(chat, info.title.data());
@@ -611,6 +612,9 @@ void update_blist_chat(PurpleConnection* gc, uint64 chat_id, const VkChatInfo& i
                 vkcom_debug_info("Renaming chat%" PRIu64 " to %s\n", chat_id, info.title.data());
                 purple_blist_alias_chat(chat, info.title.data());
             }
+
+            GHashTable* components = purple_chat_get_components(chat);
+            g_hash_table_insert(components, g_strdup("title"), g_strdup(info.title.data()));
         }
 
         if (group && !purple_blist_node_get_bool(&chat->node, "custom-group")) {

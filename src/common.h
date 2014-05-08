@@ -131,6 +131,21 @@ inline string str_format(const char* fmt, ...)
     return string(tmp);
 }
 
+// Returns new string with removed whitespace characters at the beginning and at the end of the string.
+inline string str_trimmed(const char* s)
+{
+    const char* start = s;
+    while (isspace(*start))
+        start++;
+    if (*start == '\0')
+        return string();
+    const char* end = start;
+    for (const char* p = end; *p != '\0'; p++)
+        if (!isspace(*p))
+            end = p;
+    return string(start, end - start + 1);
+}
+
 // Replaces all occurences of from to to in src string. Extremely inefficient, but who cares.
 // Probably should've used replace_all or regex from boost.
 inline void str_replace(string& s, const char* from, const char* to)
