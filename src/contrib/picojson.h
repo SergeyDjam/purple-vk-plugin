@@ -2,8 +2,9 @@
  *  Latest commit: 7dcebad242
  *
  * The modifications to the file:
- *  * fixing the build warnings;
- *  * fixing parsing numbers ending in several zeroes.
+ *  * fixed the build warnings;
+ *  * fixed parsing numbers in locales with different decimal point;
+ *  * fixed serialization of numbers in locales with different decimal point.
  */
 
 // NOTE: Added in purple-vk-plugin to clean build warnings.
@@ -43,6 +44,7 @@
 
 #include <algorithm>
 #include <cassert>
+#include <clocale>
 #include <cmath>
 #include <cstdio>
 #include <cstdlib>
@@ -278,6 +280,30 @@ namespace picojson {
       char buf[256];
       double tmp;
       SNPRINTF(buf, sizeof(buf), fabs(u_.number_) < (1ULL << 53) && modf(u_.number_, &tmp) == 0 ? "%.f" : "%.17g", u_.number_);
+      // Replace decimal_point with dot.
+      const char* decimal_point = localeconv()->decimal_point;
+      int decimal_len = strlen(decimal_point);
+      if (decimal_len == 1) {
+        for (char* ch = buf; *ch != '\0'; ch++) {
+          if (*ch == *decimal_point) {
+            *ch = '.';
+          }
+        }
+      } else {
+        char* end = buf;
+        for (const char* ch = buf; *ch != '\0';) {
+          if (strncmp(ch, decimal_point, decimal_len) == 0) {
+            *end = '.';
+            end++;
+            ch += decimal_len;
+          } else {
+            *end = *ch;
+            end++;
+            ch++;
+          }
+        }
+        *end = '\0';
+      }
       return buf;
     }
     case string_type:    return *u_.string_;
@@ -571,9 +597,13 @@ namespace picojson {
     std::string num_str;
     while (1) {
       int ch = in.getc();
-      if (('0' <= ch && ch <= '9') || ch == '+' || ch == '-' || ch == '.'
+      if (('0' <= ch && ch <= '9') || ch == '+' || ch == '-'
 	  || ch == 'e' || ch == 'E') {
 	num_str.push_back(ch);
+      } else if (ch == '.') {
+    for (const char* dp = localeconv()->decimal_point; *dp != '\0'; dp++) {
+        num_str.push_back(*dp);
+    }
       } else {
 	in.ungetc();
 	break;
@@ -581,13 +611,6 @@ namespace picojson {
     }
     char* endp;
     out = strtod(num_str.c_str(), &endp);
-    // Apparently, some strtod implementations return endp pointing to dot
-    // when num_str == "1234.0000" (i.e. ignore the whole dot and trailing zeroes).
-    // Let's skip this part ourselves.
-    if (*endp == '.')
-        endp++;
-    while (*endp == '0')
-        endp++;
     return endp == num_str.c_str() + num_str.size();
   }
   
