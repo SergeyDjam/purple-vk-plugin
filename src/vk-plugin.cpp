@@ -1,4 +1,5 @@
 #include <accountopt.h>
+#include <cmds.h>
 #include <debug.h>
 #include <prpl.h>
 #include <request.h>
@@ -128,6 +129,84 @@ void convert_options(PurpleAccount* account)
     convert_option_bool(account, "mark_as_read_inactive_tab", mark_as_read_inactive_tab);
 }
 
+PurpleCmdRet cmd_chat_title(PurpleConversation *conv, const char*, char** args, char**, void*)
+{
+    if (!args[0])
+        return PURPLE_CMD_RET_FAILED;
+
+    uint64 chat_id = chat_id_from_name(purple_conversation_get_name(conv));
+    if (chat_id == 0)
+        return PURPLE_CMD_RET_FAILED;
+
+    PurpleConnection* gc = purple_account_get_connection(purple_conversation_get_account(conv));
+    set_chat_title(gc, chat_id, args[0]);
+
+    return PURPLE_CMD_RET_OK;
+}
+
+PurpleCmdRet cmd_chat_add(PurpleConversation *conv, const char*, char** args, char**, void*)
+{
+    if (!args[0])
+        return PURPLE_CMD_RET_FAILED;
+    // The string will be copied into the lambda.
+    string user_name = args[0];
+
+    uint64 chat_id = chat_id_from_name(purple_conversation_get_name(conv));
+    if (chat_id == 0)
+        return PURPLE_CMD_RET_FAILED;
+
+    PurpleConnection* gc = purple_account_get_connection(purple_conversation_get_account(conv));
+    call_func_for_user(gc, user_name.data(), [=] (uint64 user_id) {
+        if (user_id == 0) {
+            string error_msg = str_format("Unable to find user %s. User name should be either idXXXXXX or nickname (i.e. the last part of https://vk.com/nickname)",
+                                          user_name.data());
+            purple_conversation_write(conv, nullptr, error_msg.data(), PURPLE_MESSAGE_ERROR, time(nullptr));
+            return;
+        }
+
+        add_user_to_chat(gc, chat_id, user_id);
+    });
+
+    return PURPLE_CMD_RET_OK;
+}
+
+PurpleCmdRet cmd_chat_remove(PurpleConversation *conv, const char*, char** args, char**, void*)
+{
+    if (!args[0])
+        return PURPLE_CMD_RET_FAILED;
+    // The string will be copied into the lambda.
+    string user_name = args[0];
+
+    uint64 chat_id = chat_id_from_name(purple_conversation_get_name(conv));
+    if (chat_id == 0)
+        return PURPLE_CMD_RET_FAILED;
+
+    PurpleConnection* gc = purple_account_get_connection(purple_conversation_get_account(conv));
+    call_func_for_user(gc, user_name.data(), [=] (uint64 user_id) {
+        if (user_id == 0) {
+            string error_msg = str_format("Unable to find user %s. User name should be either idXXXXXX or nickname (i.e. the last part of https://vk.com/nickname)",
+                                          user_name.data());
+            purple_conversation_write(conv, nullptr, error_msg.data(), PURPLE_MESSAGE_ERROR, time(nullptr));
+            return;
+        }
+
+        remove_user_from_chat(gc, chat_id, user_id);
+    });
+
+    return PURPLE_CMD_RET_OK;
+}
+
+// Registers slash-commands for chats (/title and others).
+void register_chat_cmds()
+{
+    purple_cmd_register("title", "s", PURPLE_CMD_P_PRPL, PurpleCmdFlag(PURPLE_CMD_FLAG_CHAT | PURPLE_CMD_FLAG_PRPL_ONLY),
+                        "prpl-vkcom", cmd_chat_title, "title &lt;title&gt;: Set chat title", nullptr);
+    purple_cmd_register("add", "w", PURPLE_CMD_P_PRPL, PurpleCmdFlag(PURPLE_CMD_FLAG_CHAT | PURPLE_CMD_FLAG_PRPL_ONLY),
+                        "prpl-vkcom", cmd_chat_add, "add &lt;user&gt;: Add user to chat", nullptr);
+    purple_cmd_register("remove", "w", PURPLE_CMD_P_PRPL, PurpleCmdFlag(PURPLE_CMD_FLAG_CHAT | PURPLE_CMD_FLAG_PRPL_ONLY),
+                        "prpl-vkcom", cmd_chat_remove, "remove &lt;user&gt;: Remove user from chat", nullptr);
+}
+
 void vk_login(PurpleAccount* account)
 {
     vkcom_debug_info("Opening connection\n");
@@ -137,6 +216,8 @@ void vk_login(PurpleAccount* account)
     PurpleConnection* gc = purple_account_get_connection(account);
 
     gc->flags = PurpleConnectionFlags(gc->flags | PURPLE_CONNECTION_NO_BGCOLOR | PURPLE_CONNECTION_NO_FONTSIZE);
+
+    register_chat_cmds();
 
     const char* email = purple_account_get_username(account);
     const char* password = purple_account_get_password(account);
@@ -396,51 +477,13 @@ int vk_chat_send(PurpleConnection* gc, int conv_id, const char* message, PurpleM
 
     mark_deferred_messages_as_read(gc, true);
 
-    // Check for chat-specific commands. Pidgin has an actual API for slash commands,
-    // but it seems to be the harder way to accomplish an easy task.
-    if (g_str_has_prefix(message, "/title ")) {
-        string new_title = str_trimmed(message + 6);
+    // Pidgin for some reason does not write outgoing messages when writing to the chat,
+    // so we have to do it oruselves.
+    PurpleConversation* conv = purple_find_chat(gc, conv_id);
+    string from = get_self_chat_display_name(gc);
+    purple_conv_chat_write(PURPLE_CONV_CHAT(conv), from.data(), message, PURPLE_MESSAGE_SEND, time(nullptr));
 
-        set_chat_title(gc, chat_id, new_title.data());
-
-        return 1;
-    } else if (g_str_has_prefix(message, "/add ")) {
-        string user_name = str_trimmed(message + 4);
-        call_func_for_user(gc, user_name.data(), [=] (uint64 user_id) {
-            if (user_id == 0) {
-                PurpleConversation* conv = purple_find_chat(gc, conv_id);
-                string error_msg = str_format("Unable to find user %s. User name should be either idXXXXXX or nickname (i.e. the last part of https://vk.com/nickname)",
-                                              user_name.data());
-                purple_conversation_write(conv, nullptr, error_msg.data(), PURPLE_MESSAGE_ERROR, time(nullptr));
-                return;
-            }
-
-            add_user_to_chat(gc, chat_id, user_id);
-        });
-        return 1;
-    } else if (g_str_has_prefix(message, "/rem ")) {
-        string user_name = str_trimmed(message + 4);
-        call_func_for_user(gc, user_name.data(), [=] (uint64 user_id) {
-            if (user_id == 0) {
-                PurpleConversation* conv = purple_find_chat(gc, conv_id);
-                string error_msg = str_format("Unable to find user %s. User name should be either idXXXXXX or nickname (i.e. the last part of https://vk.com/nickname)",
-                                              user_name.data());
-                purple_conversation_write(conv, nullptr, error_msg.data(), PURPLE_MESSAGE_ERROR, time(nullptr));
-                return;
-            }
-
-            remove_user_from_chat(gc, chat_id, user_id);
-        });
-        return 1;
-    } else {
-        // Pidgin for some reason does not write outgoing messages when writing to the chat,
-        // so we have to do it oruselves.
-        PurpleConversation* conv = purple_find_chat(gc, conv_id);
-        string from = get_self_chat_display_name(gc);
-        purple_conv_chat_write(PURPLE_CONV_CHAT(conv), from.data(), message, PURPLE_MESSAGE_SEND, time(nullptr));
-
-        return send_chat_message(gc, chat_id, message);
-    }
+    return send_chat_message(gc, chat_id, message);
 }
 
 void vk_alias_buddy(PurpleConnection* gc, const char *, const char *)
