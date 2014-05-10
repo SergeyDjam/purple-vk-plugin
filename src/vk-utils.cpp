@@ -502,30 +502,3 @@ PurpleChat* find_purple_chat_by_id(PurpleConnection* gc, uint64 chat_id)
 
     return nullptr;
 }
-
-
-void find_user_by_screenname(PurpleConnection* gc, const string& screen_name, const UserIdFetchedCb& fetch_cb)
-{
-    vkcom_debug_info("Finding user id for %s\n", screen_name.data());
-
-    CallParams params = { {"screen_name", screen_name} };
-    vk_call_api(gc, "utils.resolveScreenName", params, [=](const picojson::value& result) {
-        if (!field_is_present<string>(result, "type") || !field_is_present<double>(result, "object_id")) {
-            vkcom_debug_error("Unable to find user matching %s\n", screen_name.data());
-            fetch_cb(0);
-            return;
-        }
-
-        if (result.get("type").get<string>() != "user") {
-            vkcom_debug_error("Type of %s is %s\n", screen_name.data(),
-                               result.get("type").get<string>().data());
-            fetch_cb(0);
-            return;
-        }
-
-        uint64 user_id = result.get("object_id").get<double>();
-        fetch_cb(user_id);
-    }, [=](const picojson::value&) {
-        fetch_cb(0);
-    });
-}

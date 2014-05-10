@@ -358,15 +358,19 @@ void vk_chat_invite(PurpleConnection* gc, int conv_id, const char*, const char* 
         return;
     }
 
-    uint64 user_id = user_id_from_name(who);
-    if (user_id == 0) {
-        PurpleConversation* conv = purple_find_chat(gc, conv_id);
-        string error_msg = str_format("Unable to add user %s to chat", who);
-        purple_conversation_write(conv, nullptr, error_msg.data(), PURPLE_MESSAGE_ERROR, time(nullptr));
-        return;
-    }
+    // Copy to string, because we store it inside lambda.
+    string user_name = who;
+    call_func_for_user(gc, who, [=] (uint64 user_id) {
+        if (user_id == 0) {
+            PurpleConversation* conv = purple_find_chat(gc, conv_id);
+            string error_msg = str_format("Unable to find user %s. User name should be either idXXXXXX or nickname (i.e. the last part of https://vk.com/nickname)",
+                                          user_name.data());
+            purple_conversation_write(conv, nullptr, error_msg.data(), PURPLE_MESSAGE_ERROR, time(nullptr));
+            return;
+        }
 
-    add_user_to_chat(gc, chat_id, user_id);
+        add_user_to_chat(gc, chat_id, user_id);
+    });
 }
 
 void vk_chat_leave(PurpleConnection* gc, int id)
@@ -405,7 +409,8 @@ int vk_chat_send(PurpleConnection* gc, int conv_id, const char* message, PurpleM
         call_func_for_user(gc, user_name.data(), [=] (uint64 user_id) {
             if (user_id == 0) {
                 PurpleConversation* conv = purple_find_chat(gc, conv_id);
-                string error_msg = str_format("Unknown user %s", user_name.data());
+                string error_msg = str_format("Unable to find user %s. User name should be either idXXXXXX or nickname (i.e. the last part of https://vk.com/nickname)",
+                                              user_name.data());
                 purple_conversation_write(conv, nullptr, error_msg.data(), PURPLE_MESSAGE_ERROR, time(nullptr));
                 return;
             }
@@ -418,7 +423,8 @@ int vk_chat_send(PurpleConnection* gc, int conv_id, const char* message, PurpleM
         call_func_for_user(gc, user_name.data(), [=] (uint64 user_id) {
             if (user_id == 0) {
                 PurpleConversation* conv = purple_find_chat(gc, conv_id);
-                string error_msg = str_format("Unknown user %s", user_name.data());
+                string error_msg = str_format("Unable to find user %s. User name should be either idXXXXXX or nickname (i.e. the last part of https://vk.com/nickname)",
+                                              user_name.data());
                 purple_conversation_write(conv, nullptr, error_msg.data(), PURPLE_MESSAGE_ERROR, time(nullptr));
                 return;
             }
@@ -547,13 +553,12 @@ void vk_add_buddy_with_invite(PurpleConnection* gc, PurpleBuddy* buddy, PurpleGr
         alias.clear();
     string group_name = purple_group_get_name(group);
 
-    resolve_screen_name(gc, buddy_name.data(), [=](const string& type, uint64 user_id) {
+    call_func_for_user(gc, buddy_name.data(), [=](uint64 user_id) {
         purple_blist_remove_buddy(buddy);
 
-        if (type != "user") {
+        if (user_id == 0) {
             string title = str_format("Unable to find user %s", buddy_name.data());
-            const char* message = "User name should be either idXXXXXX or nickname"
-                    " (i.e. the last part of https://vk.com/nickname)";
+            const char* message = "User name should be either idXXXXXX or nickname (i.e. the last part of https://vk.com/nickname)";
             purple_notify_error(gc, title.data(), title.data(), message);
             return;
         }

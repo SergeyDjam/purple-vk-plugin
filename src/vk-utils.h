@@ -128,10 +128,6 @@ vector<PurpleChat*> find_all_purple_chats(PurpleAccount* account);
 PurpleChat* find_purple_chat_by_id(PurpleConnection* gc, uint64 chat_id);
 
 
-// Finds user by "screen name" i.e. nickname.
-typedef function_ptr<void(uint64 user_id)> UserIdFetchedCb;
-void find_user_by_screenname(PurpleConnection* gc, const string& screen_name, const UserIdFetchedCb& fetch_cb);
-
 // Determines, if the given string is an id, string in format "idXXXX" or a short name and runs func with the id
 // as a parameter (or zero if searching for user failed).
 template<typename Func>
@@ -147,5 +143,10 @@ void call_func_for_user(PurpleConnection* gc, const char* name, Func func)
         func(user_id);
         return;
     }
-    find_user_by_screenname(gc, name, func);
+    resolve_screen_name(gc, name, [=] (const string& type, uint64 id) {
+        if (type != "user")
+            func(0);
+        else
+            func(id);
+    });
 }
