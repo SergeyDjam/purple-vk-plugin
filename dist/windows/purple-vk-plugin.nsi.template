@@ -67,6 +67,8 @@ Section
   File "..\..\..\data\protocols\22\vkontakte.png"
   SetOutPath "$INSTDIR\pixmaps\pidgin\protocols\48"
   File "..\..\..\data\protocols\48\vkontakte.png"
+  SetOutpath "$INSTDIR\pixmaps\pidgin\emotes\vk"
+  File "..\..\..\data\smileys\vk\*.*"
 
   WriteUninstaller "$INSTDIR\purple-vk-plugin-uninstall.exe"
   WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\PACKAGENAME" "DisplayName" "Plugin for Pidgin adding Vk.com support"

@@ -27,3 +27,4 @@ else
 fi
 
 cp -r data/protocols /usr/share/pixmaps/pidgin
+cp -r data/smileys/vk /usr/share/pixmaps/pidgin/emotes
