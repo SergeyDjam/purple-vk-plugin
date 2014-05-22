@@ -145,7 +145,7 @@ void request_long_poll(PurpleConnection* gc, const string& server, const string&
         if (purple_http_response_get_code(response) != 200) {
             vkcom_debug_error("Error while reading response from Long Poll server: %s\n",
                                purple_http_response_get_error(response));
-            request_long_poll(gc, server, key, ts, last_msg);
+            long_poll_fatal(gc);
             return;
         }
 
@@ -155,12 +155,12 @@ void request_long_poll(PurpleConnection* gc, const string& server, const string&
         string error = picojson::parse(root, response_text, response_text + strlen(response_text));
         if (!error.empty()) {
             vkcom_debug_error("Error parsing %s: %s\n", response_text_copy, error.data());
-            request_long_poll(gc, server, key, ts, last_msg);
+            long_poll_fatal(gc);
             return;
         }
         if (!root.is<picojson::object>()) {
             vkcom_debug_error("Strange response from Long Poll: %s\n", response_text_copy);
-            request_long_poll(gc, server, key, ts, last_msg);
+            long_poll_fatal(gc);
             return;
         }
 
@@ -172,7 +172,7 @@ void request_long_poll(PurpleConnection* gc, const string& server, const string&
 
         if (!field_is_present<double>(root, "ts") || !field_is_present<picojson::array>(root, "updates")) {
             vkcom_debug_error("Strange response from Long Poll: %s\n", response_text_copy);
-            request_long_poll(gc, server, key, ts, last_msg);
+            long_poll_fatal(gc);
             return;
         }
 
