@@ -75,11 +75,12 @@ public:
         return m_function->operator bool();
     }
 
-    R operator()(ArgTypes... args) const
+    template<typename... ParamArgTypes>
+    R operator()(ParamArgTypes&&... args) const
     {
         // Amazing, that you can do it for R == void
         if (m_function)
-            return m_function->operator()(args...);
+            return m_function->operator()(std::forward<ParamArgTypes>(args)...);
         else
             return R();
     }
