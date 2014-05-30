@@ -1124,9 +1124,9 @@ void check_blist_on_login(PurpleConnection* gc)
             if (user_id == 0)
                 continue;
 
-            VkBlistNode& node = data.blist_buddies[user_id];
-            node.alias = purple_buddy_get_alias(buddy);
-            node.group = purple_group_get_name(purple_buddy_get_group(buddy));
+            VkBlistNode& vk_node = data.blist_buddies[user_id];
+            vk_node.alias = purple_buddy_get_alias(buddy);
+            vk_node.group = purple_group_get_name(purple_buddy_get_group(buddy));
         } else if (PURPLE_BLIST_NODE_IS_CHAT(node)) {
             PurpleChat* chat = PURPLE_CHAT(node);
             if (purple_chat_get_account(chat) != account)
@@ -1139,9 +1139,9 @@ void check_blist_on_login(PurpleConnection* gc)
 
             uint64 chat_id = chat_id_from_name(chat_name);
 
-            VkBlistNode& node = data.blist_chats[chat_id];
-            node.alias = purple_chat_get_name(chat);
-            node.group = purple_group_get_name(purple_chat_get_group(chat));
+            VkBlistNode& vk_node = data.blist_chats[chat_id];
+            vk_node.alias = purple_chat_get_name(chat);
+            vk_node.group = purple_group_get_name(purple_chat_get_group(chat));
         }
     }
 }

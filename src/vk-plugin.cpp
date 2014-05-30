@@ -164,7 +164,6 @@ void vk_login(PurpleAccount* account)
 
     gc_data->authenticate([=] {
         // Set account alias to full user name if alias not set previously.
-        PurpleAccount* account = purple_connection_get_account(gc);
         const char* alias = purple_account_get_alias(account);
         if (!alias || !alias[0]) {
             set_account_alias(gc);
@@ -532,21 +531,21 @@ void vk_add_buddy_with_invite(PurpleConnection* gc, PurpleBuddy* buddy, PurpleGr
         get_data(gc).set_manually_added_buddy(user_id);
 
         add_buddy_if_needed(gc, user_id, [=] {
-            PurpleBuddy* buddy = purple_find_buddy(purple_connection_get_account(gc),
+            PurpleBuddy* new_buddy = purple_find_buddy(purple_connection_get_account(gc),
                                                    user_name_from_id(user_id).data());
-            assert(buddy);
+            assert(new_buddy);
 
             if (!alias.empty()) {
-                purple_blist_alias_buddy(buddy, alias.data());
-                purple_blist_node_set_bool(&buddy->node, "custom-alias", true);
+                purple_blist_alias_buddy(new_buddy, alias.data());
+                purple_blist_node_set_bool(&new_buddy->node, "custom-alias", true);
             }
 
             string default_group = purple_account_get_string(purple_connection_get_account(gc),
                                                              "blist_default_group", "");
             if (group_name != default_group) {
                 PurpleGroup* new_group = purple_group_new(group_name.data());
-                purple_blist_add_buddy(buddy, nullptr, new_group, nullptr);
-                purple_blist_node_set_bool(&buddy->node, "custom-group", true);
+                purple_blist_add_buddy(new_buddy, nullptr, new_group, nullptr);
+                purple_blist_node_set_bool(&new_buddy->node, "custom-group", true);
             }
         });
     });

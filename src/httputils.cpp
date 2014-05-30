@@ -84,8 +84,8 @@ void http_request_redirect_cb(PurpleHttpConnection* http_conn, PurpleHttpRespons
         PurpleHttpRequest* request = purple_http_conn_get_request(http_conn);
         const char* new_url = purple_http_response_get_header(response, "Location");
         purple_http_request_set_url(request, new_url);
-        http_request(gc, request, [=](PurpleHttpConnection* http_conn, PurpleHttpResponse* response) {
-            http_request_redirect_cb(http_conn, response, callback);
+        http_request(gc, request, [=](PurpleHttpConnection* new_http_conn, PurpleHttpResponse* new_response) {
+            http_request_redirect_cb(new_http_conn, new_response, callback);
         });
     } else {
         callback(http_conn, response);
