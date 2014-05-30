@@ -25,6 +25,10 @@ string get_user_display_name(PurpleConnection *gc, uint64 user_id, uint64 chat_i
 // Gets display name for self in chats (with " (you)" appended).
 string get_self_chat_display_name(PurpleConnection* gc);
 
+// Gets unique display name for user, used when user has duplicate name with other user in chat,
+// appends some unique id.
+string get_unique_display_name(PurpleConnection* gc, uint64 user_id);
+
 // Returns true if user_id is present in buddy list.
 bool user_in_buddy_list(PurpleConnection* gc, uint64 user_id);
 
@@ -53,7 +57,7 @@ bool is_unknown_chat(PurpleConnection* gc, uint64 chat_id);
 VkUserInfo* get_user_info(PurpleBuddy* buddy);
 VkUserInfo* get_user_info(PurpleConnection* gc, uint64 user_id);
 
-// Returns VkChatInfo or nullptr if infostill has not been added.
+// Returns VkChatInfo or nullptr if info still has not been added.
 VkChatInfo* get_chat_info(PurpleConnection* gc, uint64 chat_id);
 
 // Checks if buddy has been manually added to the buddy list.
@@ -94,16 +98,14 @@ private:
 // (as Unicode symbols).
 void replace_emoji_with_text(string& message);
 
-// Returns some information about group, used when receiving reposts of group messages.
-struct VkGroupInfo
-{
-    string name;
-    string type;
-    string screen_name;
-};
+// Returns true if group_id is not present even in group infos or group info is stale.
+bool is_unknown_group(PurpleConnection* gc, uint64 group_id);
 
-typedef function_ptr<void(const map<uint64, VkGroupInfo>& infos)> GroupInfoFetchedCb;
-void get_groups_info(PurpleConnection* gc, vector<uint64> group_ids, const GroupInfoFetchedCb& fetched_cb);
+// Returns VkGroupInfo or nullptr if info still has not been added.
+VkGroupInfo* get_group_info(PurpleConnection* gc, uint64 group_id);
+
+// Updates information about groups in VkData.
+void update_groups_info(PurpleConnection* gc, vector<uint64> group_ids, const SuccessCb& success_cb);
 
 // Gets href, which points to the user page.
 string get_user_href(uint64 user_id, const VkUserInfo& info);
@@ -126,6 +128,25 @@ vector<PurpleChat*> find_all_purple_chats(PurpleAccount* account);
 PurpleChat* find_purple_chat_by_id(PurpleConnection* gc, uint64 chat_id);
 
 
-// Finds user by "screen name" i.e. nickname.
-typedef function_ptr<void(uint64 user_id)> UserIdFetchedCb;
-void find_user_by_screenname(PurpleConnection* gc, const string& screen_name, const UserIdFetchedCb& fetch_cb);
+// Determines, if the given string is an id, string in format "idXXXX" or a short name and runs func with the id
+// as a parameter (or zero if searching for user failed).
+template<typename Func>
+void call_func_for_user(PurpleConnection* gc, const char* name, Func func)
+{
+    uint64 user_id = atoll(name);
+    if (user_id != 0) {
+        func(user_id);
+        return;
+    }
+    user_id = user_id_from_name(name);
+    if (user_id != 0) {
+        func(user_id);
+        return;
+    }
+    resolve_screen_name(gc, name, [=] (const string& type, uint64 id) {
+        if (type != "user")
+            func(0);
+        else
+            func(id);
+    });
+}

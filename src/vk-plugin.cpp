@@ -1,4 +1,5 @@
 #include <accountopt.h>
+#include <cmds.h>
 #include <debug.h>
 #include <prpl.h>
 #include <request.h>
@@ -112,25 +113,6 @@ void conversation_updated(PurpleConversation* conv, PurpleConvUpdateType type, g
     }
 }
 
-//GList* vk_chat_join_info(PurpleConnection*)
-//{
-//    proto_chat_entry* pce = g_new0(proto_chat_entry, 1);
-//    pce->label = "_Title:";
-//    pce->identifier = "title";
-//    pce->required = true;
-//    return g_list_append(nullptr, pce);
-//}
-
-//GHashTable* vk_chat_info_defaults(PurpleConnection*, const char* chat_name)
-//{
-//    GHashTable *defaults = g_hash_table_new_full(g_str_hash, g_str_equal, nullptr, g_free);
-
-//    if (chat_name != NULL)
-//        g_hash_table_insert(defaults, (void*)"id", g_strdup(chat_name));
-
-//    return defaults;
-//}
-
 
 // Sets option with given name to value if not already set.
 void convert_option_bool(PurpleAccount* account, const char* name, bool previous_value)
@@ -147,6 +129,84 @@ void convert_options(PurpleAccount* account)
     convert_option_bool(account, "mark_as_read_inactive_tab", mark_as_read_inactive_tab);
 }
 
+PurpleCmdRet cmd_chat_title(PurpleConversation *conv, const char*, char** args, char**, void*)
+{
+    if (!args[0])
+        return PURPLE_CMD_RET_FAILED;
+
+    uint64 chat_id = chat_id_from_name(purple_conversation_get_name(conv));
+    if (chat_id == 0)
+        return PURPLE_CMD_RET_FAILED;
+
+    PurpleConnection* gc = purple_account_get_connection(purple_conversation_get_account(conv));
+    set_chat_title(gc, chat_id, args[0]);
+
+    return PURPLE_CMD_RET_OK;
+}
+
+PurpleCmdRet cmd_chat_add(PurpleConversation *conv, const char*, char** args, char**, void*)
+{
+    if (!args[0])
+        return PURPLE_CMD_RET_FAILED;
+    // The string will be copied into the lambda.
+    string user_name = args[0];
+
+    uint64 chat_id = chat_id_from_name(purple_conversation_get_name(conv));
+    if (chat_id == 0)
+        return PURPLE_CMD_RET_FAILED;
+
+    PurpleConnection* gc = purple_account_get_connection(purple_conversation_get_account(conv));
+    call_func_for_user(gc, user_name.data(), [=] (uint64 user_id) {
+        if (user_id == 0) {
+            string error_msg = str_format("Unable to find user %s. User name should be either idXXXXXX or nickname (i.e. the last part of https://vk.com/nickname)",
+                                          user_name.data());
+            purple_conversation_write(conv, nullptr, error_msg.data(), PURPLE_MESSAGE_ERROR, time(nullptr));
+            return;
+        }
+
+        add_user_to_chat(gc, chat_id, user_id);
+    });
+
+    return PURPLE_CMD_RET_OK;
+}
+
+PurpleCmdRet cmd_chat_remove(PurpleConversation *conv, const char*, char** args, char**, void*)
+{
+    if (!args[0])
+        return PURPLE_CMD_RET_FAILED;
+    // The string will be copied into the lambda.
+    string user_name = args[0];
+
+    uint64 chat_id = chat_id_from_name(purple_conversation_get_name(conv));
+    if (chat_id == 0)
+        return PURPLE_CMD_RET_FAILED;
+
+    PurpleConnection* gc = purple_account_get_connection(purple_conversation_get_account(conv));
+    call_func_for_user(gc, user_name.data(), [=] (uint64 user_id) {
+        if (user_id == 0) {
+            string error_msg = str_format("Unable to find user %s. User name should be either idXXXXXX or nickname (i.e. the last part of https://vk.com/nickname)",
+                                          user_name.data());
+            purple_conversation_write(conv, nullptr, error_msg.data(), PURPLE_MESSAGE_ERROR, time(nullptr));
+            return;
+        }
+
+        remove_user_from_chat(gc, chat_id, user_id);
+    });
+
+    return PURPLE_CMD_RET_OK;
+}
+
+// Registers slash-commands for chats (/title and others).
+void register_chat_cmds()
+{
+    purple_cmd_register("title", "s", PURPLE_CMD_P_PRPL, PurpleCmdFlag(PURPLE_CMD_FLAG_CHAT | PURPLE_CMD_FLAG_PRPL_ONLY),
+                        "prpl-vkcom", cmd_chat_title, "title &lt;title&gt;: Set chat title", nullptr);
+    purple_cmd_register("add", "w", PURPLE_CMD_P_PRPL, PurpleCmdFlag(PURPLE_CMD_FLAG_CHAT | PURPLE_CMD_FLAG_PRPL_ONLY),
+                        "prpl-vkcom", cmd_chat_add, "add &lt;user&gt;: Add user to chat", nullptr);
+    purple_cmd_register("remove", "w", PURPLE_CMD_P_PRPL, PurpleCmdFlag(PURPLE_CMD_FLAG_CHAT | PURPLE_CMD_FLAG_PRPL_ONLY),
+                        "prpl-vkcom", cmd_chat_remove, "remove &lt;user&gt;: Remove user from chat", nullptr);
+}
+
 void vk_login(PurpleAccount* account)
 {
     vkcom_debug_info("Opening connection\n");
@@ -156,6 +216,8 @@ void vk_login(PurpleAccount* account)
     PurpleConnection* gc = purple_account_get_connection(account);
 
     gc->flags = PurpleConnectionFlags(gc->flags | PURPLE_CONNECTION_NO_BGCOLOR | PURPLE_CONNECTION_NO_FONTSIZE);
+
+    register_chat_cmds();
 
     const char* email = purple_account_get_username(account);
     const char* password = purple_account_get_password(account);
@@ -353,6 +415,7 @@ void vk_chat_join(PurpleConnection* gc, GHashTable* components)
             purple_conversation_present(conv);
         });
     } else {
+        vkcom_debug_error("Trying to join some unknown chat\n");
     }
 }
 
@@ -367,9 +430,28 @@ char* vk_get_chat_name(GHashTable* components)
         return g_strdup("CHAT NOT CREATED");
 }
 
-//void vk_chat_invite(PurpleConnection* gc, int conv_id, const char*, const char* who)
-//{
-//}
+void vk_chat_invite(PurpleConnection* gc, int conv_id, const char*, const char* who)
+{
+    uint64 chat_id = conv_id_to_chat_id(gc, conv_id);
+    if (chat_id == 0) {
+        vkcom_debug_error("Not implemented: adding users to just created chat\n");
+        return;
+    }
+
+    // Copy to string, because we store it inside lambda.
+    string user_name = who;
+    call_func_for_user(gc, who, [=] (uint64 user_id) {
+        if (user_id == 0) {
+            PurpleConversation* conv = purple_find_chat(gc, conv_id);
+            string error_msg = str_format("Unable to find user %s. User name should be either idXXXXXX or nickname (i.e. the last part of https://vk.com/nickname)",
+                                          user_name.data());
+            purple_conversation_write(conv, nullptr, error_msg.data(), PURPLE_MESSAGE_ERROR, time(nullptr));
+            return;
+        }
+
+        add_user_to_chat(gc, chat_id, user_id);
+    });
+}
 
 void vk_chat_leave(PurpleConnection* gc, int id)
 {
@@ -384,11 +466,11 @@ void vk_chat_leave(PurpleConnection* gc, int id)
     remove_chat_if_needed(gc, chat_id);
 }
 
-int vk_chat_send(PurpleConnection* gc, int id, const char* message, PurpleMessageFlags)
+int vk_chat_send(PurpleConnection* gc, int conv_id, const char* message, PurpleMessageFlags)
 {
-    uint64 chat_id = conv_id_to_chat_id(gc, id);
+    uint64 chat_id = conv_id_to_chat_id(gc, conv_id);
     if (chat_id == 0) {
-        vkcom_debug_info("Trying to send message to unknown chat %d\n", id);
+        vkcom_debug_info("Trying to send message to unknown chat %d\n", conv_id);
         return 0;
     }
 
@@ -396,7 +478,7 @@ int vk_chat_send(PurpleConnection* gc, int id, const char* message, PurpleMessag
 
     // Pidgin for some reason does not write outgoing messages when writing to the chat,
     // so we have to do it oruselves.
-    PurpleConversation* conv = purple_find_chat(gc, id);
+    PurpleConversation* conv = purple_find_chat(gc, conv_id);
     string from = get_self_chat_display_name(gc);
     purple_conv_chat_write(PURPLE_CONV_CHAT(conv), from.data(), message, PURPLE_MESSAGE_SEND, time(nullptr));
 
@@ -462,10 +544,6 @@ char* vk_get_cb_real_name(PurpleConnection* gc, int id, const char* who)
     }
 }
 
-void vk_set_chat_topic(PurpleConnection*, int, const char*)
-{
-}
-
 gboolean vk_can_receive_file(PurpleConnection*, const char*)
 {
     return true;
@@ -517,13 +595,12 @@ void vk_add_buddy_with_invite(PurpleConnection* gc, PurpleBuddy* buddy, PurpleGr
         alias.clear();
     string group_name = purple_group_get_name(group);
 
-    resolve_screen_name(gc, buddy_name.data(), [=](const string& type, uint64 user_id) {
+    call_func_for_user(gc, buddy_name.data(), [=](uint64 user_id) {
         purple_blist_remove_buddy(buddy);
 
-        if (type != "user") {
+        if (user_id == 0) {
             string title = str_format("Unable to find user %s", buddy_name.data());
-            const char* message = "User name should be either idXXXXXX or nickname"
-                    " (i.e. the last part of https://vk.com/nickname)";
+            const char* message = "User name should be either idXXXXXX or nickname (i.e. the last part of https://vk.com/nickname)";
             purple_notify_error(gc, title.data(), title.data(), message);
             return;
         }
@@ -572,8 +649,8 @@ PurplePluginProtocolInfo prpl_info = {
     vk_tooltip_text, /* tooltip_text */
     vk_status_types, /* status_types */
     nullptr, /* blist_node_menu */
-    nullptr, //    vk_chat_join_info, /* chat_info */
-    nullptr, //    vk_chat_info_defaults, /* chat_info_defaults */
+    nullptr, /* chat_info */
+    nullptr, /* chat_info_defaults */
     vk_login, /* login */
     vk_close, /* close */
     vk_send_im, /* send_im */
@@ -595,7 +672,7 @@ PurplePluginProtocolInfo prpl_info = {
     vk_chat_join, /* join_chat */
     nullptr, /* reject_chat */
     vk_get_chat_name, /* get_chat_name */
-    nullptr, //    vk_chat_invite, /* chat_invite */
+    vk_chat_invite, /* chat_invite */
     vk_chat_leave, /* chat_leave */
     nullptr, /* chat_whisper */
     vk_chat_send, /* chat_send */
@@ -612,7 +689,7 @@ PurplePluginProtocolInfo prpl_info = {
     nullptr, /* set_buddy_icon */
     nullptr, /* remove_group */
     vk_get_cb_real_name, /* get_cb_real_name */
-    nullptr, //    vk_set_chat_topic, /* set_chat_topic */
+    nullptr, /* set_chat_topic */
     vk_find_blist_chat, /* find_blist_chat */
     nullptr, /* roomlist_get_list */
     nullptr, /* roomlist_cancel */
@@ -691,9 +768,6 @@ void vkcom_prpl_init(PurplePlugin*)
     prpl_info.protocol_options = g_list_append(prpl_info.protocol_options, option);
 
     option = purple_account_option_bool_new("Do not mark messages as read when away", "mark_as_read_online_only", true);
-    prpl_info.protocol_options = g_list_append(prpl_info.protocol_options, option);
-
-    option = purple_account_option_bool_new("Mark messages as read even if in inactive tab", "mark_as_read_inactive_tab", false);
     prpl_info.protocol_options = g_list_append(prpl_info.protocol_options, option);
 
     option = purple_account_option_bool_new("Imitate using mobile client", "imitate_mobile_client", false);

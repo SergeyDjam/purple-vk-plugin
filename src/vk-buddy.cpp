@@ -67,7 +67,7 @@ void update_user_info_from(PurpleConnection* gc, const picojson::value& fields)
         info.photo_min = fields.get("photo_50").get<string>();
         static const char empty_photo_a[] = "http://vkontakte.ru/images/camera_a.gif";
         static const char empty_photo_b[] = "http://vkontakte.ru/images/camera_b.gif";
-        static const char empty_photo_c[] = "http://vk.com/images/camera_c.gif";
+        static const char empty_photo_c[] = "https://vk.com/images/camera_c.gif";
         if (info.photo_min == empty_photo_a || info.photo_min == empty_photo_b
                 || info.photo_min == empty_photo_c)
             info.photo_min.clear();
@@ -602,6 +602,7 @@ void update_blist_chat(PurpleConnection* gc, uint64 chat_id, const VkChatInfo& i
 
         GHashTable* components = g_hash_table_new_full(g_str_hash, g_str_equal, g_free, g_free);
         g_hash_table_insert(components, g_strdup("id"), g_strdup(name.data()));
+        g_hash_table_insert(components, g_strdup("title"), g_strdup(info.title.data()));
         chat = purple_chat_new(account, info.title.data(), components);
         purple_blist_add_chat(chat, group, nullptr);
         purple_blist_alias_chat(chat, info.title.data());
@@ -611,6 +612,9 @@ void update_blist_chat(PurpleConnection* gc, uint64 chat_id, const VkChatInfo& i
                 vkcom_debug_info("Renaming chat%" PRIu64 " to %s\n", chat_id, info.title.data());
                 purple_blist_alias_chat(chat, info.title.data());
             }
+
+            GHashTable* components = purple_chat_get_components(chat);
+            g_hash_table_insert(components, g_strdup("title"), g_strdup(info.title.data()));
         }
 
         if (group && !purple_blist_node_get_bool(&chat->node, "custom-group")) {
@@ -880,20 +884,6 @@ void update_user_infos(PurpleConnection* gc, const set<uint64>& user_ids, const 
 
 namespace
 {
-
-// Used when user has duplicate name with other user in chat, appends some unique id.
-string get_unique_display_name(PurpleConnection* gc, uint64 user_id)
-{
-    VkUserInfo* info = get_user_info(gc, user_id);
-    if (!info)
-        return user_name_from_id(user_id);
-
-    // Return either "Name (nickname)" or "Name (id)"
-    if (!info->domain.empty())
-        return str_format("%s (%s)", info->real_name.data(), info->domain.data());
-    else
-        return str_format("%s (%" PRIu64 ")", info->real_name.data(), user_id);
-}
 
 // Updates one entry in chat_infos. update_blist has the same meaning as in update_chat_infos
 void update_chat_info_from(PurpleConnection* gc, const picojson::value& chat,

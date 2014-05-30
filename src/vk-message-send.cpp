@@ -233,7 +233,6 @@ int send_message(PurpleConnection* gc, uint64 user_id, uint64 chat_id, const cha
         add_buddy_if_needed(gc, user_id);
 
     return 1;
-
 }
 
 // Process error and call either success_cb or error_cb. The only error which is meaningfully

@@ -94,10 +94,9 @@ void start_long_poll_impl(PurpleConnection* gc, uint64 last_msg_id)
         // First, we update buddy presence and receive unread messages and only then start processing
         // events. We won't miss any events because we already got starting timestamp from server.
         update_friends_presence(gc, [=] {
+            // Start updaing user and chat infos, buddy list.
+            update_user_chat_infos(gc);
             receive_messages_range(gc, last_msg_id,  [=](uint64 max_msg_id) {
-                // Start updaing user and chat infos, buddy list.
-                update_user_chat_infos(gc);
-
                 // We've received no new messages.
                 if (max_msg_id == 0)
                     max_msg_id = last_msg_id;
@@ -146,7 +145,7 @@ void request_long_poll(PurpleConnection* gc, const string& server, const string&
         if (purple_http_response_get_code(response) != 200) {
             vkcom_debug_error("Error while reading response from Long Poll server: %s\n",
                                purple_http_response_get_error(response));
-            request_long_poll(gc, server, key, ts, last_msg);
+            long_poll_fatal(gc);
             return;
         }
 
@@ -156,12 +155,12 @@ void request_long_poll(PurpleConnection* gc, const string& server, const string&
         string error = picojson::parse(root, response_text, response_text + strlen(response_text));
         if (!error.empty()) {
             vkcom_debug_error("Error parsing %s: %s\n", response_text_copy, error.data());
-            request_long_poll(gc, server, key, ts, last_msg);
+            long_poll_fatal(gc);
             return;
         }
         if (!root.is<picojson::object>()) {
             vkcom_debug_error("Strange response from Long Poll: %s\n", response_text_copy);
-            request_long_poll(gc, server, key, ts, last_msg);
+            long_poll_fatal(gc);
             return;
         }
 
@@ -173,7 +172,7 @@ void request_long_poll(PurpleConnection* gc, const string& server, const string&
 
         if (!field_is_present<double>(root, "ts") || !field_is_present<picojson::array>(root, "updates")) {
             vkcom_debug_error("Strange response from Long Poll: %s\n", response_text_copy);
-            request_long_poll(gc, server, key, ts, last_msg);
+            long_poll_fatal(gc);
             return;
         }
 

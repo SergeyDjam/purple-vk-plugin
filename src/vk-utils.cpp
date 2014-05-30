@@ -141,6 +141,19 @@ string get_self_chat_display_name(PurpleConnection* gc)
     return str_format("%s (you)", self_alias);
 }
 
+string get_unique_display_name(PurpleConnection* gc, uint64 user_id)
+{
+    VkUserInfo* info = get_user_info(gc, user_id);
+    if (!info)
+        return user_name_from_id(user_id);
+
+    // Return either "Name (nickname)" or "Name (id)"
+    if (!info->domain.empty())
+        return str_format("%s (%s)", info->real_name.data(), info->domain.data());
+    else
+        return str_format("%s (%" PRIu64 ")", info->real_name.data(), user_id);
+}
+
 bool user_in_buddy_list(PurpleConnection* gc, uint64 user_id)
 {
     return buddy_from_user_id(gc, user_id) != nullptr;
@@ -209,24 +222,14 @@ VkUserInfo* get_user_info(PurpleConnection* gc, uint64 user_id)
 {
     if (user_id == 0)
         return nullptr;
-
-    VkData& gc_data = get_data(gc);
-    auto it = gc_data.user_infos.find(user_id);
-    if (it == gc_data.user_infos.end())
-        return nullptr;
-    return &it->second;
+    return map_at_ptr(get_data(gc).user_infos, user_id);
 }
 
 VkChatInfo* get_chat_info(PurpleConnection* gc, uint64 chat_id)
 {
     if (chat_id == 0)
         return nullptr;
-
-    VkData& gc_data = get_data(gc);
-    auto it = gc_data.chat_infos.find(chat_id);
-    if (it == gc_data.chat_infos.end())
-        return nullptr;
-    return &it->second;
+    return map_at_ptr(get_data(gc).chat_infos, chat_id);
 }
 
 bool is_user_manually_added(PurpleConnection* gc, uint64 user_id)
@@ -354,46 +357,65 @@ void replace_emoji_with_text(string& message)
 }
 
 
-void get_groups_info(PurpleConnection* gc, vector<uint64> group_ids, const GroupInfoFetchedCb& fetched_cb)
+bool is_unknown_group(PurpleConnection* gc, uint64 group_id)
+{
+    VkGroupInfo* info = get_group_info(gc, group_id);
+    if (!info)
+        return true;
+    steady_time_point now = steady_clock::now();
+    if (to_seconds(now - info->last_updated) > 15 * 60)
+        return true;
+    return false;
+}
+
+VkGroupInfo* get_group_info(PurpleConnection* gc, uint64 group_id)
+{
+    if (group_id == 0)
+        return nullptr;
+    return map_at_ptr(get_data(gc).group_infos, group_id);
+}
+
+void update_groups_info(PurpleConnection* gc, vector<uint64> group_ids, const SuccessCb& success_cb)
 {
     if (group_ids.empty()) {
-        fetched_cb(map<uint64, VkGroupInfo>());
+        if (success_cb)
+            success_cb();
         return;
     }
 
     string group_ids_str = str_concat_int(',', group_ids);
     vkcom_debug_info("Getting infos for groups %s\n", group_ids_str.data());
 
-    CallParams params = { {"group_ids", group_ids_str} };
-    vk_call_api(gc, "groups.getById", params, [=](const picojson::value& result) {
+    vk_call_api_ids(gc, "groups.getById", CallParams(), "group_ids", group_ids, [=](const picojson::value& result) {
         if (!result.is<picojson::array>()) {
             vkcom_debug_error("Wrong type returned as users.get call result: %s\n",
                                result.serialize().data());
-            fetched_cb(map<uint64, VkGroupInfo>());
             return;
         }
 
-        map<uint64, VkGroupInfo> infos;
         const picojson::array& groups = result.get<picojson::array>();
         for (const picojson::value& v: groups) {
             if (!field_is_present<double>(v, "id") || !field_is_present<string>(v, "name")
                     || !field_is_present<string>(v, "type")) {
                 vkcom_debug_error("Wrong type returned as users.get call result: %s\n",
                                    result.serialize().data());
-                fetched_cb(map<uint64, VkGroupInfo>());
                 return;
             }
 
             uint64 id = v.get("id").get<double>();
-            VkGroupInfo& info = infos[id];
+            VkGroupInfo& info = get_data(gc).group_infos[id];
             info.name = v.get("name").get<string>();
             info.type = v.get("type").get<string>();
             if (field_is_present<string>(v, "screen_name"))
                 info.screen_name = v.get("screen_name").get<string>();
+            info.last_updated = steady_clock::now();
         }
-        fetched_cb(infos);
+    }, [=] {
+        if (success_cb)
+            success_cb();
     }, [=](const picojson::value&) {
-        fetched_cb(map<uint64, VkGroupInfo>());
+        if (success_cb)
+            success_cb();
     });
 }
 
@@ -479,31 +501,4 @@ PurpleChat* find_purple_chat_by_id(PurpleConnection* gc, uint64 chat_id)
     }
 
     return nullptr;
-}
-
-
-void find_user_by_screenname(PurpleConnection* gc, const string& screen_name, const UserIdFetchedCb& fetch_cb)
-{
-    vkcom_debug_info("Finding user id for %s\n", screen_name.data());
-
-    CallParams params = { {"screen_name", screen_name} };
-    vk_call_api(gc, "utils.resolveScreenName", params, [=](const picojson::value& result) {
-        if (!field_is_present<string>(result, "type") || !field_is_present<double>(result, "object_id")) {
-            vkcom_debug_error("Unable to find user matching %s\n", screen_name.data());
-            fetch_cb(0);
-            return;
-        }
-
-        if (result.get("type").get<string>() != "user") {
-            vkcom_debug_error("Type of %s is %s\n", screen_name.data(),
-                               result.get("type").get<string>().data());
-            fetch_cb(0);
-            return;
-        }
-
-        uint64 user_id = result.get("object_id").get<double>();
-        fetch_cb(user_id);
-    }, [=](const picojson::value&) {
-        fetch_cb(0);
-    });
 }

@@ -75,11 +75,12 @@ public:
         return m_function->operator bool();
     }
 
-    R operator()(ArgTypes... args) const
+    template<typename... ParamArgTypes>
+    R operator()(ParamArgTypes&&... args) const
     {
         // Amazing, that you can do it for R == void
         if (m_function)
-            return m_function->operator()(args...);
+            return m_function->operator()(std::forward<ParamArgTypes>(args)...);
         else
             return R();
     }
@@ -129,6 +130,21 @@ inline string str_format(const char* fmt, ...)
     va_end(arg);
 
     return string(tmp);
+}
+
+// Returns new string with removed whitespace characters at the beginning and at the end of the string.
+inline string str_trimmed(const char* s)
+{
+    const char* start = s;
+    while (isspace(*start))
+        start++;
+    if (*start == '\0')
+        return string();
+    const char* end = start;
+    for (const char* p = end; *p != '\0'; p++)
+        if (!isspace(*p))
+            end = p;
+    return string(start, end - start + 1);
 }
 
 // Replaces all occurences of from to to in src string. Extremely inefficient, but who cares.
@@ -269,6 +285,17 @@ inline typename Map::mapped_type map_at(const Map& map, const Key& key, const Va
         return it->second;
 }
 
+// Returns pointer to value for key or nullptr.
+template<typename Map, typename Key, typename Value = typename Map::mapped_type>
+inline typename Map::mapped_type* map_at_ptr(Map& map, const Key& key)
+{
+    auto it = map.find(key);
+    if (it == map.end())
+        return nullptr;
+    else
+        return &it->second;
+}
+
 // Returns true if map or set contains key.
 template<typename Cont, typename Key>
 inline bool contains(const Cont& cont, const Key& key)
@@ -359,6 +386,13 @@ template<typename T>
 inline std::chrono::milliseconds::rep to_milliseconds(T duration)
 {
     return std::chrono::duration_cast<std::chrono::milliseconds>(duration).count();
+}
+
+// Converts the given duration to seconds.
+template<typename T>
+inline std::chrono::seconds::rep to_seconds(T duration)
+{
+    return std::chrono::duration_cast<std::chrono::seconds>(duration).count();
 }
 
 
