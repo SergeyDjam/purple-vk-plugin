@@ -32,14 +32,15 @@ set<uint64> str_split_int(const char* str)
 // Parses VkReceivedMessages from JSON representation.
 vector<VkReceivedMessage> deferred_mark_as_read_from_string(const char* str)
 {
+    vector<VkReceivedMessage> messages;
+
     picojson::value v;
     string err = picojson::parse(v, str, str + strlen(str));
     if (!err.empty() || !v.is<picojson::array>()) {
         vkcom_debug_error("Error loading uploaded docs: %s\n", err.data());
-        return {};
+        return messages;
     }
 
-    vector<VkReceivedMessage> messages;
     const picojson::array& a = v.get<picojson::array>();
     for (const picojson::value& d: a) {
         VkReceivedMessage msg;
@@ -74,14 +75,15 @@ string deferred_mark_as_read_to_string(const vector<VkReceivedMessage>& messages
 // Parses VkUploadedDocs from JSON representation.
 map<uint64, VkUploadedDocInfo> uploaded_docs_from_string(const char* str)
 {
+    map<uint64, VkUploadedDocInfo> docs;
+
     picojson::value v;
     string err = picojson::parse(v, str, str + strlen(str));
     if (!err.empty() || !v.is<picojson::array>()) {
         vkcom_debug_error("Error loading uploaded docs: %s\n", err.data());
-        return {};
+        return docs;
     }
 
-    map<uint64, VkUploadedDocInfo> ret;
     const picojson::array& a = v.get<picojson::array>();
     for (const picojson::value& d: a) {
         // Compatibility with older releases.
@@ -91,13 +93,13 @@ map<uint64, VkUploadedDocInfo> uploaded_docs_from_string(const char* str)
             continue;
 
         uint64 id = d.get("id").get<double>();
-        VkUploadedDocInfo& doc = ret[id];
+        VkUploadedDocInfo& doc = docs[id];
         doc.filename = d.get("filename").get<string>();
         doc.size = d.get("size").get<double>();
         doc.md5sum = d.get("md5sum").get<string>();
         doc.url = d.get("url").get<string>();
     }
-    return ret;
+    return docs;
 }
 
 // Stores VkUploadedDocs in JSON representation.
