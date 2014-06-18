@@ -610,7 +610,10 @@ void vk_add_buddy_with_invite(PurpleConnection* gc, PurpleBuddy* buddy, PurpleGr
         add_buddy_if_needed(gc, user_id, [=] {
             PurpleBuddy* new_buddy = purple_find_buddy(purple_connection_get_account(gc),
                                                    user_name_from_id(user_id).data());
-            assert(new_buddy);
+            if (!new_buddy) {
+                vkcom_debug_error("Unable to find newly added buddy %s\n", user_name_from_id(user_id).data());
+                return;
+            }
 
             if (!alias.empty()) {
                 purple_blist_alias_buddy(new_buddy, alias.data());

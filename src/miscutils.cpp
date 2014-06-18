@@ -53,8 +53,12 @@ string urldecode(const char* s, int len)
 {
     char buf[1024];
     if (len >= (int)sizeof(buf)) {
-        assert(false);
-        return "";
+        char* large_buf = new char[len + 1];
+        memcpy(large_buf, s, len);
+        large_buf[len] = 0;
+        string ret = purple_url_decode(large_buf);
+        delete[] large_buf;
+        return ret;
     }
     memcpy(buf, s, len);
     buf[len] = 0;

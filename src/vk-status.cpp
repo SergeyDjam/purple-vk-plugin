@@ -27,7 +27,8 @@ void update_status(PurpleConnection* gc)
         set_offline(gc);
         break;
     default:
-        assert(false);
+        vkcom_debug_error("Unknown primitive status %d\n", primitive_status);
+        break;
     }
 }
 
