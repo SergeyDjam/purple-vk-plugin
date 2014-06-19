@@ -78,6 +78,17 @@ const typename Map::mapped_type* map_at_ptr(const Map& map, const Key& key)
         return &it->second;
 }
 
+// A non-const version of map_at_ptr
+template<typename Map, typename Key, typename Value = typename Map::mapped_type>
+typename Map::mapped_type* map_at_ptr(Map& map, const Key& key)
+{
+    auto it = map.find(key);
+    if (it == map.end())
+        return nullptr;
+    else
+        return &it->second;
+}
+
 // Returns true if an associative container (map/set) contains key.
 template<typename Cont, typename Key>
 bool contains(const Cont& cont, const Key& key)
