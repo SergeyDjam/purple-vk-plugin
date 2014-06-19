@@ -1,6 +1,13 @@
 This file lists the contents of contrib/ directory.
 
-= purple =
+cpputils
+========
+
+A small library of useful C++ utilities, separately maintained in
+https://bitbucket.org/olegoandreev/cpputils.
+
+purple
+======
 
 These following files have been taken from pidgin tip (future 3.0 release branch) and placed
 in this repository:
@@ -19,7 +26,8 @@ the required capabilities (modifying request headers, storing and setting cookie
 number of redirects). Adding an external library (libcurl, libevent) dependancy seemed
 a bit too much.
 
-= picojson.h =
+picojson.h
+==========
 
 The only file in the PicoJSON library (https://github.com/kazuho/picojson/).
 
