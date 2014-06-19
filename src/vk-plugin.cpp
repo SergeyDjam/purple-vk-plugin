@@ -5,6 +5,8 @@
 #include <request.h>
 #include <version.h>
 
+#include "strutils.h"
+
 #include "httputils.h"
 #include "miscutils.h"
 #include "vk-api.h"
@@ -587,7 +589,8 @@ void vk_add_buddy_with_invite(PurpleConnection* gc, PurpleBuddy* buddy, PurpleGr
     vkcom_debug_info("Manually adding buddy\n");
 
     // Get only the latest part of URL if we've been supplied with it.
-    string buddy_name = str_rsplit(purple_buddy_get_name(buddy), '/');
+    string buddy_name;
+    str_rsplit(purple_buddy_get_name(buddy), '/', nullptr, &buddy_name);
 
     // Store alias and group name, as buddy will be removed momentarily and readded later.
     string alias = purple_buddy_get_alias(buddy);

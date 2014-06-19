@@ -2,6 +2,11 @@
 
 #pragma once
 
+#include <map>
+
+using std::pair;
+using std::map;
+
 #include "common.h"
 
 #include <connection.h>

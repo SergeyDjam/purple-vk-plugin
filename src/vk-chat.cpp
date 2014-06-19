@@ -1,5 +1,8 @@
 #include <debug.h>
 
+#include "contutils.h"
+#include "strutils.h"
+
 #include "vk-api.h"
 #include "vk-buddy.h"
 #include "vk-common.h"

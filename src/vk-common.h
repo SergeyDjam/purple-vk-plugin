@@ -2,6 +2,13 @@
 
 #pragma once
 
+#include <map>
+#include <set>
+
+using std::map;
+using std::pair;
+using std::set;
+
 #include <connection.h>
 
 #include "common.h"

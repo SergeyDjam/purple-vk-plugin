@@ -2,6 +2,10 @@
 
 #pragma once
 
+#include <utility>
+
+using std::pair;
+
 #include "common.h"
 
 #include <connection.h>

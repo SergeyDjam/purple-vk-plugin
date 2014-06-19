@@ -7,29 +7,19 @@
 // On Linux it is used only for always enabling assert().
 #undef NDEBUG
 
-#include <algorithm>
 #include <cassert>
 #include <chrono>
 #include <cinttypes>
-#include <cstdarg>
-#include <cstring>
 #include <functional>
-#include <map>
 #include <memory>
-#include <set>
 #include <string>
 #include <vector>
 
 // Let's make using most popular names easier.
-using std::map;
-using std::pair;
-using std::set;
 using std::shared_ptr;
 using std::vector;
-
 typedef std::string string;
 
-typedef unsigned int uint;
 typedef int64_t int64;
 typedef uint64_t uint64;
 
@@ -119,72 +109,6 @@ private:
 
 // Miscellaneous string functions
 
-// Creates a new string, analogous to sprintf
-inline string str_format(const char* fmt, ...)
-{
-    char tmp[3072];
-
-    va_list arg;
-    va_start(arg, fmt);
-    vsnprintf(tmp, sizeof(tmp), fmt, arg);
-    va_end(arg);
-
-    return string(tmp);
-}
-
-// Returns new string with removed whitespace characters at the beginning and at the end of the string.
-inline string str_trimmed(const char* s)
-{
-    const char* start = s;
-    while (isspace(*start))
-        start++;
-    if (*start == '\0')
-        return string();
-    const char* end = start;
-    for (const char* p = end; *p != '\0'; p++)
-        if (!isspace(*p))
-            end = p;
-    return string(start, end - start + 1);
-}
-
-// Replaces all occurences of from to to in src string. Extremely inefficient, but who cares.
-// Probably should've used replace_all or regex from boost.
-inline void str_replace(string& s, const char* from, const char* to)
-{
-    size_t from_len = strlen(from);
-    size_t to_len = strlen(to);
-    size_t pos = 0;
-    while ((pos = s.find(from, pos)) != std::string::npos) {
-        s.replace(pos, from_len, to);
-        pos += to_len;
-    }
-}
-
-inline void str_replace(string& s, const string& from, const string& to)
-{
-    str_replace(s, from.data(), to.data());
-}
-
-// Concatenates strings into one string, separating them with given separator like "smth".join() in Python.
-template<typename Sep, typename It>
-inline string str_concat(Sep sep, It first, It last)
-{
-    string s;
-    for (It it = first; it != last; it++) {
-        if (!s.empty())
-            s += sep;
-        s += *it;
-    }
-    return s;
-}
-
-// Version of str_concat, which accepts container.
-template<typename Sep, typename C>
-inline string str_concat(Sep sep, const C& c)
-{
-    return str_concat(sep, c.cbegin(), c.cend());
-}
-
 // Creates string of integers, separated by sep.
 template<typename Sep, typename It>
 string str_concat_int(Sep sep, It first, It last)
@@ -207,170 +131,7 @@ string str_concat_int(Sep sep, const C& c)
     return str_concat_int(sep, c.cbegin(), c.cend());
 }
 
-// Converts string to upper-case
-inline void to_upper(string& s)
-{
-    std::transform(s.begin(), s.end(), s.begin(), toupper);
-}
-
-// Returns the portion of the string after the rightmost sep.
-inline string str_rsplit(const string& s, char sep)
-{
-    string::size_type last = s.find_last_of(sep);
-    if (last != string::npos)
-        return s.substr(last + 1);
-    else
-        return s;
-}
-
-inline string str_rsplit(const char* s, char sep)
-{
-    const char* last = strrchr(s, sep);
-    if (last)
-        return string(last + 1);
-    else
-        return string(s);
-}
-
-// Unfortunately, MinGW does not support std::to_string, so we have to emulate it.
-inline string to_string(int i)
-{
-    char buf[128];
-    sprintf(buf, "%d", i);
-    return buf;
-}
-
-inline string to_string(uint i)
-{
-    char buf[128];
-    sprintf(buf, "%u", i);
-    return buf;
-}
-
-inline string to_string(int64 i)
-{
-    char buf[128];
-    sprintf(buf, "%" PRId64, i);
-    return buf;
-}
-
-inline string to_string(uint64 i)
-{
-    char buf[128];
-    sprintf(buf, "%" PRIu64, i);
-    return buf;
-}
-
-// Miscellaneous container functions
-
-// Checks if map already contains key and sets it to new value.
-template<typename Map, typename Key, typename Value>
-inline bool map_update(Map& map, const Key& key, const Value& value)
-{
-    auto it = map.find(key);
-    if (it == map.end())
-        return false;
-    it->second = value;
-    return true;
-}
-
-// Returns value for key or default value without inserting into map.
-template<typename Map, typename Key, typename Value = typename Map::mapped_type>
-inline typename Map::mapped_type map_at(const Map& map, const Key& key, const Value& default_value = Value())
-{
-    auto it = map.find(key);
-    if (it == map.end())
-        return default_value;
-    else
-        return it->second;
-}
-
-// Returns pointer to value for key or nullptr.
-template<typename Map, typename Key, typename Value = typename Map::mapped_type>
-inline typename Map::mapped_type* map_at_ptr(Map& map, const Key& key)
-{
-    auto it = map.find(key);
-    if (it == map.end())
-        return nullptr;
-    else
-        return &it->second;
-}
-
-// Returns true if map or set contains key.
-template<typename Cont, typename Key>
-inline bool contains(const Cont& cont, const Key& key)
-{
-    return cont.find(key) != cont.end();
-}
-
-// Inserts contents of one container into another, used when DstCont = map or set.
-template<typename DstCont, typename SrcCont>
-inline void insert(DstCont& dst, const SrcCont& src)
-{
-    for (auto it = src.cbegin(); it != src.cend(); ++it)
-        dst.insert(*it);
-}
-
-// Appends one container to another.
-template<typename DstCont, typename SrcCont>
-inline void append(DstCont& dst, const SrcCont& src)
-{
-    dst.insert(dst.end(), src.begin(), src.end());
-}
-
-// Inserts all elements satisfying predicate from one container to another.
-template<typename DstCont, typename SrcCont, typename Pred>
-inline void insert_if(DstCont& dst, const SrcCont& src, Pred pred)
-{
-    for (auto it = src.cbegin(); it != src.cend(); ++it)
-        if (pred(*it))
-            dst.insert(*it);
-}
-
-// Appends all elements satisfying predicate from one container to another.
-template<typename DstCont, typename SrcCont, typename Pred>
-inline void append_if(DstCont& dst, const SrcCont& src, Pred pred)
-{
-    for (auto it = src.cbegin(); it != src.cend(); ++it)
-        if (pred(*it))
-            dst.push_back(*it);
-}
-
-// Assigns contents of one container to another, used instead of operator= when DstCont != SrcCont,
-template<typename DstCont, typename SrcCont>
-inline void assign(DstCont& dst, const SrcCont& src)
-{
-    dst = DstCont(src.begin(), src.end());
-}
-
-// Removes all elements, satisfying predicate, Cont should be list/set/map.
-template<typename Cont, typename Pred>
-inline void erase_if(Cont& cont, Pred pred)
-{
-    for (auto it = cont.begin(); it != cont.end();) {
-        if (pred(*it)) {
-            it = cont.erase(it);
-        } else {
-            ++it;
-        }
-    }
-}
-
-// Removes all elements, satisfying predicate, overload for erase_if when Cont is vector.
-// NOTE: remove_if really should be a container member function because it depends on internal
-// container structure.
-template<typename T, typename Alloc, typename Pred>
-inline void erase_if(vector<T, Alloc>& cont, Pred pred)
-{
-    cont.erase(std::remove_if(cont.begin(), cont.end(), pred), cont.end());
-}
-
-// Removes sequential equal elements. DstCont should be vector/deque.
-template<typename DstCont, typename Pred>
-inline void unique(DstCont& cont, Pred pred)
-{
-    cont.erase(std::unique(cont.begin(), cont.end(), pred), cont.end());
-}
+// Miscellaneous ontainer functions
 
 // Converts container to vector.
 template<typename Cont>

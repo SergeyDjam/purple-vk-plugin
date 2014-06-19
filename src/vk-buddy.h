@@ -2,6 +2,10 @@
 
 #pragma once
 
+#include <set>
+
+using std::set;
+
 #include "common.h"
 
 #include <connection.h>

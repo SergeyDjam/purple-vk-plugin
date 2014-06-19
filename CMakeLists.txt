@@ -108,6 +108,7 @@ if(WIN32)
 endif()
 
 include_directories(src)
+include_directories(src/contrib/cpputils/include)
 
 set(SOURCES
   src/common.h
@@ -145,6 +146,11 @@ set(SOURCES
 
   src/contrib/purple/http.c
   src/contrib/purple/http.h
+
+  src/contrib/cpputils/include/contutils.h
+  src/contrib/cpputils/include/strutils.h
+  src/contrib/cpputils/include/trie.h
+  src/contrib/cpputils/src/strutils.cpp
 )
 
 # Primary plugin library.

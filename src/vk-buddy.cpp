@@ -1,5 +1,8 @@
 #include <debug.h>
 
+#include "contutils.h"
+#include "strutils.h"
+
 #include "httputils.h"
 #include "miscutils.h"
 #include "vk-api.h"
@@ -465,6 +468,13 @@ int fetches_running = 0;
 // Maximum number of concurrently running HTTP requests
 const int MAX_FETCHES_RUNNING = 4;
 
+string get_filename(const char* url)
+{
+    string ret;
+    str_rsplit(url, '/', nullptr, &ret);
+    return ret;
+}
+
 void fetch_next_buddy_icon()
 {
     FetchBuddyIcon fetch = fetch_queue.back();
@@ -481,7 +491,7 @@ void fetch_next_buddy_icon()
             const void* icon_data = purple_http_response_get_data(response, &icon_len);
             const char* icon_url = purple_http_request_get_url(purple_http_conn_get_request(http_conn));
             // This should be synchronized with code in update_buddy_in_blist.
-            string checksum = str_rsplit(icon_url, '/');
+            string checksum = get_filename(icon_url);
             purple_buddy_icons_set_for_user(purple_connection_get_account(fetch.gc), fetch.buddy_name.data(),
                                             g_memdup(icon_data, icon_len), icon_len, checksum.data());
         }
@@ -570,7 +580,7 @@ void update_blist_buddy(PurpleConnection* gc, uint64 user_id, const VkUserInfo& 
         // Icon url is a rather unstable checksum due to load balancing (the first part of the URL
         // can randomly change from one call to another, so we use only the last part, the filename,
         // which seems random enough to ignore potential collisions).
-        if (!checksum || checksum != str_rsplit(info.photo_min, '/'))
+        if (!checksum || checksum != get_filename(info.photo_min.data()))
             fetch_buddy_icon(gc, buddy_name, info.photo_min);
     }
 }
@@ -1155,7 +1165,7 @@ void check_blist_on_logout(PurpleConnection* gc)
     VkData& gc_data = get_data(gc);
     for (auto& p: gc_data.blist_buddies) {
         uint64 user_id = p.first;
-        PurpleBuddy* buddy = map_at(buddies, user_id, nullptr);
+        PurpleBuddy* buddy = map_at_default(buddies, user_id, nullptr);
         VkBlistNode* node = &p.second;
         check_customized_buddy(gc, user_id, buddy, node);
     }
@@ -1176,7 +1186,7 @@ void check_blist_on_logout(PurpleConnection* gc)
 
     for (auto& p: gc_data.blist_chats) {
         uint64 chat_id = p.first;
-        PurpleChat* chat = map_at(chats, chat_id, nullptr);
+        PurpleChat* chat = map_at_default(chats, chat_id, nullptr);
         VkBlistNode* node = &p.second;
         check_customized_chat(gc, chat_id, chat, node);
     }

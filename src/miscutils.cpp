@@ -2,6 +2,8 @@
 #include <debug.h>
 #include <util.h>
 
+#include "strutils.h"
+
 #include "vk-common.h"
 
 #include "miscutils.h"

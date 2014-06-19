@@ -3,6 +3,9 @@
 #include <libxml/HTMLparser.h>
 #include <libxml/xpath.h>
 
+#include "contutils.h"
+#include "strutils.h"
+
 #include "httputils.h"
 #include "miscutils.h"
 
@@ -53,7 +56,7 @@ HtmlForm find_html_form(xmlDoc* doc)
 
     ret.action_url = get_xml_node_prop(form, "action");
     ret.method = get_xml_node_prop(form, "method", "get");
-    to_upper(ret.method);
+    str_toupper(ret.method);
 
     xmlXPathContext* context = xmlXPathNewContext(doc);
     context->node = form;
