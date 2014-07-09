@@ -17,6 +17,7 @@
 #include "vk-longpoll.h"
 #include "vk-message-recv.h"
 #include "vk-message-send.h"
+#include "vk-smileys.h"
 #include "vk-status.h"
 #include "vk-utils.h"
 
@@ -220,6 +221,8 @@ void vk_login(PurpleAccount* account)
     gc->flags = PurpleConnectionFlags(gc->flags | PURPLE_CONNECTION_NO_BGCOLOR | PURPLE_CONNECTION_NO_FONTSIZE);
 
     register_chat_cmds();
+
+    initialize_smileys();
 
     const char* email = purple_account_get_username(account);
     const char* password = purple_account_get_password(account);

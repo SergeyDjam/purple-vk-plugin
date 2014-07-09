@@ -17,6 +17,7 @@
 #include "vk-chat.h"
 #include "vk-common.h"
 #include "vk-utils.h"
+#include "vk-smileys.h"
 
 #include "vk-message-recv.h"
 
@@ -218,17 +219,17 @@ void receive_messages_range_internal(const MessagesData_ptr& data, uint64 last_m
 
 
 // NOTE:
-//  * We must escape text, otherwise we cannot receive comment, containing &amp; or <br> as libpurple
-//    will wrongfully interpret them as markup.
+//  * We must escape text, otherwise we cannot receive comment, containing &amp; or <br>
+//    as libpurple will wrongfully interpret them as markup.
 //  * Links are returned as plaintext, linkified by Pidgin etc.
-//  * Smileys are returned as Unicode emoji (both emoji and pseudocode smileys are accepted on message send).
+//  * Smileys are returned as Unicode emoji.
 string cleanup_message_body(const string& body)
 {
     char* escaped = purple_markup_escape_text(body.data(), -1);
-    string text = escaped;
+    string ret = escaped;
     g_free(escaped);
-    replace_emoji_with_text(text);
-    return text;
+    convert_incoming_smileys(ret);
+    return ret;
 }
 
 // Converts timestamp, received from server, to string in local time.

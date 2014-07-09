@@ -94,10 +94,6 @@ private:
     PurpleLog* open_for_chat_id(uint64 chat_id);
 };
 
-// Replaces most common emoji with smileys: :), :(, :'( etc. Custom smileys are left intact
-// (as Unicode symbols).
-void replace_emoji_with_text(string& message);
-
 // Returns true if group_id is not present even in group infos or group info is stale.
 bool is_unknown_group(PurpleConnection* gc, uint64 group_id);
 

@@ -11,6 +11,7 @@
 #include "vk-buddy.h"
 #include "vk-captcha.h"
 #include "vk-common.h"
+#include "vk-smileys.h"
 #include "vk-upload.h"
 #include "vk-utils.h"
 
@@ -216,6 +217,8 @@ int send_message(PurpleConnection* gc, uint64 user_id, uint64 chat_id, const cha
     message->success_cb = success_cb;
     message->error_cb = error_cb;
     g_free(stripped_message);
+
+    convert_outgoing_smileys(message->text);
 
     upload_imgstore_images(gc, img_ids, [=](const string& img_attachments) {
         message->attachments = parse_vkcom_attachments(message->text);

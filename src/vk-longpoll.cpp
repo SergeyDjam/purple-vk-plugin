@@ -13,6 +13,7 @@
 #include "vk-chat.h"
 #include "vk-common.h"
 #include "vk-message-recv.h"
+#include "vk-smileys.h"
 #include "vk-utils.h"
 
 #include "vk-longpoll.h"
@@ -291,11 +292,11 @@ void process_message(PurpleConnection* gc, const picojson::value& v, LastMsg& la
     uint64 timestamp = v.get(4).get<double>();
     // NOTE:
     // * The text is simple UTF-8 text with some HTML leftovers:
-    //   * The only tag which it may contain is <br> (API v5.0 stopped using <br>, but Long Poll still
-    //     sends <br>).
+    //   * The only tag which it may contain is <br> (API v5.0 stopped using <br>, but Long Poll
+    //     still sends <br>).
     //   * &amp; &lt; &gt; &quot; are escaped.
     // * Links are sent as plaintext, both Vk.com and Pidgin linkify messages automatically.
-    // * Smileys are returned as Unicode emoji (both emoji and pseudocode smileys are accepted on message send).
+    // * Smileys are returned as Unicode emoji.
     string text = v.get(6).get<string>();
 
     const picojson::value* attachments = nullptr;
@@ -350,18 +351,18 @@ void process_incoming_message_internal(PurpleConnection* gc, uint64 msg_id, int 
 {
     // NOTE:
     //  There are two ways of processing messages with attachments:
-    //   a) either we can get attachement ids (photo ids, audio ids etc.) from Long Poll event and get information
-    //      via photo.getById et al.
-    //   or b) we can get all the messages with attachments via receive_messages.
+    //   a) either we can get attachement ids (photo ids, audio ids etc.) from Long Poll event and
+    //      get information via photo.getById et al, or
+    //   b) we can get all the messages with attachments via receive_messages.
     //  While the first way seems preferable at first, it has quite a number of problems:
-    //   * access to information on private images/documents/etc. (e.g. ones uploaded from Vk.com chat UI)
-    //     is prohibited and we can only show links to the corresponding page;
+    //   * access to information on private images/documents/etc. (e.g. ones uploaded from Vk.com
+    //     chat UI) is prohibited and we can only show links to the corresponding page;
     //   * there is no video.getById so we can show no information on video;
     //   * it takes at least one additional call per message (receive_messages takes exactly one call).
     if (flags & MESSAGE_FLAG_MEDIA) {
         receive_messages(gc, { msg_id });
     } else {
-        replace_emoji_with_text(text);
+        convert_incoming_smileys(text);
 
         if (user_id < CHAT_ID_OFFSET) {
             add_buddy_if_needed(gc, user_id, [=] {
@@ -408,7 +409,7 @@ void process_outgoing_message_internal(PurpleConnection* gc, uint64 msg_id, int 
     if (flags & MESSAGE_FLAG_MEDIA) {
         receive_messages(gc, { msg_id });
     } else {
-        replace_emoji_with_text(text);
+        convert_incoming_smileys(text);
 
         // Check if the conversation is open, so that we write to the conversation, not the log.
         // TODO: Remove code duplication with vk-message-recv.cpp

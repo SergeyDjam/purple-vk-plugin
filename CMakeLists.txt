@@ -137,6 +137,8 @@ set(SOURCES
   src/vk-message-send.cpp
   src/vk-message-send.h
   src/vk-plugin.cpp
+  src/vk-smileys.cpp
+  src/vk-smileys.h
   src/vk-status.cpp
   src/vk-status.h
   src/vk-upload.cpp
