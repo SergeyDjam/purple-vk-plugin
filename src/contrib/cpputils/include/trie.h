@@ -42,13 +42,13 @@ public:
     // Returns a matching value for key, or nullptr if key has not been added.
     // If length is not null, it is set to length of the match, or zero if no match
     // has been found.
-    const T* match(const char* key, int* length = nullptr) const
+    const T* match(const char* key, size_t* length = nullptr) const
     {
         return match_impl(key, 0, m_root.get(), length);
     }
 
     // A non-const version of match.
-    T* match(const char* key, int* length = nullptr)
+    T* match(const char* key, size_t* length = nullptr)
     {
         return const_cast<T*>(match_impl(key, 0, m_root.get(), length));
     }
@@ -87,7 +87,7 @@ private:
     template<typename... ArgTypes>
     bool insert_impl(const char* key, ArgTypes&&... args);
 
-    static const T* match_impl(const char* key, int offset, const Node* node, int* length);
+    static const T* match_impl(const char* key, size_t offset, const Node* node, size_t* length);
 };
 
 
@@ -233,17 +233,17 @@ public:
 
     // Sets the prefix to no more than first PREFIX_SIZE - 1 chars of new_prefix.
     // Returns the length of set prefix.
-    int set_prefix(const char* new_prefix);
+    size_t set_prefix(const char* new_prefix);
 
     // Returns true if given key matches prefix (i.e. prefix is the prefix for the key)
     // and sets length to the length of maximum common subprefix.
-    bool matches_prefix(const char* key, int* length) const;
+    bool matches_prefix(const char* key, size_t* length) const;
 
     // "Splits" node: the first part of prefix (up to new_prefix_length) stays in
     // the node, the node is converted to non-leaf (if it is not one already).
     // Node contents (either value or children) moves to new child node along
     // with the second part of the prefix.
-    void split_node(int new_prefix_length);
+    void split_node(size_t new_prefix_length);
 
 private:
     enum class NodeType : char
@@ -256,7 +256,7 @@ private:
     NodeType type;
 
     // sizeof(type + prefix) = 8
-    static const int PREFIX_SIZE = 7;
+    static const size_t PREFIX_SIZE = 7;
 
     // Used when type != EMPTY. Must be zero-terminated.
     char prefix[PREFIX_SIZE];
@@ -287,9 +287,9 @@ private:
 };
 
 template<typename T>
-int Trie<T>::Node::set_prefix(const char* new_prefix)
+size_t Trie<T>::Node::set_prefix(const char* new_prefix)
 {
-    for (int l = 0; l < PREFIX_SIZE - 1; l++) {
+    for (size_t l = 0; l < PREFIX_SIZE - 1; l++) {
         prefix[l] = new_prefix[l];
         if (prefix[l] == '\0')
             return l;
@@ -299,10 +299,10 @@ int Trie<T>::Node::set_prefix(const char* new_prefix)
 }
 
 template<typename T>
-bool Trie<T>::Node::matches_prefix(const char* key, int* length) const
+bool Trie<T>::Node::matches_prefix(const char* key, size_t* length) const
 {
     assert(type != NodeType::EMPTY);
-    int l = 0;
+    size_t l = 0;
     while (prefix[l] != '\0' && key[l] != '\0' && prefix[l] == key[l])
         l++;
     *length = l;
@@ -310,7 +310,7 @@ bool Trie<T>::Node::matches_prefix(const char* key, int* length) const
 }
 
 template<typename T>
-void Trie<T>::Node::split_node(int new_prefix_length)
+void Trie<T>::Node::split_node(size_t new_prefix_length)
 {
     assert(type != NodeType::EMPTY);
     NodeChildren new_children;
@@ -340,7 +340,7 @@ bool Trie<T>::insert_impl(const char* key, ArgTypes&&... args)
 
     Node* node = m_root.get();
     // The offset from the beginning of the key, which has already been processed.
-    int offset = 0;
+    size_t offset = 0;
     while (true) {
         if (node->is_empty()) {
             offset += node->set_prefix(key + offset);
@@ -353,7 +353,7 @@ bool Trie<T>::insert_impl(const char* key, ArgTypes&&... args)
                 node->init_nonleaf();
             }
         } else {
-            int common_length;
+            size_t common_length;
             if (!node->matches_prefix(key + offset, &common_length)) {
                 node->split_node(common_length);
             } else if (node->is_leaf()) {
@@ -373,7 +373,7 @@ bool Trie<T>::insert_impl(const char* key, ArgTypes&&... args)
 }
 
 template<typename T>
-const T* Trie<T>::match_impl(const char* key, int offset, const Trie::Node* node, int* length)
+const T* Trie<T>::match_impl(const char* key, size_t offset, const Trie::Node* node, size_t* length)
 {
     if (length)
         *length = 0;
@@ -385,7 +385,7 @@ const T* Trie<T>::match_impl(const char* key, int offset, const Trie::Node* node
             return nullptr;
         assert(!node->is_empty());
 
-        int common_length;
+        size_t common_length;
         if (!node->matches_prefix(key + offset, &common_length))
             return nullptr;
         offset += common_length;

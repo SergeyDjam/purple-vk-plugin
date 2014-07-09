@@ -144,7 +144,7 @@ bool str_at_isspace(const string& s, size_t i)
 void convert_outgoing_smileys(string& message)
 {
     for (size_t index = 0; index < message.length();) {
-        int ascii_len;
+        size_t ascii_len;
         string* unicode = ascii_to_unicode_smiley.match(message.data() + index, &ascii_len);
         if (!unicode) {
             index++;
@@ -166,14 +166,14 @@ void convert_outgoing_smileys(string& message)
 void convert_incoming_smileys(string& message)
 {
     for (size_t index = 0; index < message.length();) {
-        int match_len;
-        string* ascii = unicode_to_ascii_smiley.match(message.data() + index, &match_len);
+        size_t unicode_len;
+        string* ascii = unicode_to_ascii_smiley.match(message.data() + index, &unicode_len);
         if (!ascii) {
             index++;
             continue;
         }
 
-        message.replace(index, match_len, *ascii);
+        message.replace(index, unicode_len, *ascii);
         index += ascii->length();
     }
 }
