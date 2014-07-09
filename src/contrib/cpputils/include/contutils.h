@@ -160,7 +160,7 @@ void append_if(DstCont& dst, const SrcCont& src, const Pred& pred)
 //
 // Boy, I hate template metaprogramming.
 template<typename Cont, typename Pred>
-void __erase_if_impl(Cont& cont, const Pred& pred, char(*)[is_associative_container<Cont>::value] = nullptr)
+static void __erase_if_impl(Cont& cont, const Pred& pred, char(*)[is_associative_container<Cont>::value] = nullptr)
 {
     for (auto it = cont.begin(); it != cont.end();) {
         if (pred(*it)) {
@@ -173,7 +173,7 @@ void __erase_if_impl(Cont& cont, const Pred& pred, char(*)[is_associative_contai
 
 // Implementation of erase_if for sequence containers.
 template<typename Cont, typename Pred>
-void __erase_if_impl(Cont& cont, const Pred& pred, char(*)[!is_associative_container<Cont>::value] = nullptr)
+static void __erase_if_impl(Cont& cont, const Pred& pred, char(*)[!is_associative_container<Cont>::value] = nullptr)
 {
     cont.erase(std::remove_if(cont.begin(), cont.end(), pred), cont.end());
 }
