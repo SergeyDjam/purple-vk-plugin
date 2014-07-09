@@ -1,16 +1,13 @@
 #include <debug.h>
 #include <fstream>
 #include <glib.h>
-#include <set>
 
-#include "contutils.h"
 #include "strutils.h"
 #include "trie.h"
 
 #include "vk-smileys.h"
 
 using std::ifstream;
-using std::set;
 
 #if defined(DATADIR)
 const char* datadirs[] = { DATADIR };
