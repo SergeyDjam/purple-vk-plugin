@@ -116,6 +116,18 @@ void conversation_updated(PurpleConversation* conv, PurpleConvUpdateType type, g
     }
 }
 
+void conversation_received_msg(PurpleAccount* /*account*/, const char* /*who*/, const char* message,
+                                  PurpleConversation* conv, PurpleMessageFlags /*flags*/,
+                                  gpointer data)
+{
+    PurpleConnection* gc = (PurpleConnection*)data;
+
+    // This is not our conversation.
+    if (gc != purple_conversation_get_gc(conv))
+        return;
+
+    add_custom_smileys(conv, message);
+}
 
 // Sets option with given name to value if not already set.
 void convert_option_bool(PurpleAccount* account, const char* name, bool previous_value)
@@ -266,6 +278,10 @@ void vk_login(PurpleAccount* account)
 
         purple_signal_connect(purple_conversations_get_handle(), "conversation-updated", gc,
                               PURPLE_CALLBACK(conversation_updated), gc);
+        purple_signal_connect(purple_conversations_get_handle(), "received-im-msg", gc,
+                              PURPLE_CALLBACK(conversation_received_msg), gc);
+        purple_signal_connect(purple_conversations_get_handle(), "received-chat-msg", gc,
+                              PURPLE_CALLBACK(conversation_received_msg), gc);
     }, [=] {
     });
 }
@@ -276,6 +292,10 @@ void vk_close(PurpleConnection* gc)
 
     purple_signal_disconnect(purple_conversations_get_handle(), "conversation-updated", gc,
                           PURPLE_CALLBACK(conversation_updated));
+    purple_signal_disconnect(purple_conversations_get_handle(), "received-im-msg", gc,
+                          PURPLE_CALLBACK(conversation_received_msg));
+    purple_signal_disconnect(purple_conversations_get_handle(), "received-chat-msg", gc,
+                          PURPLE_CALLBACK(conversation_received_msg));
 
     set_offline(gc);
     // Let's sleep 250 msec, so that setOffline executes successfully. Yes, it is ugly, but

@@ -12,6 +12,8 @@
 
 #include "common.h"
 
+#include <conversation.h>
+
 // Initializes Vk.com smileys theme (it is used to replace Unicode smileys with their text
 // variants even when the Vk.com smiley theme is not activated).
 void initialize_smileys();
@@ -22,3 +24,8 @@ void convert_outgoing_smileys(string& message);
 // Converts smileys in incoming messages. Must be called after receiving the messages from longpoll
 // or from messages.get.
 void convert_incoming_smileys(string& message);
+
+
+// Adds custom smileys to the conversation, based on the smileys present in the message. This is
+// used so that even if the user did not enable the smiley theme, smileys are still shown to him.
+void add_custom_smileys(PurpleConversation* conv, const char* message);

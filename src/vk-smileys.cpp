@@ -28,6 +28,9 @@ Trie<string> ascii_to_unicode_smiley;
 // Map from unicode version to "canonical" text smiley. Used when converting messages after
 // receiving.
 Trie<string> unicode_to_ascii_smiley;
+// Map from smiley to smiley image.
+typedef vector<char> SmileyImage;
+Trie<shared_ptr<SmileyImage>> smiley_images;
 
 string find_smiley_theme()
 {
@@ -42,6 +45,30 @@ string find_smiley_theme()
         g_free(path);
     }
     return ret;
+}
+
+bool smiley_in_default_theme(const string& smiley)
+{
+    return smiley == ":-)" || smiley == ":-D" || smiley == ":-(" || smiley == ";-)"
+            || smiley == ":-*" || smiley == "8-)" || smiley == ":'(" || smiley == "O:-)"
+            || smiley == ":-X";
+}
+
+bool load_file_contents(const char* path, vector<char>* contents)
+{
+    ifstream file(path);
+    if (!file)
+        return false;
+
+    file.seekg(0, std::ios::end);
+    size_t length = file.tellg();
+    contents->resize(length);
+
+    file.seekg(0);
+    if (file.read(contents->data(), length))
+        return true;
+    else
+        return false;
 }
 
 void load_smile_theme(const string& theme_dir)
@@ -76,8 +103,28 @@ void load_smile_theme(const string& theme_dir)
                                   buf.data());
                 continue;
             }
-//            char* smiley_file = g_build_filename(theme_dir.data(), v[0].data(), nullptr);
-//            g_free(smiley_file);
+
+            // We do not want to set images for custom smileys, which are already present in default
+            // theme (and probably all other themes).
+            bool load_smiley_image = true;
+            for (size_t i = 1; i < v.size(); i++) {
+                if (smiley_in_default_theme(v[i])) {
+                    load_smiley_image = false;
+                    break;
+                }
+            }
+
+            if (load_smiley_image) {
+                char* smiley_file_path = g_build_filename(theme_dir.data(), v[0].data(), nullptr);
+                shared_ptr<SmileyImage> image(new SmileyImage);
+                if (load_file_contents(smiley_file_path, image.get())) {
+                    for (size_t i = 1; i < v.size(); i++)
+                        smiley_images.insert(v[i].data(), image);
+                } else {
+                    vkcom_debug_error("Unable to load smiley image %s\n", smiley_file_path);
+                }
+                g_free(smiley_file_path);
+            }
 
             // Find the unicode and first ASCII version of smiley.
             string ascii_version;
@@ -175,5 +222,33 @@ void convert_incoming_smileys(string& message)
 
         message.replace(index, unicode_len, *ascii);
         index += ascii->length();
+    }
+}
+
+
+void add_custom_smileys(PurpleConversation* conv, const char* message)
+{
+    for (const char* p = message; *p != '\0';) {
+        size_t smiley_length;
+        shared_ptr<SmileyImage>* image_ptr = smiley_images.match(p, &smiley_length);
+        if (image_ptr) {
+            string smiley(p, p + smiley_length);
+            SmileyImage& image = *(*image_ptr);
+
+            // We use smileys as keys to check if we already set this custom smiley, otherwise
+            // Pidgin will happily re-add smiley again and again.
+            if (!purple_conversation_get_data(conv, smiley.data())
+                    && purple_conv_custom_smiley_add(conv, smiley.data(), nullptr, nullptr, true)) {
+                vkcom_debug_info("Adding custom smiley %s to conversation\n", smiley.data());
+                purple_conversation_set_data(conv, smiley.data(), (void*)12345);
+                purple_conv_custom_smiley_write(conv, smiley.data(),
+                                                (const unsigned char*)image.data(),
+                                                image.size());
+                purple_conv_custom_smiley_close(conv, smiley.data());
+            }
+            p += smiley_length;
+        } else {
+            p++;
+        }
     }
 }
