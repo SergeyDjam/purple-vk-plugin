@@ -15,7 +15,7 @@ const char* datadirs[] = { DATADIR };
 const char* datadirs[] = { "/usr/share/pixmaps/pidgin" };
 #elif defined(_WIN32)
 const char* datadirs[] = { "C:\\Program Files\\Pidgin\\pixmaps",
-                           "C:\\Program Files (x86)\\Pidgin\\pixmaps" }
+                           "C:\\Program Files (x86)\\Pidgin\\pixmaps" };
 #else
 #error "DATADIR not defined"
 #endif

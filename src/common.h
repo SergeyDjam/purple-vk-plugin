@@ -10,6 +10,7 @@
 #include <cassert>
 #include <chrono>
 #include <cinttypes>
+#include <cstdio>
 #include <functional>
 #include <memory>
 #include <string>
@@ -20,6 +21,7 @@ using std::shared_ptr;
 using std::vector;
 typedef std::string string;
 
+typedef unsigned int uint;
 typedef int64_t int64;
 typedef uint64_t uint64;
 
