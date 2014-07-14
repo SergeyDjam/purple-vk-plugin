@@ -14,8 +14,8 @@ const char* datadirs[] = { DATADIR };
 #elif defined(__linux__)
 const char* datadirs[] = { "/usr/share/pixmaps/pidgin" };
 #elif defined(_WIN32)
-const char* datadirs[] = { "C:\\Program Files\\Pidgin\\pixmaps",
-                           "C:\\Program Files (x86)\\Pidgin\\pixmaps" };
+const char* datadirs[] = { "C:\\Program Files\\Pidgin\\pixmaps\\pidgin",
+                           "C:\\Program Files (x86)\\Pidgin\\pixmaps\\pidgin" };
 #else
 #error "DATADIR not defined"
 #endif
@@ -56,19 +56,24 @@ bool smiley_in_default_theme(const string& smiley)
 
 bool load_file_contents(const char* path, vector<char>* contents)
 {
-    ifstream file(path);
-    if (!file)
+    ifstream file(path, std::ios::binary);
+    if (!file.is_open()) {
+        vkcom_debug_error("Error opening file %s\n", path);
         return false;
+    }
 
     file.seekg(0, std::ios::end);
     size_t length = file.tellg();
     contents->resize(length);
 
     file.seekg(0);
-    if (file.read(contents->data(), length))
-        return true;
-    else
+    file.read(contents->data(), length);
+    if (file.fail()) {
+        vkcom_debug_error("Error reading file %s: %s\n", path, strerror(errno));
         return false;
+    }
+
+    return true;
 }
 
 void load_smile_theme(const string& theme_dir)
