@@ -10,15 +10,15 @@
 #include <climits>
 #include <memory>
 
-#define DISABLE_COPY(Classname) \
+#define TRIE_DISABLE_COPY(Classname) \
     Classname(const Classname&) = delete; \
     Classname& operator =(const Classname&) = delete
 
-#define DISABLE_MOVE(Classname) \
+#define TRIE_DISABLE_MOVE(Classname) \
     Classname(Classname&&) = delete; \
     Classname& operator =(Classname&&) = delete
 
-#define DEFAULT_MOVE(Classname) \
+#define TRIE_DEFAULT_MOVE(Classname) \
     Classname(Classname&&) = default; \
     Classname& operator =(Classname&&) = default
 
@@ -26,9 +26,13 @@ template<typename T>
 class Trie
 {
 public:
-    Trie() = default;
-    DISABLE_COPY(Trie);
-    DEFAULT_MOVE(Trie);
+    Trie()
+        : m_size(0)
+    {
+    }
+
+    TRIE_DISABLE_COPY(Trie);
+    TRIE_DEFAULT_MOVE(Trie);
 
     // Inserts new key-value pair into trie if the key is not present in the trie already.
     // Value is constructed from passed args. Returns true if insertion occured, false
@@ -78,7 +82,7 @@ private:
     // constructor.
     std::unique_ptr<Node> m_root;
     // Number of elements in the trie.
-    size_t m_size = 0;
+    size_t m_size;
 
     // Used for testing.
     template<typename U>
@@ -163,6 +167,15 @@ const typename Trie<T>::Node* Trie<T>::NodeChildren::get_impl(unsigned char c) c
     return nullptr;
 }
 
+// Unfortunately, gcc <= 4.7 does not support alignas, simulate it via maximum alignment.
+#define TRIE_HAS_GCC_LE(major, minor) \
+    (!defined(__clang__) && (__GNUC__ < major || (__GNUC__ == major && __GNUC_MINOR__ <= minor)))
+#if TRIE_HAS_GCC_LE(4, 7)
+#define TRIE_ALIGNAS(TYPE) __attribute__((aligned(__BIGGEST_ALIGNMENT__)))
+#else
+#define TRIE_ALIGNAS(TYPE) alignas(alignof(TYPE))
+#endif
+
 template<typename T>
 class Trie<T>::Node
 {
@@ -186,8 +199,8 @@ public:
         }
     }
 
-    DISABLE_COPY(Node);
-    DISABLE_MOVE(Node);
+    TRIE_DISABLE_COPY(Node);
+    TRIE_DISABLE_MOVE(Node);
 
     // Initializes a previously empty node to non-leaf.
     void init_nonleaf()
@@ -264,9 +277,9 @@ private:
     union
     {
         // Used when type == NONLEAF.
-        alignas(alignof(NodeChildren)) char children_storage[sizeof(NodeChildren)];
+        TRIE_ALIGNAS(NodeChildren) char children_storage[sizeof(NodeChildren)];
         // Used when type == LEAF
-        alignas(alignof(T)) char value_storage[sizeof(T)];
+        TRIE_ALIGNAS(T) char value_storage[sizeof(T)];
     };
 
     T* value()
