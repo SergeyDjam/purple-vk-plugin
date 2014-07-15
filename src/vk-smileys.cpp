@@ -1,6 +1,7 @@
 #include <debug.h>
 #include <fstream>
 #include <glib.h>
+#include <util.h>
 
 #include "strutils.h"
 #include "trie.h"
@@ -26,7 +27,7 @@ namespace
 // Map from text smiley to unicode version. Used when converting messages before sending.
 Trie<string> ascii_to_unicode_smiley;
 // Map from unicode version to "canonical" text smiley. Used when converting messages after
-// receiving.
+// receiving. Note, that the smiley is escaped.
 Trie<string> unicode_to_ascii_smiley;
 // Map from smiley to smiley image.
 typedef vector<char> SmileyImage;
@@ -76,6 +77,69 @@ bool load_file_contents(const char* path, vector<char>* contents)
     return true;
 }
 
+void process_theme_smiley_line(const vector<string>& v, const string& buf, const char* theme_dir,
+                               const char* theme_path)
+{
+    // We do not want to set images for custom smileys, which are already present in default
+    // theme (and probably all other themes).
+    bool load_smiley_image = true;
+    for (size_t i = 1; i < v.size(); i++) {
+        if (smiley_in_default_theme(v[i])) {
+            load_smiley_image = false;
+            break;
+        }
+    }
+
+    if (load_smiley_image) {
+        char* smiley_file_path = g_build_filename(theme_dir, v[0].data(), nullptr);
+        shared_ptr<SmileyImage> image(new SmileyImage);
+        if (load_file_contents(smiley_file_path, image.get())) {
+            for (size_t i = 1; i < v.size(); i++)
+                smiley_images.insert(v[i].data(), image);
+        } else {
+            vkcom_debug_error("Unable to load smiley image %s\n", smiley_file_path);
+        }
+        g_free(smiley_file_path);
+    }
+
+    // Find the unicode and first ASCII version of smiley.
+    string ascii_version;
+    string unicode_version;
+    for (size_t i = 1; i < v.size(); i++) {
+        // Check if any chars are >= 128
+        bool is_unicode = false;
+        for (char c: v[i]) {
+            if (c < 0) {
+                is_unicode = true;
+                break;
+            }
+        }
+        if (is_unicode) {
+            if (unicode_version.empty())
+                unicode_version = v[i];
+        } else {
+            if (ascii_version.empty())
+                ascii_version = v[i];
+        }
+    }
+
+    if (unicode_version.empty()) {
+        vkcom_debug_error("Strange line in emotes theme file %s, does not contain a unicode"
+                          " version: %s\n", theme_path, buf.data());
+        return;
+    }
+    for (size_t i = 1; i < v.size(); i++) {
+        if (v[i] != unicode_version)
+            ascii_to_unicode_smiley.insert(v[i].data(), unicode_version);
+    }
+
+    if (!ascii_version.empty()) {
+        char* ascii_escaped = purple_markup_escape_text(ascii_version.data(), -1);
+        unicode_to_ascii_smiley.insert(unicode_version.data(), ascii_escaped);
+        g_free(ascii_escaped);
+    }
+}
+
 void load_smile_theme(const string& theme_dir)
 {
     char* theme_path = g_build_filename(theme_dir.data(), "theme", nullptr);
@@ -109,61 +173,7 @@ void load_smile_theme(const string& theme_dir)
                 continue;
             }
 
-            // We do not want to set images for custom smileys, which are already present in default
-            // theme (and probably all other themes).
-            bool load_smiley_image = true;
-            for (size_t i = 1; i < v.size(); i++) {
-                if (smiley_in_default_theme(v[i])) {
-                    load_smiley_image = false;
-                    break;
-                }
-            }
-
-            if (load_smiley_image) {
-                char* smiley_file_path = g_build_filename(theme_dir.data(), v[0].data(), nullptr);
-                shared_ptr<SmileyImage> image(new SmileyImage);
-                if (load_file_contents(smiley_file_path, image.get())) {
-                    for (size_t i = 1; i < v.size(); i++)
-                        smiley_images.insert(v[i].data(), image);
-                } else {
-                    vkcom_debug_error("Unable to load smiley image %s\n", smiley_file_path);
-                }
-                g_free(smiley_file_path);
-            }
-
-            // Find the unicode and first ASCII version of smiley.
-            string ascii_version;
-            string unicode_version;
-            for (size_t i = 1; i < v.size(); i++) {
-                // Check if any chars are >= 128
-                bool is_unicode = false;
-                for (char c: v[i]) {
-                    if (c < 0) {
-                        is_unicode = true;
-                        break;
-                    }
-                }
-                if (is_unicode) {
-                    if (unicode_version.empty())
-                        unicode_version = v[i];
-                } else {
-                    if (ascii_version.empty())
-                        ascii_version = v[i];
-                }
-            }
-
-            if (unicode_version.empty()) {
-                vkcom_debug_error("Strange line in emotes theme file %s, does not contain a unicode"
-                                  " version: %s\n", theme_path, buf.data());
-                continue;
-            }
-            for (size_t i = 1; i < v.size(); i++) {
-                if (v[i] != unicode_version)
-                    ascii_to_unicode_smiley.insert(v[i].data(), unicode_version);
-            }
-
-            if (!ascii_version.empty())
-                unicode_to_ascii_smiley.insert(unicode_version.data(), ascii_version);
+            process_theme_smiley_line(v, buf, theme_dir.data(), theme_path);
         }
     }
     g_free(theme_path);

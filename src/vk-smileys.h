@@ -23,6 +23,9 @@ void convert_outgoing_smileys(string& message);
 
 // Converts smileys in incoming messages. Must be called after receiving the messages from longpoll
 // or from messages.get.
+//
+// NOTE: Escaping message is considered to be already escaped, added smileys will be escaped
+// (e.g. &amp;3 instead <3).
 void convert_incoming_smileys(string& message);
 
 
