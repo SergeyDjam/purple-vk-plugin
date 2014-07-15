@@ -10,6 +10,9 @@
 
 FULLNAME=$PACKAGENAME-$PACKAGEVERSION
 
+# Arch requries 755 permissions on directories now
+umask 022
+
 mkdir arch/build
 
 ./make-source-dir
@@ -21,6 +24,8 @@ SRCSHA512SUM=`sha512sum arch/build/$FULLNAME.tar.gz | cut -d ' ' -f 1`
 mkdir arch/build/$PACKAGENAME
 cat arch/PKGBUILD.template | sed "s/PACKAGENAME/$PACKAGENAME/" \
     | sed "s/PACKAGEVERSION/$PACKAGEVERSION/g" | sed "s/SRCSHA512SUM/$SRCSHA512SUM/g" > arch/build/$PACKAGENAME/PKGBUILD
+cat arch/AURINFO.template | sed "s/PACKAGENAME/$PACKAGENAME/" \
+    | sed "s/PACKAGEVERSION/$PACKAGEVERSION/g" > arch/build/$PACKAGENAME/.AURINFO
 
 cd arch/build
 tar cvzf $FULLNAME-1.src.tar.gz $PACKAGENAME
