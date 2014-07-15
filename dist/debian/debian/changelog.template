@@ -1,3 +1,9 @@
+purple-vk-plugin (0.9+r346-DISTRONAME1) DISTRONAME; urgency=low
+
+  * New unstable release.
+
+ -- Oleg Andreev <olegoandreev@yandex.ru>  Thu, 15 Jul 2014 12:00:00 +0400
+
 purple-vk-plugin (0.9+r342-DISTRONAME1) DISTRONAME; urgency=low
 
   * New unstable release.
