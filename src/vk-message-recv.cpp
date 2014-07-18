@@ -315,7 +315,8 @@ void process_attachments(PurpleConnection* gc, const picojson::array& items, Mes
         } else {
             vkcom_debug_error("Strange attachment in response from messages.get "
                                "or messages.getById: type %s, %s\n", type.data(), fields.serialize().data());
-            message.text += "\nUnknown attachement type ";
+            message.text += "\n";
+            message.text += i18n("Unknown attachement type ");
             message.text += type;
             continue;
         }
@@ -337,7 +338,7 @@ void process_fwd_message(PurpleConnection* gc, const picojson::value& fields, Me
     string date = timestamp_to_long_format(fields.get("date").get<double>());
     // Placeholder either contains a formed href, if the user is already known, or will be replaced
     // with proper name and href in replace_ids().
-    string text = str_format("Forwarded message (from %s on %s):\n",
+    string text = str_format(i18n("Forwarded message (from %s on %s):\n"),
                              get_user_placeholder(gc, user_id, message).data(), date.data());
     text += cleanup_message_body(fields.get("body").get<string>());
     // Prepend quotation marks to all forwared message lines.
@@ -443,7 +444,8 @@ void process_doc_attachment(const picojson::value& fields, Message& message)
 void process_wall_attachment(PurpleConnection* gc, const picojson::value& fields, Message& message)
 {
     if (!field_is_present<double>(fields, "id")
-            || (!field_is_present<double>(fields, "to_id") && !field_is_present<double>(fields, "from_id"))
+            || (!field_is_present<double>(fields, "to_id")
+                && !field_is_present<double>(fields, "from_id"))
             || !field_is_present<double>(fields, "date")
             || !field_is_present<string>(fields, "text")) {
         vkcom_debug_error("Strange attachment in response from messages.get "
@@ -469,10 +471,11 @@ void process_wall_attachment(PurpleConnection* gc, const picojson::value& fields
 
     string wall_url = str_format("https://vk.com/wall%" PRIi64 "_%" PRIu64, to_id, id);
     const char* verb = (fields.contains("copy_text") || fields.contains("copy_history"))
-                        ? "reposted" : "posted";
+                        ? i18n("reposted") : i18n("posted");
     string date = timestamp_to_long_format(fields.get("date").get<double>());
 
-    message.text += str_format(" <a href='%s'>%s</a> on %s<br>", wall_url.data(), verb, date.data());
+    message.text += str_format(" <a href='%s'>%s</a> %s %s<br>", wall_url.data(), verb,
+                               i18n("on"), date.data());
 
     if (field_is_present<string>(fields, "copy_text")) {
         message.text += fields.get("copy_text").get<string>();
@@ -539,8 +542,7 @@ void process_album_attachment(const picojson::value& fields, Message& message)
     const string& title = fields.get("title").get<string>();
 
     string url = str_format("https://vk.com/album%s_%s", owner_id.data(), id.data());
-
-    message.text += str_format("Album: <a href='%s'>%s</a>", url.data(), title.data());
+    message.text += str_format("%s: <a href='%s'>%s</a>", i18n("Album"), url.data(), title.data());
 }
 
 void process_sticker_attachment(const picojson::value& fields, Message& message)

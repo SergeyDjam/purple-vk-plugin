@@ -148,17 +148,20 @@ set<uint64> get_ids_from_items(const picojson::array& items)
 // Updates friend_user_ids and information on friends (without presence information).
 void update_friends_info(PurpleConnection* gc, const SuccessCb& success_cb)
 {
-    CallParams params = { {"user_id", to_string(get_data(gc).self_user_id())}, {"fields", user_fields} };
+    CallParams params = { {"user_id", to_string(get_data(gc).self_user_id())},
+                          {"fields", user_fields} };
     vk_call_api(gc, "friends.get", params, [=](const picojson::value& result) {
         if (!result.is<picojson::object>()) {
             vkcom_debug_error("Strange response from friends.get: %s\n", result.serialize().data());
-            purple_connection_error_reason(gc, PURPLE_CONNECTION_ERROR_NETWORK_ERROR, "Unable to update user infos");
+            purple_connection_error_reason(gc, PURPLE_CONNECTION_ERROR_NETWORK_ERROR,
+                                           i18n("Unable to update user infos"));
             return;
         }
 
         if (!result.get("items").is<picojson::array>()) {
             vkcom_debug_error("Strange response from friends.get: %s\n", result.serialize().data());
-            purple_connection_error_reason(gc, PURPLE_CONNECTION_ERROR_NETWORK_ERROR, "Unable to update user infos");
+            purple_connection_error_reason(gc, PURPLE_CONNECTION_ERROR_NETWORK_ERROR,
+                                           i18n("Unable to update user infos"));
             return;
         }
         const picojson::array& items = result.get("items").get<picojson::array>();
@@ -178,7 +181,8 @@ void update_friends_info(PurpleConnection* gc, const SuccessCb& success_cb)
 
         success_cb();
     }, [=](const picojson::value&) {
-        purple_connection_error_reason(gc, PURPLE_CONNECTION_ERROR_NETWORK_ERROR, "Unable to retrieve buddy list");
+        purple_connection_error_reason(gc, PURPLE_CONNECTION_ERROR_NETWORK_ERROR,
+                                       i18n("Unable to retrieve buddy list"));
     });
 }
 
@@ -197,9 +201,12 @@ void get_users_chats_from_dialogs_impl(PurpleConnection* gc, const SuccessCb& su
                           {"offset", to_string(offset)},
                           {"preview_length", "1"} };
     vk_call_api(gc, "messages.getDialogs", params, [=](const picojson::value& v) {
-        if (!field_is_present<double>(v, "count") || !field_is_present<picojson::array>(v, "items")) {
-            vkcom_debug_error("Strange response from messages.getDialogs: %s\n", v.serialize().data());
-            purple_connection_error_reason(gc, PURPLE_CONNECTION_ERROR_NETWORK_ERROR, "Unable to retrieve dialogs list");
+        if (!field_is_present<double>(v, "count")
+                || !field_is_present<picojson::array>(v, "items")) {
+            vkcom_debug_error("Strange response from messages.getDialogs: %s\n",
+                              v.serialize().data());
+            purple_connection_error_reason(gc, PURPLE_CONNECTION_ERROR_NETWORK_ERROR,
+                                           i18n("Unable to retrieve dialogs list"));
             return;
         }
 
@@ -209,8 +216,10 @@ void get_users_chats_from_dialogs_impl(PurpleConnection* gc, const SuccessCb& su
         const picojson::array& items = v.get("items").get<picojson::array>();
         for (const picojson::value& m: items) {
             if (!field_is_present<picojson::object>(m, "message")) {
-                vkcom_debug_error("Strange response from messages.getDialogs: %s\n", v.serialize().data());
-                purple_connection_error_reason(gc, PURPLE_CONNECTION_ERROR_NETWORK_ERROR, "Unable to retrieve dialogs list");
+                vkcom_debug_error("Strange response from messages.getDialogs: %s\n",
+                                  v.serialize().data());
+                purple_connection_error_reason(gc, PURPLE_CONNECTION_ERROR_NETWORK_ERROR,
+                                               i18n("Unable to retrieve dialogs list"));
                 return;
             }
 
@@ -219,25 +228,30 @@ void get_users_chats_from_dialogs_impl(PurpleConnection* gc, const SuccessCb& su
                 if (!field_is_present<string>(message, "title")
                         || !field_is_present<picojson::array>(message, "chat_active")
                         || !field_is_present<double>(message, "admin_id")) {
-                    vkcom_debug_error("Strange response from our getDialogs: %s\n", v.serialize().data());
-                    purple_connection_error_reason(gc, PURPLE_CONNECTION_ERROR_NETWORK_ERROR, "Unable to retrieve dialogs list");
+                    vkcom_debug_error("Strange response from our getDialogs: %s\n",
+                                      v.serialize().data());
+                    purple_connection_error_reason(gc, PURPLE_CONNECTION_ERROR_NETWORK_ERROR,
+                                                   i18n("Unable to retrieve dialogs list"));
                     return;
                 }
 
-                // If there are no chat participants, chat is inactive, ignore it (messages.getChat returns
-                // an error in these cases).
-                const picojson::array& chat_active = message.get("chat_active").get<picojson::array>();
+                // If there are no chat participants, chat is inactive, ignore it (messages.getChat
+                // returns an error in these cases).
+                const picojson::array& chat_active = message.get("chat_active")
+                                                            .get<picojson::array>();
                 if (chat_active.size() == 0)
                     continue;
 
-                // NOTE: we could parse chat title and participants and add entries to chat_infos, but it's
-                // easier to do it via update_chat_infos.
+                // NOTE: we could parse chat title and participants and add entries to chat_infos,
+                // but it's easier to do it via update_chat_infos.
                 uint64 chat_id = message.get("chat_id").get<double>();
                 data->chat_ids.insert(chat_id);
             } else {
                 if (!field_is_present<double>(message, "user_id")) {
-                    vkcom_debug_error("Strange response from messages.getDialogs: %s\n", v.serialize().data());
-                    purple_connection_error_reason(gc, PURPLE_CONNECTION_ERROR_NETWORK_ERROR, "Unable to retrieve dialogs list");
+                    vkcom_debug_error("Strange response from messages.getDialogs: %s\n",
+                                      v.serialize().data());
+                    purple_connection_error_reason(gc, PURPLE_CONNECTION_ERROR_NETWORK_ERROR,
+                                                   i18n("Unable to retrieve dialogs list"));
                     return;
                 }
 
@@ -255,7 +269,8 @@ void get_users_chats_from_dialogs_impl(PurpleConnection* gc, const SuccessCb& su
             success_cb();
         }
     }, [=](const picojson::value&) {
-        purple_connection_error_reason(gc, PURPLE_CONNECTION_ERROR_NETWORK_ERROR, "Unable to retrieve dialogs list");
+        purple_connection_error_reason(gc, PURPLE_CONNECTION_ERROR_NETWORK_ERROR,
+                                       i18n("Unable to retrieve dialogs list"));
     });
 }
 
@@ -746,8 +761,10 @@ void update_friends_presence(PurpleConnection* gc, const SuccessCb& on_update_cb
     vk_call_api(gc, "friends.getOnline", params, [=](const picojson::value& result) {
         if (!field_is_present<picojson::array>(result, "online")
                 || !field_is_present<picojson::array>(result, "online_mobile")) {
-            vkcom_debug_error("Strange response from friends.getOnline: %s\n", result.serialize().data());
-            purple_connection_error_reason(gc, PURPLE_CONNECTION_ERROR_NETWORK_ERROR, "Unable retrieve online info");
+            vkcom_debug_error("Strange response from friends.getOnline: %s\n",
+                              result.serialize().data());
+            purple_connection_error_reason(gc, PURPLE_CONNECTION_ERROR_NETWORK_ERROR,
+                                           i18n("Unable retrieve online info"));
             return;
         }
 
@@ -757,8 +774,10 @@ void update_friends_presence(PurpleConnection* gc, const SuccessCb& on_update_cb
         const picojson::array& online = result.get("online").get<picojson::array>();
         for (const picojson::value& v: online) {
             if (!v.is<double>()) {
-                vkcom_debug_error("Strange response from friends.getOnline: %s\n", result.serialize().data());
-                purple_connection_error_reason(gc, PURPLE_CONNECTION_ERROR_NETWORK_ERROR, "Unable retrieve online info");
+                vkcom_debug_error("Strange response from friends.getOnline: %s\n",
+                                  result.serialize().data());
+                purple_connection_error_reason(gc, PURPLE_CONNECTION_ERROR_NETWORK_ERROR,
+                                               i18n("Unable retrieve online info"));
                 return;
             }
 
@@ -776,8 +795,10 @@ void update_friends_presence(PurpleConnection* gc, const SuccessCb& on_update_cb
         const picojson::array& online_mobile = result.get("online_mobile").get<picojson::array>();
         for (const picojson::value& v: online_mobile) {
             if (!v.is<double>()) {
-                vkcom_debug_error("Strange response from friends.getOnline: %s\n", result.serialize().data());
-                purple_connection_error_reason(gc, PURPLE_CONNECTION_ERROR_NETWORK_ERROR, "Unable retrieve online info");
+                vkcom_debug_error("Strange response from friends.getOnline: %s\n",
+                                  result.serialize().data());
+                purple_connection_error_reason(gc, PURPLE_CONNECTION_ERROR_NETWORK_ERROR,
+                                               i18n("Unable retrieve online info"));
                 return;
             }
 
@@ -797,7 +818,8 @@ void update_friends_presence(PurpleConnection* gc, const SuccessCb& on_update_cb
         if (on_update_cb)
             on_update_cb();
     }, [=](const picojson::value&) {
-        purple_connection_error_reason(gc, PURPLE_CONNECTION_ERROR_NETWORK_ERROR, "Unable to retrieve online info");
+        purple_connection_error_reason(gc, PURPLE_CONNECTION_ERROR_NETWORK_ERROR,
+                                       i18n("Unable to retrieve online info"));
     });
 }
 
@@ -866,10 +888,12 @@ void update_user_infos(PurpleConnection* gc, const set<uint64>& user_ids, const 
     vkcom_debug_info("Updating information on buddies %s\n", user_ids_str.data());
 
     CallParams params = { {"fields", user_fields} };
-    vk_call_api_ids(gc, "users.get", params, "user_ids", to_vector(user_ids), [=](const picojson::value& result) {
+    vk_call_api_ids(gc, "users.get", params, "user_ids", to_vector(user_ids),
+    [=](const picojson::value& result) {
         if (!result.is<picojson::array>()) {
             vkcom_debug_error("Strange response from users.get: %s\n", result.serialize().data());
-            purple_connection_error_reason(gc, PURPLE_CONNECTION_ERROR_NETWORK_ERROR, "Unable to update user infos");
+            purple_connection_error_reason(gc, PURPLE_CONNECTION_ERROR_NETWORK_ERROR,
+                                           i18n("Unable to update user infos"));
             return;
         }
 
@@ -900,9 +924,11 @@ void update_chat_info_from(PurpleConnection* gc, const picojson::value& chat,
                            bool update_blist = false)
 {
     if (!field_is_present<double>(chat, "id") || !field_is_present<string>(chat, "title")
-            || !field_is_present<double>(chat, "admin_id") || !field_is_present<picojson::array>(chat, "users")) {
+            || !field_is_present<double>(chat, "admin_id")
+            || !field_is_present<picojson::array>(chat, "users")) {
         vkcom_debug_error("Strange response from messages.getChat: %s\n", chat.serialize().data());
-        purple_connection_error_reason(gc, PURPLE_CONNECTION_ERROR_NETWORK_ERROR, "Unable to retrieve chat info");
+        purple_connection_error_reason(gc, PURPLE_CONNECTION_ERROR_NETWORK_ERROR,
+                                       i18n("Unable to retrieve chat info"));
         return;
     }
 
@@ -918,8 +944,10 @@ void update_chat_info_from(PurpleConnection* gc, const picojson::value& chat,
     const picojson::array& users = chat.get("users").get<picojson::array>();
     for (const picojson::value& u: users) {
         if (!field_is_present<double>(u, "id")) {
-            vkcom_debug_error("Strange response from messages.getChat: %s\n", chat.serialize().data());
-            purple_connection_error_reason(gc, PURPLE_CONNECTION_ERROR_NETWORK_ERROR, "Unable to retrieve chat info");
+            vkcom_debug_error("Strange response from messages.getChat: %s\n",
+                              chat.serialize().data());
+            purple_connection_error_reason(gc, PURPLE_CONNECTION_ERROR_NETWORK_ERROR,
+                                           i18n("Unable to retrieve chat info"));
             return;
         }
 
@@ -954,7 +982,8 @@ void update_chat_info_from(PurpleConnection* gc, const picojson::value& chat,
 
 } // namespace
 
-void update_chat_infos(PurpleConnection* gc, const set<uint64>& chat_ids, const SuccessCb& on_update_cb, bool update_blist)
+void update_chat_infos(PurpleConnection* gc, const set<uint64>& chat_ids,
+                       const SuccessCb& on_update_cb, bool update_blist)
 {
     if (chat_ids.empty()) {
         if (on_update_cb)
@@ -966,10 +995,12 @@ void update_chat_infos(PurpleConnection* gc, const set<uint64>& chat_ids, const 
     vkcom_debug_info("Updating information on chats %s\n", chat_ids_str.data());
 
     CallParams params = { {"fields", user_fields} };
-    vk_call_api_ids(gc, "messages.getChat", params, "chat_ids", to_vector(chat_ids), [=](const picojson::value& v) {
+    vk_call_api_ids(gc, "messages.getChat", params, "chat_ids", to_vector(chat_ids),
+    [=](const picojson::value& v) {
         if (!v.is<picojson::array>()) {
             vkcom_debug_error("Strange response from messages.getChat: %s\n", v.serialize().data());
-            purple_connection_error_reason(gc, PURPLE_CONNECTION_ERROR_NETWORK_ERROR, "Unable to retrieve chat info");
+            purple_connection_error_reason(gc, PURPLE_CONNECTION_ERROR_NETWORK_ERROR,
+                                           i18n("Unable to retrieve chat info"));
             return;
         }
 

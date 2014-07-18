@@ -195,7 +195,7 @@ namespace
 void show_add_user_error(PurpleConnection* gc, uint64 chat_id, uint64 user_id)
 {
     PurpleConversation* conv = find_conv_for_id(gc, 0, chat_id);
-    string error_msg = str_format("Unable to add user %" PRIu64, user_id);
+    string error_msg = str_format(i18n("Unable to add user %s"), to_string(user_id).data());
     purple_conversation_write(conv, nullptr, error_msg.data(), PURPLE_MESSAGE_ERROR, time(nullptr));
 }
 
@@ -222,7 +222,7 @@ void add_user_to_chat_info(PurpleConnection* gc, uint64 chat_id, uint64 user_id)
 void show_remove_user_error(PurpleConnection* gc, uint64 chat_id, uint64 user_id)
 {
     PurpleConversation* conv = find_conv_for_id(gc, 0, chat_id);
-    string error_msg = str_format("Unable to remove user %" PRIu64, user_id);
+    string error_msg = str_format(i18n("Unable to remove user %s"), to_string(user_id).data());
     purple_conversation_write(conv, nullptr, error_msg.data(), PURPLE_MESSAGE_ERROR, time(nullptr));
 }
 
@@ -237,7 +237,7 @@ void remove_user_from_chat_info(PurpleConnection* gc, uint64 chat_id, uint64 use
 void show_set_title_error(PurpleConnection* gc, uint64 chat_id)
 {
     PurpleConversation* conv = find_conv_for_id(gc, 0, chat_id);
-    string error_msg = str_format("Unable to set chat title");
+    string error_msg = str_format(i18n("Unable to set chat title"));
     purple_conversation_write(conv, nullptr, error_msg.data(), PURPLE_MESSAGE_ERROR, time(nullptr));
 }
 

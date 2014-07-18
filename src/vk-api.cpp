@@ -145,20 +145,23 @@ void process_error(PurpleHttpConnection* http_conn, const picojson::value& error
         // and asking them to re-login.
         string message_text;
         if (!field_is_present<string>(error, "redirect_uri"))
-            message_text = "Please open https://vk.com in your browser and validate yourself";
+            message_text = i18n("Please open https://vk.com in your browser and validate yourself");
         else
-            message_text = str_format("Please open the following link in your browser:\n%s",
+            message_text = str_format(i18n("Please open the following link in your browser:\n%s"),
                                       error.get("redirect_uri").get<string>().data());
-        purple_request_action(nullptr, "Please validate yourself", "Please validate yourself", message_text.data(),
-                              0, nullptr, nullptr, nullptr, nullptr, 1, "OK", nullptr);
+        purple_request_action(nullptr, i18n("Please validate yourself"),
+                              i18n("Please validate yourself"), message_text.data(), 0, nullptr,
+                              nullptr, nullptr, nullptr, 1, i18n("Ok"), nullptr);
 
         // NOTE: Seems like NETWORK_ERROR is the only error, which Pidgin considers "non-fatal"
         // and does not require you to re-enable the account.
-        purple_connection_error_reason(gc, PURPLE_CONNECTION_ERROR_NETWORK_ERROR, "Validate yourself");
+        purple_connection_error_reason(gc, PURPLE_CONNECTION_ERROR_NETWORK_ERROR,
+                                       i18n("Validate yourself"));
         if (error_cb)
             error_cb(error);
     } else if (error_code == VK_INTERNAL_SERVER_ERROR) {
-        purple_connection_error_reason(gc, PURPLE_CONNECTION_ERROR_NETWORK_ERROR, "Internal server error");
+        purple_connection_error_reason(gc, PURPLE_CONNECTION_ERROR_NETWORK_ERROR,
+                                       i18n("Internal server error"));
         if (error_cb)
             error_cb(error);
     } else {

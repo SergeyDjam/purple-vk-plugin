@@ -109,15 +109,16 @@ typedef shared_ptr<AuthData> AuthData_ptr;
 // Starts authentication process.
 void start_auth(const AuthData_ptr& data);
 
-// First part of auth process: retrieves login page, finds relevant form with username (email) and password
-// and submits it.
+// First part of auth process: retrieves login page, finds relevant form with username (email)
+// and password and submits it.
 void on_fetch_vk_oauth_form(const AuthData_ptr& data, PurpleHttpConnection* http_conn,
                             PurpleHttpResponse* response);
-// Second part of auth process: retrieves "confirm access" page and submits form. This part may be skipped.
+// Second part of auth process: retrieves "confirm access" page and submits form. This part may
+// be skipped.
 void on_fetch_vk_confirmation_form(const AuthData_ptr& data, PurpleHttpConnection* http_conn,
                                    PurpleHttpResponse* response);
-// Last part of auth process: retrieves access token. We either arrive here upon success from confirmation
-// page or upon error (when url starts with "https://oauth.vk.com/blank.html").
+// Last part of auth process: retrieves access token. We either arrive here upon success from
+// confirmation page or upon error (when url starts with "https://oauth.vk.com/blank.html").
 void on_fetch_vk_access_token(const AuthData_ptr& data, PurpleHttpConnection* http_conn,
                               PurpleHttpResponse*);
 
@@ -158,21 +159,23 @@ void start_auth(const AuthData_ptr& data)
 void on_fetch_vk_oauth_form(const AuthData_ptr& data, PurpleHttpConnection* http_conn,
                             PurpleHttpResponse* response)
 {
-    purple_connection_update_progress(data->gc, "Connecting", 1, 4);
+    purple_connection_update_progress(data->gc, i18n("Connecting"), 1, 4);
     vkcom_debug_info("Fetched login page\n");
 
     if (!purple_http_response_is_successful(response)) {
-        vkcom_debug_error("Error retrieving login page: %s\n", purple_http_response_get_error(response));
-        on_error(data, PURPLE_CONNECTION_ERROR_NETWORK_ERROR, "Error retrieving login page");
+        vkcom_debug_error("Error retrieving login page: %s\n",
+                          purple_http_response_get_error(response));
+        on_error(data, PURPLE_CONNECTION_ERROR_NETWORK_ERROR, i18n("Error retrieving login page"));
         return;
     }
 
     const char* page_data = purple_http_response_get_data(response, nullptr);
-    xmlDoc* doc = htmlReadDoc((xmlChar*)page_data, nullptr, "utf-8", HTML_PARSE_RECOVER | HTML_PARSE_NOBLANKS
-                              | HTML_PARSE_NOERROR | HTML_PARSE_NOWARNING);
+    xmlDoc* doc = htmlReadDoc((xmlChar*)page_data, nullptr, "utf-8", HTML_PARSE_RECOVER
+                              | HTML_PARSE_NOBLANKS | HTML_PARSE_NOERROR | HTML_PARSE_NOWARNING);
     if (!doc) {
         vkcom_debug_error("Unable to parse login form HTML: %s\n", replace_br(page_data).data());
-        on_error(data, PURPLE_CONNECTION_ERROR_AUTHENTICATION_IMPOSSIBLE, "Internal auth error");
+        on_error(data, PURPLE_CONNECTION_ERROR_AUTHENTICATION_IMPOSSIBLE,
+                 i18n("Internal auth error"));
         return;
     }
     HtmlForm form = find_html_form(doc);
@@ -180,18 +183,21 @@ void on_fetch_vk_oauth_form(const AuthData_ptr& data, PurpleHttpConnection* http
 
     if (form.action_url.empty()) {
         vkcom_debug_error("Error finding form in login page: %s\n", replace_br(page_data).data());
-        on_error(data, PURPLE_CONNECTION_ERROR_AUTHENTICATION_IMPOSSIBLE, "Internal auth error");
+        on_error(data, PURPLE_CONNECTION_ERROR_AUTHENTICATION_IMPOSSIBLE,
+                 i18n("Internal auth error"));
         return;
     }
 
     if (!map_update(form.params, "email", data->email)) {
         vkcom_debug_error("Login form does not contain email: %s\n", replace_br(page_data).data());
-        on_error(data, PURPLE_CONNECTION_ERROR_AUTHENTICATION_IMPOSSIBLE, "Internal auth error");
+        on_error(data, PURPLE_CONNECTION_ERROR_AUTHENTICATION_IMPOSSIBLE,
+                 i18n("Internal auth error"));
         return;
     }
     if (!map_update(form.params, "pass", data->password)) {
         vkcom_debug_error("Login form does not contain pass: %s\n", replace_br(page_data).data());
-        on_error(data, PURPLE_CONNECTION_ERROR_AUTHENTICATION_IMPOSSIBLE, "Internal auth error");
+        on_error(data, PURPLE_CONNECTION_ERROR_AUTHENTICATION_IMPOSSIBLE,
+                 i18n("Internal auth error"));
         return;
     }
 
@@ -201,7 +207,8 @@ void on_fetch_vk_oauth_form(const AuthData_ptr& data, PurpleHttpConnection* http
     else
         purple_http_request_header_add(request, "User-Agent", desktop_user_agent);
     http_request_copy_cookie_jar(request, http_conn);
-    http_request_update_on_redirect(data->gc, request, [=](PurpleHttpConnection* new_conn, PurpleHttpResponse* new_response) {
+    http_request_update_on_redirect(data->gc, request,
+    [=](PurpleHttpConnection* new_conn, PurpleHttpResponse* new_response) {
         on_fetch_vk_confirmation_form(data, new_conn, new_response);
     });
     purple_http_request_unref(request);
@@ -210,7 +217,7 @@ void on_fetch_vk_oauth_form(const AuthData_ptr& data, PurpleHttpConnection* http
 void on_fetch_vk_confirmation_form(const AuthData_ptr& data, PurpleHttpConnection* http_conn,
                                    PurpleHttpResponse* response)
 {
-    purple_connection_update_progress(data->gc, "Connecting", 2, 4);
+    purple_connection_update_progress(data->gc, i18n("Connecting"), 2, 4);
 
     // Check if url contains "https://oauth.vk.com/blank.html"
     const char* url = purple_http_request_get_url(purple_http_conn_get_request(http_conn));
@@ -224,24 +231,29 @@ void on_fetch_vk_confirmation_form(const AuthData_ptr& data, PurpleHttpConnectio
     if (!purple_http_response_is_successful(response)) {
         vkcom_debug_error("Error retrieving login confirmation page: %s\n",
                            purple_http_response_get_error(response));
-        on_error(data, PURPLE_CONNECTION_ERROR_NETWORK_ERROR, "Error retrieving login confirmation page");
+        on_error(data, PURPLE_CONNECTION_ERROR_NETWORK_ERROR,
+                 i18n("Error retrieving login confirmation page"));
         return;
     }
 
     const char* page_data = purple_http_response_get_data(response, nullptr);
-    xmlDoc* doc = htmlReadDoc((xmlChar*)page_data, nullptr, "utf-8", HTML_PARSE_RECOVER | HTML_PARSE_NOBLANKS
-                              | HTML_PARSE_NOERROR | HTML_PARSE_NOWARNING);
+    xmlDoc* doc = htmlReadDoc((xmlChar*)page_data, nullptr, "utf-8", HTML_PARSE_RECOVER
+                              | HTML_PARSE_NOBLANKS | HTML_PARSE_NOERROR | HTML_PARSE_NOWARNING);
     if (!doc) {
-        vkcom_debug_error("Unable to parse confirmation form HTML: %s\n", replace_br(page_data).data());
-        on_error(data, PURPLE_CONNECTION_ERROR_AUTHENTICATION_IMPOSSIBLE, "Internal auth error");
+        vkcom_debug_error("Unable to parse confirmation form HTML: %s\n",
+                          replace_br(page_data).data());
+        on_error(data, PURPLE_CONNECTION_ERROR_AUTHENTICATION_IMPOSSIBLE,
+                 i18n("Internal auth error"));
         return;
     }
     HtmlForm form = find_html_form(doc);
     xmlFreeDoc(doc);
 
     if (form.action_url.empty()) {
-        vkcom_debug_error("Error finding form in login confirmation page: %s\n", replace_br(page_data).data());
-        on_error(data, PURPLE_CONNECTION_ERROR_AUTHENTICATION_IMPOSSIBLE, "Internal auth error");
+        vkcom_debug_error("Error finding form in login confirmation page: %s\n",
+                          replace_br(page_data).data());
+        on_error(data, PURPLE_CONNECTION_ERROR_AUTHENTICATION_IMPOSSIBLE,
+                 i18n("Internal auth error"));
         return;
     }
 
@@ -251,7 +263,8 @@ void on_fetch_vk_confirmation_form(const AuthData_ptr& data, PurpleHttpConnectio
     else
         purple_http_request_header_add(request, "User-Agent", desktop_user_agent);
     http_request_copy_cookie_jar(request, http_conn);
-    http_request_update_on_redirect(data->gc, request, [=](PurpleHttpConnection* new_conn, PurpleHttpResponse* new_response) {
+    http_request_update_on_redirect(data->gc, request,
+    [=](PurpleHttpConnection* new_conn, PurpleHttpResponse* new_response) {
         on_fetch_vk_access_token(data, new_conn, new_response);
     });
     purple_http_request_unref(request);
@@ -259,16 +272,18 @@ void on_fetch_vk_confirmation_form(const AuthData_ptr& data, PurpleHttpConnectio
 
 // Last part of auth process: retrieves access token. We either arrive here upon success from confirmation
 // page or upon error (when url starts with "https://oauth.vk.com/blank.html").
-void on_fetch_vk_access_token(const AuthData_ptr& data, PurpleHttpConnection* http_conn, PurpleHttpResponse*)
+void on_fetch_vk_access_token(const AuthData_ptr& data, PurpleHttpConnection* http_conn,
+                              PurpleHttpResponse*)
 {
-    purple_connection_update_progress(data->gc, "Connecting", 3, 4);
+    purple_connection_update_progress(data->gc, i18n("Connecting"), 3, 4);
     vkcom_debug_info("Fetched access token URL\n");
 
     // Check if url contains "https://oauth.vk.com/blank.html"
     const char* url = purple_http_request_get_url(purple_http_conn_get_request(http_conn));
     if (!g_str_has_prefix(url, "https://oauth.vk.com/blank.html")) {
         vkcom_debug_info("Error while getting access token: ended up with url %s\n", url);
-        on_error(data, PURPLE_CONNECTION_ERROR_AUTHENTICATION_FAILED, "Wrong username or password");
+        on_error(data, PURPLE_CONNECTION_ERROR_AUTHENTICATION_FAILED,
+                 i18n("Wrong username or password"));
         return;
     }
 
@@ -277,7 +292,8 @@ void on_fetch_vk_access_token(const AuthData_ptr& data, PurpleHttpConnection* ht
     string access_token = params["access_token"];
     if (access_token.empty()) {
         vkcom_debug_error("access_token not present in %s\n", url_params);
-        on_error(data, PURPLE_CONNECTION_ERROR_AUTHENTICATION_IMPOSSIBLE, "Internal auth error");
+        on_error(data, PURPLE_CONNECTION_ERROR_AUTHENTICATION_IMPOSSIBLE,
+                 i18n("Internal auth error"));
         return;
     } else {
         purple_connection_set_state(data->gc, PURPLE_CONNECTED);
@@ -287,8 +303,9 @@ void on_fetch_vk_access_token(const AuthData_ptr& data, PurpleHttpConnection* ht
 
 } // End of anonymous namespace
 
-void vk_auth_user(PurpleConnection* gc, const string& email, const string& password, const string& client_id, const string& scope,
-                  bool imitate_mobile_client, const AuthSuccessCb& success_cb, const ErrorCb& error_cb)
+void vk_auth_user(PurpleConnection* gc, const string& email, const string& password,
+                  const string& client_id, const string& scope, bool imitate_mobile_client,
+                  const AuthSuccessCb& success_cb, const ErrorCb& error_cb)
 {
     AuthData_ptr data{ new AuthData() };
     data->gc = gc;

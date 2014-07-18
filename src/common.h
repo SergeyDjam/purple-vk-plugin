@@ -158,6 +158,9 @@ inline std::chrono::seconds::rep to_seconds(T duration)
     return std::chrono::duration_cast<std::chrono::seconds>(duration).count();
 }
 
+// I18n
+
+#define i18n(x) (x)
 
 // Debugging macros
 

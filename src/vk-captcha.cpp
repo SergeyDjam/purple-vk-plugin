@@ -66,15 +66,19 @@ void request_captcha(PurpleConnection* gc, const string& captcha_img, const Capt
         PurpleRequestFieldGroup* field_group = purple_request_field_group_new(nullptr);
         purple_request_fields_add_group(fields, field_group);
         PurpleRequestField* field;
-        field = purple_request_field_image_new("captcha_img", "Captcha", captcha_data, captcha_len);
+        field = purple_request_field_image_new("captcha_img", i18n("Captcha"), captcha_data,
+                                               captcha_len);
         purple_request_field_group_add_field(field_group, field);
-        field = purple_request_field_string_new("captcha_text", "Text", "", false);
+        field = purple_request_field_string_new("captcha_text", i18n("Text"), "", false);
         purple_request_field_string_set_masked(field, false);
         purple_request_field_group_add_field(field_group, field);
 
-        CaptchaRequestData* data = new CaptchaRequestData({ captcha_input_cb, error_cb, gc, captcha_img });
-        purple_request_fields(gc, "Are you classified as human?", "Are you classified as human?", nullptr, fields,
-                              "Ok", G_CALLBACK(request_captcha_ok), "Cancel", G_CALLBACK(request_captcha_cancel),
+        CaptchaRequestData* data = new CaptchaRequestData({ captcha_input_cb, error_cb, gc,
+                                                            captcha_img });
+        purple_request_fields(gc, i18n("Are you classified as human?"),
+                              i18n("Are you classified as human?"), nullptr, fields,
+                              i18n("Ok"), G_CALLBACK(request_captcha_ok),
+                              i18n("Cancel"), G_CALLBACK(request_captcha_cancel),
                               purple_connection_get_account(gc), nullptr, nullptr, data);
     });
 }

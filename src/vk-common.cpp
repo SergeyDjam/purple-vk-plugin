@@ -194,28 +194,31 @@ VkData::~VkData()
 void VkData::authenticate(const SuccessCb& success_cb, const ErrorCb& error_cb)
 {
     m_access_token.clear();
-    vk_auth_user(m_gc, m_email, m_password, VK_CLIENT_ID, "friends,photos,audio,video,docs,messages",
-                 m_options.imitate_mobile_client,
+    vk_auth_user(m_gc, m_email, m_password, VK_CLIENT_ID,
+                 "friends,photos,audio,video,docs,messages", m_options.imitate_mobile_client,
         [=](const string& access_token, const string& self_user_id) {
             m_access_token = access_token;
             try {
                 m_self_user_id = atoll(self_user_id.data());
 #if defined(__GNUC__) && !defined(__clang__)
 #pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-fpermissive" // catch (...) makes GCC 4.7.2 return strange error, fixed in later GCCs
+// catch (...) makes GCC 4.7.2 return strange error, fixed in later GCCs
+#pragma GCC diagnostic ignored "-fpermissive"
 #endif
             } catch (...) {
 #if defined(__GNUC__) && !defined(__clang__)
 #pragma GCC diagnostic pop
 #endif
                 vkcom_debug_error("Error converting user id %s to integer\n", self_user_id.data());
-                purple_connection_error_reason(m_gc, PURPLE_CONNECTION_ERROR_OTHER_ERROR, "Authentication process failed");
+                purple_connection_error_reason(m_gc, PURPLE_CONNECTION_ERROR_OTHER_ERROR,
+                                               i18n("Authentication process failed"));
                 error_cb();
             }
             success_cb();
     }, [=] {
         vkcom_debug_error("Unable to authenticate, connection will be terminated\n");
-        purple_connection_error_reason(m_gc, PURPLE_CONNECTION_ERROR_NETWORK_ERROR, "Unable to connect to Long Poll server");
+        purple_connection_error_reason(m_gc, PURPLE_CONNECTION_ERROR_NETWORK_ERROR,
+                                       i18n("Unable to connect to Long Poll server"));
         error_cb();
     });
 }

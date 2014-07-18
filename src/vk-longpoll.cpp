@@ -68,17 +68,19 @@ struct LastMsg
 {
     // The last message id we've processed.
     uint64 id;
-    // There are no guarantees that messages ids in longpoll updates are increasing, so we cannot simply ignore
-    // all the messages with id less than LastMsg.id. On the other hand, we must ignore all the messages,
-    // processed via receive_messages_range in start_long_poll. ignored is the max message id received in
-    // receive_messages_range, all messages with ids less or equal to it must be ignored.
+    // There are no guarantees that messages ids in longpoll updates are increasing, so we cannot
+    // simply ignore all the messages with id less than LastMsg.id. On the other hand, we must
+    // ignore all the messages, processed via receive_messages_range in start_long_poll. ignored
+    // is the max message id received in receive_messages_range, all messages with ids less
+    // or equal to it must be ignored.
     const uint64 ignored;
 };
 
-// Connects to given Long Poll server and starts reading events from it. last_msg_id is explained earlier,
-// last_msg_id_from_start is a bit more complex. There are cases when request_long_poll will receive messages,
-// which have already been processed:
-void request_long_poll(PurpleConnection* gc, const string& server, const string& key, uint64 ts, LastMsg last_msg);
+// Connects to given Long Poll server and starts reading events from it. last_msg_id is explained
+// earlier, last_msg_id_from_start is a bit more complex. There are cases when request_long_poll
+// will receive messages, which have already been processed:
+void request_long_poll(PurpleConnection* gc, const string& server, const string& key, uint64 ts,
+                       LastMsg last_msg);
 // Disconnects account on Long Poll errors as we do not have anything to do after that really.
 void long_poll_fatal(PurpleConnection* gc);
 
@@ -94,8 +96,9 @@ void start_long_poll_impl(PurpleConnection* gc, uint64 last_msg_id)
             return;
         }
 
-        // First, we update buddy presence and receive unread messages and only then start processing
-        // events. We won't miss any events because we already got starting timestamp from server.
+        // First, we update buddy presence and receive unread messages and only then start
+        // processing events. We won't miss any events because we already got starting timestamp
+        // from server.
         update_friends_presence(gc, [=] {
             // Start updaing user and chat infos, buddy list.
             update_user_chat_infos(gc);
@@ -272,7 +275,8 @@ void process_message(PurpleConnection* gc, const picojson::value& v, LastMsg& la
     if (!v.contains(6) || !v.get(1).is<double>() || !v.get(2).is<double>() || !v.get(3).is<double>()
             || !v.get(4).is<double>() || !v.get(6).is<string>()) {
         vkcom_debug_error("Strange response from Long Poll in updates: %s\n", v.serialize().data());
-        purple_connection_error_reason(gc, PURPLE_CONNECTION_ERROR_NETWORK_ERROR, "Unable to receive message");
+        purple_connection_error_reason(gc, PURPLE_CONNECTION_ERROR_NETWORK_ERROR,
+                                       i18n("Unable to receive message"));
         return;
     }
     uint64 msg_id = v.get(1).get<double>();
@@ -282,7 +286,8 @@ void process_message(PurpleConnection* gc, const picojson::value& v, LastMsg& la
 
     if (msg_id > last_msg.id) {
         last_msg.id = msg_id;
-        // Pidgin defaults saving to once per 5 seconds, so there is no problem with resetting this value frequently.
+        // Pidgin defaults saving to once per 5 seconds, so there is no problem with resetting this
+        // value frequently.
         save_last_msg_id(gc, msg_id);
     }
 
@@ -307,10 +312,12 @@ void process_message(PurpleConnection* gc, const picojson::value& v, LastMsg& la
         // Processing incoming message
         vkcom_debug_info("Got incoming message from %" PRIu64 "\n", user_id);
 
-        process_incoming_message_internal(gc, msg_id, flags, user_id, std::move(text), timestamp, attachments);
+        process_incoming_message_internal(gc, msg_id, flags, user_id, std::move(text), timestamp,
+                                          attachments);
     } else {
-        // Process outgoing message. This message could've been sent either by us, or by another connected client.
-        // See description in vk-common.h of corresponding members of VkData for details.
+        // Process outgoing message. This message could've been sent either by us, or by another
+        // connected client. See description in vk-common.h of corresponding members of VkData
+        // for details.
         vkcom_debug_info("Got outgoing message\n");
 
         VkData& gc_data = get_data(gc);
@@ -320,21 +327,26 @@ void process_message(PurpleConnection* gc, const picojson::value& v, LastMsg& la
 
         steady_duration since_last_msg_sent = steady_clock::now() - gc_data.last_msg_sent_time();
         if (to_milliseconds(since_last_msg_sent) >= 5000) {
-            // This is fast path: the message is guaranteed to be sent from someplace else, no need for timeout.
-            process_outgoing_message_internal(gc, msg_id, flags, user_id, std::move(text), timestamp);
+            // This is fast path: the message is guaranteed to be sent from someplace else,
+            // no need for timeout.
+            process_outgoing_message_internal(gc, msg_id, flags, user_id, std::move(text),
+                                              timestamp);
             return;
         }
 
-        // The last message, which has been sent by us, has been sent not long ago (i.e. less than 1 second).
-        purple_debug_warning("prpl-vkcom", "We sent message not long ago, let's have a check after timeout\n");
+        // The last message, which has been sent by us, has been sent not long ago (i.e. less
+        // than 1 second).
+        vkcom_debug_info("prpl-vkcom", "We sent message not long ago, let's have a check"
+                         " after timeout\n");
         timeout_add(gc, 5000, [=] {
             // Check again after 5 seconds, whether we sent the message or not.
             if (get_data(gc).remove_sent_msg_id(msg_id))
                 return false;
 
-            purple_debug_warning("prpl-vkcom", "We have sent a message not long ago, but not all msg id"
-                                 "are belong to us (msg id %" PRIu64 ")\n", msg_id);
-            process_outgoing_message_internal(gc, msg_id, flags, user_id, std::move(text), timestamp);
+            vkcom_debug_error("prpl-vkcom", "We have sent a message not long ago, but not all"
+                              " msg id are belong to us (msg id %" PRIu64 ")\n", msg_id);
+            process_outgoing_message_internal(gc, msg_id, flags, user_id, std::move(text),
+                                              timestamp);
             return false;
         });
     }
@@ -346,8 +358,9 @@ const uint64 CHAT_ID_OFFSET = 2000000000LL;
 
 const uint PLATFORM_WEB = 7;
 
-void process_incoming_message_internal(PurpleConnection* gc, uint64 msg_id, int flags, uint64 user_id, string text,
-                                       uint64 timestamp, const picojson::value* attachments)
+void process_incoming_message_internal(PurpleConnection* gc, uint64 msg_id, int flags,
+                                       uint64 user_id, string text, uint64 timestamp,
+                                       const picojson::value* attachments)
 {
     // NOTE:
     //  There are two ways of processing messages with attachments:
@@ -358,7 +371,8 @@ void process_incoming_message_internal(PurpleConnection* gc, uint64 msg_id, int 
     //   * access to information on private images/documents/etc. (e.g. ones uploaded from Vk.com
     //     chat UI) is prohibited and we can only show links to the corresponding page;
     //   * there is no video.getById so we can show no information on video;
-    //   * it takes at least one additional call per message (receive_messages takes exactly one call).
+    //   * it takes at least one additional call per message (receive_messages takes exactly one
+    //     call).
     if (flags & MESSAGE_FLAG_MEDIA) {
         receive_messages(gc, { msg_id });
     } else {
@@ -366,13 +380,15 @@ void process_incoming_message_internal(PurpleConnection* gc, uint64 msg_id, int 
 
         if (user_id < CHAT_ID_OFFSET) {
             add_buddy_if_needed(gc, user_id, [=] {
-                serv_got_im(gc, user_name_from_id(user_id).data(), text.data(), PURPLE_MESSAGE_RECV, timestamp);
+                serv_got_im(gc, user_name_from_id(user_id).data(), text.data(), PURPLE_MESSAGE_RECV,
+                            timestamp);
                 mark_message_as_read(gc, { VkReceivedMessage{ msg_id, user_id, 0 } });
             });
         } else {
             uint64 chat_id = user_id - CHAT_ID_OFFSET;
 
-            if (!attachments || !attachments->contains("from") || !attachments->get("from").is<string>()) {
+            if (!attachments || !attachments->contains("from")
+                    || !attachments->get("from").is<string>()) {
                 vkcom_debug_error("Chat message has wrong attachments: %s\n", attachments
                                   ? attachments->serialize().data() : "null");
                 // Let's try to receive the message the other way.
@@ -394,18 +410,19 @@ void process_incoming_message_internal(PurpleConnection* gc, uint64 msg_id, int 
             open_chat_conv(gc, chat_id, [=] {
                 int conv_id = chat_id_to_conv_id(gc, chat_id);
                 string from = get_user_display_name(gc, from_user_id, chat_id);
-                serv_got_chat_in(gc, conv_id, from.data(), PURPLE_MESSAGE_RECV, text.data(), timestamp);
+                serv_got_chat_in(gc, conv_id, from.data(), PURPLE_MESSAGE_RECV, text.data(),
+                                 timestamp);
                 mark_message_as_read(gc, { VkReceivedMessage{ msg_id, from_user_id, chat_id } });
             });
         }
     }
 }
 
-void process_outgoing_message_internal(PurpleConnection* gc, uint64 msg_id, int flags, uint64 user_id, string text,
-                                       uint64 timestamp)
+void process_outgoing_message_internal(PurpleConnection* gc, uint64 msg_id, int flags,
+                                       uint64 user_id, string text, uint64 timestamp)
 {
-    // See NOTE in process_incoming_message_internal. Unlik incoming messages, we know perfectly well who is
-    // the message author for outgoing messages.
+    // See NOTE in process_incoming_message_internal. Unlik incoming messages, we know perfectly
+    // well who is the message author for outgoing messages.
     if (flags & MESSAGE_FLAG_MEDIA) {
         receive_messages(gc, { msg_id });
     } else {
@@ -417,7 +434,8 @@ void process_outgoing_message_internal(PurpleConnection* gc, uint64 msg_id, int 
             PurpleConversation* conv = find_conv_for_id(gc, user_id, 0);
             string from = purple_account_get_name_for_display(purple_connection_get_account(gc));
             if (conv) {
-                purple_conv_im_write(PURPLE_CONV_IM(conv), from.data(), text.data(), PURPLE_MESSAGE_SEND, timestamp);
+                purple_conv_im_write(PURPLE_CONV_IM(conv), from.data(), text.data(),
+                                     PURPLE_MESSAGE_SEND, timestamp);
             } else {
                 PurpleLogCache logs(gc);
                 PurpleLog* log = logs.for_user(user_id);
@@ -428,7 +446,8 @@ void process_outgoing_message_internal(PurpleConnection* gc, uint64 msg_id, int 
             PurpleConversation* conv = find_conv_for_id(gc, 0, chat_id);
             string from = get_self_chat_display_name(gc);
             if (conv) {
-                purple_conv_chat_write(PURPLE_CONV_CHAT(conv), from.data(), text.data(), PURPLE_MESSAGE_SEND, timestamp);
+                purple_conv_chat_write(PURPLE_CONV_CHAT(conv), from.data(), text.data(),
+                                       PURPLE_MESSAGE_SEND, timestamp);
             } else {
                 PurpleLogCache logs(gc);
                 PurpleLog* log = logs.for_chat(chat_id);
@@ -526,7 +545,8 @@ void process_typing(PurpleConnection* gc, const picojson::value& v)
 void long_poll_fatal(PurpleConnection* gc)
 {
     vkcom_debug_error("Unable to connect to long-poll server, connection will be terminated\n");
-    purple_connection_error_reason(gc, PURPLE_CONNECTION_ERROR_NETWORK_ERROR, "Unable to connect to Long Poll server");
+    purple_connection_error_reason(gc, PURPLE_CONNECTION_ERROR_NETWORK_ERROR,
+                                   i18n("Unable to connect to Long Poll server"));
 }
 
 } // End of anonymous namespace

@@ -73,15 +73,18 @@ void send_doc_url(PurpleConnection* gc, uint64 user_id, const string& url, bool 
 
     // Write information about uploaded file. so that user will be able to send the link to someone else.
     string who = user_name_from_id(user_id);
-    PurpleConversation* conv = purple_find_conversation_with_account(PURPLE_CONV_TYPE_IM, who.data(),
-                                                                      purple_connection_get_account(gc));
+    PurpleConversation* conv = purple_find_conversation_with_account(PURPLE_CONV_TYPE_IM,
+                                                                     who.data(),
+                                                                     purple_connection_get_account(gc));
     if (conv) {
         string message;
         if (resend)
-            message = str_format("Sent file has already been uploaded and is permanently available at %s", url.data());
+            message = str_format(i18n("Sent file has already been uploaded and is permanently"
+                                      " available at %s"), url.data());
         else
-            message = str_format("Sent file will be permanently available at %s", url.data());
-        purple_conversation_write(conv, nullptr, message.data(), PURPLE_MESSAGE_SYSTEM, time(nullptr));
+            message = str_format(i18n("Sent file will be permanently available at %s"), url.data());
+        purple_conversation_write(conv, nullptr, message.data(), PURPLE_MESSAGE_SYSTEM,
+                                  time(nullptr));
     }
 }
 
@@ -193,8 +196,8 @@ void clean_nonexisting_docs(PurpleConnection* gc, const SuccessCb& success_cb)
         if (success_cb)
             success_cb();
     }, [=](const picojson::value& v) {
-        purple_debug_warning("prpl-vkcom", "Error in docs.get: %s, removing all info on uploaded docs\n",
-                             v.serialize().data());
+        vkcom_debug_error("prpl-vkcom", "Error in docs.get: %s, removing all info on uploaded"
+                          " docs\n", v.serialize().data());
         get_data(gc).uploaded_docs.clear();
 
         if (success_cb)
