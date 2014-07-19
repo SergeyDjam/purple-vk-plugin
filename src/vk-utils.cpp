@@ -141,7 +141,7 @@ string get_user_display_name(PurpleConnection* gc, uint64 user_id, uint64 chat_i
 string get_self_chat_display_name(PurpleConnection* gc)
 {
     const char* self_alias = purple_account_get_alias(purple_connection_get_account(gc));
-    return str_format("%s (you)", self_alias);
+    return str_format(i18n("%s (you)"), self_alias);
 }
 
 string get_unique_display_name(PurpleConnection* gc, uint64 user_id)

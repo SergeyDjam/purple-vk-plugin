@@ -382,7 +382,7 @@ void vk_get_info(PurpleConnection* gc, const char* who)
     }
 
     VkUserInfo* user_info = get_user_info(gc, user_id);
-    purple_notify_user_info_add_pair(info, "Page", get_user_page(who, user_info).data());
+    purple_notify_user_info_add_pair(info, i18n("Page"), get_user_page(who, user_info).data());
     if (!user_info) {
         purple_notify_user_info_add_pair(info, i18n("Updating data..."), nullptr);
         purple_notify_userinfo(gc, who, info, nullptr, nullptr);
@@ -631,7 +631,7 @@ gboolean vk_offline_message(const PurpleBuddy*)
 GHashTable* vk_get_account_text_table(PurpleAccount*)
 {
     GHashTable* table = g_hash_table_new(g_str_hash, g_str_equal);
-    g_hash_table_insert(table, g_strdup("login_label"), g_strdup("E-mail or telephone"));
+    g_hash_table_insert(table, g_strdup("login_label"), g_strdup(i18n("E-mail or telephone")));
     return table;
 }
 

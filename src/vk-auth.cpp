@@ -145,7 +145,7 @@ const char desktop_user_agent[] = "Mozilla/5.0 (Windows NT 6.1; Win64; x64; rv:2
 void start_auth(const AuthData_ptr& data)
 {
     assert(data->success_cb);
-    purple_connection_update_progress(data->gc, "Connecting", 0, 4);
+    purple_connection_update_progress(data->gc, i18n("Connecting"), 0, 4);
     vkcom_debug_info("Starting authentication\n");
 
     string url = str_format("https://oauth.vk.com/oauth/authorize?redirect_uri=https://oauth.vk.com/blank.html"

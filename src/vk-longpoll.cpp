@@ -336,14 +336,13 @@ void process_message(PurpleConnection* gc, const picojson::value& v, LastMsg& la
 
         // The last message, which has been sent by us, has been sent not long ago (i.e. less
         // than 1 second).
-        vkcom_debug_info("prpl-vkcom", "We sent message not long ago, let's have a check"
-                         " after timeout\n");
+        vkcom_debug_info("We sent message not long ago, let's have a check after timeout\n");
         timeout_add(gc, 5000, [=] {
             // Check again after 5 seconds, whether we sent the message or not.
             if (get_data(gc).remove_sent_msg_id(msg_id))
                 return false;
 
-            vkcom_debug_error("prpl-vkcom", "We have sent a message not long ago, but not all"
+            vkcom_debug_error("We have sent a message not long ago, but not all"
                               " msg id are belong to us (msg id %" PRIu64 ")\n", msg_id);
             process_outgoing_message_internal(gc, msg_id, flags, user_id, std::move(text),
                                               timestamp);
