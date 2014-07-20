@@ -196,8 +196,8 @@ void clean_nonexisting_docs(PurpleConnection* gc, const SuccessCb& success_cb)
         if (success_cb)
             success_cb();
     }, [=](const picojson::value& v) {
-        vkcom_debug_error("prpl-vkcom", "Error in docs.get: %s, removing all info on uploaded"
-                          " docs\n", v.serialize().data());
+        vkcom_debug_error("Error in docs.get: %s, removing all info on uploaded docs\n",
+                          v.serialize().data());
         get_data(gc).uploaded_docs.clear();
 
         if (success_cb)
