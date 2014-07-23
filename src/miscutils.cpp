@@ -173,3 +173,32 @@ string unescape_html(const string& text)
 {
     return unescape_html(text.data());
 }
+
+
+string get_data_dir()
+{
+#if defined(DATADIR)
+    return DATADIR;
+#elif defined(__linux__)
+    char* exe_path = g_file_read_link("/proc/self/exe", nullptr);
+    if (!exe_path) {
+        vkcom_debug_error("Unable to read /proc/self/exe, system is seriously broken.\n");
+        return "/usr/share";
+    }
+    char* dir_path = g_path_get_dirname(exe_path);
+    char* share_path = g_build_filename(dir_path, "..", "share", nullptr);
+    string ret = share_path;
+    g_free(share_path);
+    g_free(dir_path);
+    g_free(exe_path);
+    return ret;
+
+#elif defined(_WIN32)
+
+const char* datadirs[] = { "C:\\Program Files\\Pidgin\\pixmaps\\pidgin",
+                           "C:\\Program Files (x86)\\Pidgin\\pixmaps\\pidgin" };
+#else
+#error "DATADIR not defined and the platform is unknown"
+#endif
+
+}

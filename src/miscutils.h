@@ -53,3 +53,7 @@ bool field_is_present(const picojson::value& v, const string& key)
 // A tiny wrapper around purple_unescape_html, accepting and returning string.
 string unescape_html(const char* text);
 string unescape_html(const string& text);
+
+// Returns path to data directory (usually /usr/share for Linux, C:\Program Files\Pidgin
+// for Windows).
+string get_data_dir();

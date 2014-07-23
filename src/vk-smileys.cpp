@@ -6,20 +6,11 @@
 #include "strutils.h"
 #include "trie.h"
 
+#include "miscutils.h"
+
 #include "vk-smileys.h"
 
 using std::ifstream;
-
-#if defined(DATADIR)
-const char* datadirs[] = { DATADIR };
-#elif defined(__linux__)
-const char* datadirs[] = { "/usr/share/pixmaps/pidgin" };
-#elif defined(_WIN32)
-const char* datadirs[] = { "C:\\Program Files\\Pidgin\\pixmaps\\pidgin",
-                           "C:\\Program Files (x86)\\Pidgin\\pixmaps\\pidgin" };
-#else
-#error "DATADIR not defined"
-#endif
 
 namespace
 {
@@ -35,16 +26,14 @@ Trie<shared_ptr<SmileyImage>> smiley_images;
 
 string find_smiley_theme()
 {
-    string ret;
-    for (const char* dir: datadirs) {
-        char* path = g_build_filename(dir, "emotes", "vk", nullptr);
-        if (g_file_test(path, G_FILE_TEST_EXISTS)) {
-            ret = path;
-            g_free(path);
-            return ret;
-        }
-        g_free(path);
-    }
+    char* path = g_build_filename(get_data_dir().data(), "pixmaps", "pidgin", "emotes", "vk",
+                                  nullptr);
+    string ret = path;
+    g_free(path);
+
+    vkcom_debug_info("Trying to find smiley theme in %s\n", ret.data());
+    if (!g_file_test(ret.data(), G_FILE_TEST_IS_DIR))
+        ret.clear();
     return ret;
 }
 
