@@ -19,8 +19,8 @@ typedef function_ptr<void(const picojson::value& error)> CallErrorCb;
 void vk_call_api(PurpleConnection* gc, const char* method_name, const CallParams& params,
                  const CallSuccessCb& success_cb, const CallErrorCb& error_cb);
 
-// Helper function for calling APIs with "messages.get" or "messages.getDialogs" which return "items" array
-// as a part of return value and may accept "offset" as a parameter.
+// Helper function for calling APIs with "messages.get" or "messages.getDialogs" which return
+// "items" array as a part of return value and may accept "offset" as a parameter.
 //
 // pagination is true for methods which accept "offset", false otherwise,
 // call_process_item_cb is called for each item in the array,

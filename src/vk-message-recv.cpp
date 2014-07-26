@@ -26,7 +26,7 @@ namespace
 {
 
 // The amount of messages to synchronize when logging in for the first time.
-const uint MAX_MESSAGES_ON_FIRST_TIME = 5000;
+const uint64 MAX_MESSAGES_ON_FIRST_TIME = 5000;
 
 // Function, which returns the last message id, which the user received. It is used to calculate
 // message id, which we start receiving messages from.

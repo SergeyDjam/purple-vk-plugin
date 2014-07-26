@@ -355,7 +355,7 @@ void process_message(PurpleConnection* gc, const picojson::value& v, LastMsg& la
 // is stored, so we have to call messages.get.
 const uint64 CHAT_ID_OFFSET = 2000000000LL;
 
-const uint PLATFORM_WEB = 7;
+const uint64 PLATFORM_WEB = 7;
 
 void process_incoming_message_internal(PurpleConnection* gc, uint64 msg_id, int flags,
                                        uint64 user_id, string text, uint64 timestamp,
@@ -491,7 +491,7 @@ void process_online(PurpleConnection* gc, const picojson::value& v, bool online)
                                    v.serialize().data());
                 return;
             }
-            uint platform = uint64(v.get(2).get<double>()) % 0x100;
+            uint64 platform = uint64(v.get(2).get<double>()) % 0x100;
 
             if (platform == PLATFORM_WEB) {
                 info->online = true;

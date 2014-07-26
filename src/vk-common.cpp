@@ -183,8 +183,8 @@ VkData::~VkData()
 
     // g_source_remove calls timeout_destroy_cb, which modifies timeout_ids, so we make a copy before
     // calling g_source_remove. Damned mutability.
-    set<uint> timeout_ids_copy = timeout_ids;
-    for (uint id: timeout_ids_copy)
+    set<unsigned> timeout_ids_copy = timeout_ids;
+    for (unsigned id: timeout_ids_copy)
         g_source_remove(id);
 
     if (m_keepalive_pool)
@@ -281,7 +281,7 @@ void timeout_add(PurpleConnection* gc, unsigned milliseconds, const TimeoutCb& c
     {
         TimeoutCb callback;
         VkData& gc_data;
-        uint id;
+        unsigned id;
     };
 
     VkData& gc_data = get_data(gc);

@@ -195,7 +195,7 @@ struct GetUsersChatsData
 typedef shared_ptr<GetUsersChatsData> GetUsersChatsData_ptr;
 
 void get_users_chats_from_dialogs_impl(PurpleConnection* gc, const SuccessCb& success_cb,
-                                       const GetUsersChatsData_ptr& data, uint offset)
+                                       const GetUsersChatsData_ptr& data, size_t offset)
 {
     CallParams params = { {"count", "200"},
                           {"offset", to_string(offset)},
@@ -260,7 +260,7 @@ void get_users_chats_from_dialogs_impl(PurpleConnection* gc, const SuccessCb& su
             }
         }
 
-        uint next_offset = offset + items.size();
+        size_t next_offset = offset + items.size();
         if (next_offset < count) {
             get_users_chats_from_dialogs_impl(gc, success_cb, data, next_offset);
         } else {

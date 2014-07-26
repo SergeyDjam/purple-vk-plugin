@@ -232,9 +232,11 @@ void add_or_replace_call_param(CallParams& params, const char* name, const char*
     params.emplace_back(name, value);
 }
 
-void vk_call_api_items_impl(PurpleConnection* gc, const char* method_name, const CallParams_ptr& params,
-                            bool pagination, const CallProcessItemCb& call_process_item_cb,
-                            const CallFinishedCb& call_finished_cb, const CallErrorCb& error_cb, uint offset)
+void vk_call_api_items_impl(PurpleConnection* gc, const char* method_name,
+                            const CallParams_ptr& params, bool pagination,
+                            const CallProcessItemCb& call_process_item_cb,
+                            const CallFinishedCb& call_finished_cb, const CallErrorCb& error_cb,
+                            size_t offset)
 {
     if (offset > 0) {
         vkcom_debug_info("    API call with offset %d\n", offset);
@@ -256,7 +258,7 @@ void vk_call_api_items_impl(PurpleConnection* gc, const char* method_name, const
             call_process_item_cb(v);
 
         uint64 count = result.get("count").get<double>();
-        uint next_offset = offset + items.size();
+        size_t next_offset = offset + items.size();
         // Either we've received all items or method does not have pagination.
         if (next_offset >= count || items.empty() || !pagination) {
             if (call_finished_cb)

@@ -331,7 +331,7 @@ private:
     PurpleConnection* m_gc;
     bool m_closing;
 
-    set<uint> timeout_ids;
+    set<unsigned> timeout_ids;
 
     PurpleHttpKeepalivePool* m_keepalive_pool;
 
