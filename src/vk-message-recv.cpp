@@ -652,7 +652,7 @@ void replace_user_ids(const MessagesData_ptr& data)
 
     update_user_infos(data->gc, unknown_user_ids, [=] {
         for (Message& m: data->messages) {
-            for (unsigned i = 0; i < m.unknown_user_ids.size(); i++) {
+            for (size_t i = 0; i < m.unknown_user_ids.size(); i++) {
                 uint64 id = m.unknown_user_ids[i];
                 VkUserInfo* info = get_user_info(data->gc, id);
                 // Getting the user info could fail.
@@ -680,7 +680,7 @@ void replace_group_ids(const MessagesData_ptr& data)
 
     update_groups_info(data->gc, group_ids, [=] {
         for (Message& m: data->messages) {
-            for (unsigned i = 0; i < m.unknown_group_ids.size(); i++) {
+            for (size_t i = 0; i < m.unknown_group_ids.size(); i++) {
                 uint64 group_id = m.unknown_group_ids[i];
                 VkGroupInfo* info = get_group_info(data->gc, group_id);
                 // Getting the group info could fail.

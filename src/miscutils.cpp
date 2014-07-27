@@ -51,10 +51,10 @@ namespace
 {
 
 // Helper function for parse_urlencoded_form
-string urldecode(const char* s, int len)
+string urldecode(const char* s, size_t len)
 {
     char buf[1024];
-    if (len >= (int)sizeof(buf)) {
+    if (len >= sizeof(buf)) {
         char* large_buf = new char[len + 1];
         memcpy(large_buf, s, len);
         large_buf[len] = 0;
@@ -106,7 +106,7 @@ size_t max_urlencoded_prefix(const char *s, size_t max_urlencoded_len)
     size_t len = 0;
 
     for (pos = s; *pos; pos = g_utf8_next_char(pos)) {
-        int char_len = g_utf8_next_char(pos) - pos;
+        size_t char_len = g_utf8_next_char(pos) - pos;
         if (char_len == 1) {
             char c = *pos;
             if (isalnum(c) || c == '-' || c == '.' || c == '_' || c == '~')
@@ -150,7 +150,7 @@ size_t max_urlencoded_int(const uint64* start, const uint64* end, size_t max_url
 {
     size_t len = 0;
     for (const uint64* it = start; it != end; ++it) {
-        len += int(log10(*it) + 1) + 3; // Comma is URLencoded
+        len += size_t(log10(*it) + 1) + 3; // Comma is URLencoded
         if (len > max_urlencoded_len)
             return it - start;
     }

@@ -97,8 +97,8 @@ void process_theme_smiley_line(const vector<string>& v, const string& buf, const
     for (size_t i = 1; i < v.size(); i++) {
         // Check if any chars are >= 128
         bool is_unicode = false;
-        for (char c: v[i]) {
-            if (c < 0) {
+        for (unsigned char c: v[i]) {
+            if (c > 127) {
                 is_unicode = true;
                 break;
             }

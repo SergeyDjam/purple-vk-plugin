@@ -63,7 +63,7 @@ bool are_equal_chat_users(PurpleConnection* gc, PurpleConvChat* conv, VkChatInfo
     const char* self_alias = purple_account_get_alias(purple_connection_get_account(gc));
     names.insert(self_alias);
 
-    int users_size = 0;
+    size_t users_size = 0;
     for (GList* it = purple_conv_chat_get_users(conv); it; it = it->next) {
         PurpleConvChatBuddy* cb = (PurpleConvChatBuddy*)it->data;
         if (!contains(names, purple_conv_chat_cb_get_name(cb)))
@@ -71,7 +71,7 @@ bool are_equal_chat_users(PurpleConnection* gc, PurpleConvChat* conv, VkChatInfo
         users_size++;
     }
 
-    return (int)names.size() == users_size;
+    return names.size() == users_size;
 }
 
 // Updates open conversation.
