@@ -112,9 +112,11 @@ void process_error(PurpleHttpConnection* http_conn, const picojson::value& error
         return;
     }
 
+    int error_code = error.get("error_code").get<double>();
+    vkcom_debug_info("Got error code %d\n", error_code);
     PurpleConnection* gc = purple_http_conn_get_purple_connection(http_conn);
     VkData& gc_data = get_data(gc);
-    int error_code = error.get("error_code").get<double>();
+
     if (error_code == VK_AUTHORIZATION_FAILED) {
         // Check if another authentication process has already started
         if (gc_data.is_authenticating()) {
