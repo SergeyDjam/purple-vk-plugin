@@ -170,6 +170,10 @@ void process_error(PurpleHttpConnection* http_conn, const picojson::value& error
         if (error_cb)
             error_cb(error);
     } else if (error_code == VK_INTERNAL_SERVER_ERROR) {
+        // I've seen cases when internal server error has been reported due to incorrect
+        // access token, let's clear it and re-authenticate for good measure.
+        gc_data.clear_access_token();
+
         purple_connection_error_reason(gc, PURPLE_CONNECTION_ERROR_NETWORK_ERROR,
                                        i18n("Internal server error"));
         if (error_cb)
