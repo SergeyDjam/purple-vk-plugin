@@ -10,6 +10,7 @@
 #include "vk-common.h"
 
 const char VK_CLIENT_ID[] = "3833170";
+const char VK_PERMISSIONS[] = "friends,photos,audio,video,docs,messages,offline";
 
 namespace {
 
@@ -134,6 +135,10 @@ VkData::VkData(PurpleConnection* gc, const string& email, const string& password
 {
     PurpleAccount* account = purple_connection_get_account(m_gc);
 
+    m_access_token = purple_account_get_string(account, "access_token", "");
+    // Ids are 64-bit integers, so let's store this id in a string representation.
+    m_self_user_id = atoll(purple_account_get_string(account, "self_user_id", "0"));
+
     m_options.only_friends_in_blist = purple_account_get_bool(account, "only_friends_in_blist", false);
     m_options.chats_in_blist = purple_account_get_bool(account, "chats_in_blist", true);
     m_options.mark_as_read_online_only = purple_account_get_bool(account, "mark_as_read_online_only", true);
@@ -163,6 +168,10 @@ VkData::VkData(PurpleConnection* gc, const string& email, const string& password
 VkData::~VkData()
 {
     PurpleAccount* account = purple_connection_get_account(m_gc);
+
+    purple_account_set_string(account, "access_token", m_access_token.data());
+    purple_account_set_string(account, "self_user_id", to_string(m_self_user_id).data());
+
     string str = str_concat_int(',', m_manually_added_buddies);
     purple_account_set_string(account, "manually_added_buddies", str.data());
 
@@ -193,9 +202,15 @@ VkData::~VkData()
 
 void VkData::authenticate(const SuccessCb& success_cb, const ErrorCb& error_cb)
 {
-    m_access_token.clear();
-    vk_auth_user(m_gc, m_email, m_password, VK_CLIENT_ID,
-                 "friends,photos,audio,video,docs,messages", m_options.imitate_mobile_client,
+    if (!m_access_token.empty()) {
+        vkcom_debug_info("No need to auth, we have an access token\n");
+        purple_connection_set_state(m_gc, PURPLE_CONNECTED);
+        success_cb();
+        return;
+    }
+
+    vk_auth_user(m_gc, m_email, m_password, VK_CLIENT_ID, VK_PERMISSIONS,
+                 m_options.imitate_mobile_client,
         [=](const string& access_token, const string& self_user_id) {
             m_access_token = access_token;
             try {

@@ -39,7 +39,8 @@ enum VkErrorCodes {
     VK_INTERNAL_SERVER_ERROR = 10,
     // Captcha needed: user sent too many requests and is required to confirm he is alive
     VK_CAPTCHA_NEEDED = 14,
-    // Validation required: currently this is used when the user logins from some unusual place (e.g. another country)
+    // Validation required: currently this is used when the user logins from some unusual place
+    // (e.g. another country)
     VK_VALIDATION_REQUIRED = 17
 };
 
@@ -133,12 +134,20 @@ public:
 
     DISABLE_COPYING(VkData)
 
+    // Perform authentication. access_token is set upon successful authentication.
+    // Authentication is performed only if access_token is empty, otherwise
+    // success_cb is called immediately.
     void authenticate(const SuccessCb& success_cb, const ErrorCb &error_cb);
 
-    // Access token, used for accessing the API. If the token is empty, authentication is in process.
+    // Access token, used for accessing the API.
     const string& access_token() const
     {
         return m_access_token;
+    }
+
+    void clear_access_token()
+    {
+        m_access_token.clear();
     }
 
     // User id of the authenticated user.
@@ -306,6 +315,13 @@ public:
     void set_closing()
     {
         m_closing = true;
+    }
+
+    // Returns true if authentication is in process (try requesting access token after
+    // a while).
+    bool is_authenticating() const
+    {
+        return m_access_token.empty();
     }
 
     // Per-connection HTTP keepalive pool, initialized upon first HTTP connection and destroy

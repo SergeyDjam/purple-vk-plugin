@@ -86,7 +86,7 @@ void vk_call_after_auth(PurpleConnection* gc, const VkCall& call,
 
     // This loop stops in case of failed authentication, because all timeouts die.
     timeout_add(gc, WAIT_AUTH_TIMEOUT, [=] {
-        if (get_data(gc).access_token().empty())
+        if (get_data(gc).is_authenticating())
             vk_call_after_auth(gc, call, success_cb, error_cb);
         else
             vk_call_api(gc, call.method_name.data(), call.params, success_cb, error_cb);
@@ -113,15 +113,16 @@ void process_error(PurpleHttpConnection* http_conn, const picojson::value& error
     }
 
     PurpleConnection* gc = purple_http_conn_get_purple_connection(http_conn);
+    VkData& gc_data = get_data(gc);
     int error_code = error.get("error_code").get<double>();
     if (error_code == VK_AUTHORIZATION_FAILED) {
         // Check if another authentication process has already started
-        VkData& gc_data = get_data(gc);
-        if (gc_data.access_token().empty()) {
+        if (gc_data.is_authenticating()) {
             vk_call_after_auth(gc, call, success_cb, error_cb);
         } else {
             vkcom_debug_info("Access token expired, doing a reauthorization\n");
 
+            gc_data.clear_access_token();
             gc_data.authenticate([=] {
                 vk_call_api(gc, call.method_name.data(), call.params, success_cb, error_cb);
             }, [=] {
@@ -140,15 +141,22 @@ void process_error(PurpleHttpConnection* http_conn, const picojson::value& error
     } else if (error_code == VK_FLOOD_CONTROL) {
         // Simply ignore the error.
     } else if (error_code == VK_VALIDATION_REQUIRED) {
-        // As far as I could understand, once you complete validation, all future requests/login attempts
-        // will work correctly, so there is no need to do anything apart from showing the link to the use
-        // and asking them to re-login.
+        // As far as I could understand, once you complete validation, all future requests/login
+        // attempts will work correctly, so there is no need to do anything apart from showing
+        // the link to the use and asking them to re-login.
+        string redirect_uri;
+        if (field_is_present<string>(error, "redirect_uri"))
+            redirect_uri = error.get("redirect_uri").get<string>();
+
+        vkcom_debug_info("Validation required, redirect uri: %s\n", redirect_uri.data());
+        gc_data.clear_access_token();
+
         string message_text;
-        if (!field_is_present<string>(error, "redirect_uri"))
+        if (redirect_uri.empty())
             message_text = i18n("Please open https://vk.com in your browser and validate yourself");
         else
             message_text = str_format(i18n("Please open the following link in your browser:\n%s"),
-                                      error.get("redirect_uri").get<string>().data());
+                                      redirect_uri.data());
         purple_request_action(nullptr, i18n("Please validate yourself"),
                               i18n("Please validate yourself"), message_text.data(), 0, nullptr,
                               nullptr, nullptr, nullptr, 1, i18n("Ok"), nullptr);
