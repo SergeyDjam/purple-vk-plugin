@@ -174,6 +174,9 @@ string unescape_html(const string& text)
     return unescape_html(text.data());
 }
 
+#if defined(_WIN32)
+#include <windows.h>
+#endif
 
 string get_data_dir()
 {
@@ -192,11 +195,20 @@ string get_data_dir()
     g_free(dir_path);
     g_free(exe_path);
     return ret;
-
 #elif defined(_WIN32)
-
-const char* datadirs[] = { "C:\\Program Files\\Pidgin\\pixmaps\\pidgin",
-                           "C:\\Program Files (x86)\\Pidgin\\pixmaps\\pidgin" };
+    string ret;
+    wchar_t wexe_path[MAX_PATH];
+    if (GetModuleFileNameW(nullptr, wexe_path, MAX_PATH) > 0) {
+        static_assert(sizeof(wchar_t) == sizeof(gunichar2), "wchar_t and gunichar2 types are"
+                      " different");
+        char* exe_path = g_utf16_to_utf8((const gunichar2*)wexe_path, -1, nullptr, nullptr,
+                                         nullptr);
+        char* dir_path = g_path_get_dirname(exe_path);
+        ret = dir_path;
+        g_free(dir_path);
+        g_free(exe_path);
+    }
+    return ret;
 #else
 #error "DATADIR not defined and the platform is unknown"
 #endif
