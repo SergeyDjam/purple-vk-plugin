@@ -153,7 +153,9 @@ set(SOURCES
   src/contrib/cpputils/include/contutils.h
   src/contrib/cpputils/include/strutils.h
   src/contrib/cpputils/include/trie.h
-  src/contrib/cpputils/src/strutils.cpp
+  src/contrib/cpputils/src/strutils/strutils.cpp
+  src/contrib/cpputils/src/strutils/trio.c
+  src/contrib/cpputils/src/strutils/trio.h
 )
 
 # Primary plugin library.
