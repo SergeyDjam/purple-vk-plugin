@@ -9,7 +9,7 @@ cpputils are a bunch of disjointed small libraries for C++. Currently included a
 * trie, a simple trie implementation
 
 cpputils does not provide build system for the library itself, you should manually include
-it in your project. No configuration is required, just place add include/ and src/ directories.
+it in your project. No configuration is required, just add include/ and src/ directories.
 
 Most of the libraries require a C++11 compiler and were tested on GCC 4.8 and Clang 3.5
 
@@ -37,5 +37,8 @@ License
 =======
 
 cpputils license is 2-Clause BSD license. Details can be found in LICENSE.
+
+strutils includes a copy of trio library which uses a separate license. It is included
+in LICENSE and in src/strutils/README.txt.
 
 Unit testing framework is licensed separately (see tests/contrib/cpput/LICENSE).

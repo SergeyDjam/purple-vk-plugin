@@ -20,8 +20,26 @@ inline bool ascii_isspace(char c)
 
 // Format function
 
+#ifdef __GNUC__
+#ifdef __MINGW32__
+#define STR_FORMAT_CHECK(fmt_pos, arg_pos) __attribute__((format (gnu_printf, fmt_pos, arg_pos)))
+#else
+#define STR_FORMAT_CHECK(fmt_pos, arg_pos) __attribute__((format (printf, fmt_pos, arg_pos)))
+#endif
+#else
+#define STR_FORMAT_CHECK
+#endif
+
 // Creates a new string, analogous to sprintf
+//
+// NOTE: str_format does not use a system printf, but a printf from trio library.
+//  * Both %lld and %I64d specifiers are supported, no need for PRId64 crap.
+//  * All positional arguments must be specified only once.
+//  * %zu for size_t, %td for ptrdiff_t are supported.
+STR_FORMAT_CHECK(1, 2)
 std::string str_format(const char* fmt, ...);
+
+#undef STR_FORMAT_CHECK
 
 // Trim functions
 
@@ -154,5 +172,8 @@ void str_toupper(std::string& s);
 // Emulation of to_string for MinGW.
 std::string to_string(int i);
 std::string to_string(unsigned int i);
-std::string to_string(int64_t i);
-std::string to_string(uint64_t i);
+std::string to_string(long i);
+std::string to_string(unsigned long i);
+std::string to_string(long long i);
+std::string to_string(unsigned long long i);
+

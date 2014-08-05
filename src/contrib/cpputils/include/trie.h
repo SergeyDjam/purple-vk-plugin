@@ -428,3 +428,9 @@ const T* Trie<T>::match_impl(const char* key, size_t offset, const Trie::Node* n
         }
     }
 }
+
+#undef TRIE_DISABLE_COPY
+#undef TRIE_DISABLE_MOVE
+#undef TRIE_DEFAULT_MOVE
+#undef TRIE_HAS_GCC_LE
+#undef TRIE_ALIGNAS

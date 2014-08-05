@@ -102,7 +102,10 @@ template<typename Cont, typename Value>
 bool seq_contains(const Cont& cont, const Value& value)
 {
     static_assert(!is_associative_container<Cont>::value, "Cont must be a sequence container");
-    return std::find(cont.cbegin(), cont.cend(), value) != cont.end();
+    for (const auto& v: cont)
+        if (v == value)
+            return true;
+    return false;
 }
 
 // Assigns contents of one container to another, used instead of operator= when DstCont != SrcCont,
@@ -118,8 +121,8 @@ template<typename DstCont, typename SrcCont>
 void insert(DstCont& dst, const SrcCont& src)
 {
     static_assert(is_associative_container<DstCont>::value, "Cont must be an associative container");
-    for (auto it = src.cbegin(); it != src.cend(); ++it)
-        dst.insert(*it);
+    for (const auto& v: src)
+        dst.insert(v);
 }
 
 // Appends one container to another. DstCont mmust be a sequence coontainer (vector/deque/list),
@@ -137,9 +140,9 @@ template<typename DstCont, typename SrcCont, typename Pred>
 void insert_if(DstCont& dst, const SrcCont& src, const Pred& pred)
 {
     static_assert(is_associative_container<DstCont>::value, "Cont must be an associative container");
-    for (auto it = src.cbegin(); it != src.cend(); ++it)
-        if (pred(*it))
-            dst.insert(*it);
+    for (const auto& v: src)
+        if (pred(v))
+            dst.insert(v);
 }
 
 // Appends all elements satisfying predicate from one container to another. DstCont must be a
@@ -148,9 +151,9 @@ template<typename DstCont, typename SrcCont, typename Pred>
 void append_if(DstCont& dst, const SrcCont& src, const Pred& pred)
 {
     static_assert(!is_associative_container<DstCont>::value, "Cont must be a sequence container");
-    for (auto it = src.cbegin(); it != src.cend(); ++it)
-        if (pred(*it))
-            dst.push_back(*it);
+    for (const auto& v: src)
+        if (pred(v))
+            dst.push_back(v);
 }
 
 // Implementation of erase_if for associative containers.
@@ -162,7 +165,7 @@ void append_if(DstCont& dst, const SrcCont& src, const Pred& pred)
 template<typename Cont, typename Pred>
 static void __erase_if_impl(Cont& cont, const Pred& pred, char(*)[is_associative_container<Cont>::value] = nullptr)
 {
-    for (auto it = cont.begin(); it != cont.end();) {
+    for (auto it = cont.begin(), end = cont.end(); it != end;) {
         if (pred(*it)) {
             it = cont.erase(it);
         } else {
