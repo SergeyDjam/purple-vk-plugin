@@ -253,7 +253,7 @@ void vk_call_api_items_impl(PurpleConnection* gc, const char* method_name,
                             size_t offset)
 {
     if (offset > 0) {
-        vkcom_debug_info("    API call with offset %d\n", offset);
+        vkcom_debug_info("    API call with offset %d\n", (int)offset);
         add_or_replace_call_param(*params, "offset", to_string(offset).data());
     }
 
