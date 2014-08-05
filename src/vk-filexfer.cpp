@@ -179,8 +179,8 @@ void clean_nonexisting_docs(PurpleConnection* gc, const SuccessCb& success_cb)
             if (doc.filename == title && doc.size == size && doc.url == url)
                 existing_doc_ids->insert(doc_id);
             else
-                vkcom_debug_info("Document %" PRIu64 " changed either title, size or url, "
-                                  "removing from uploaded\n", doc_id);
+                vkcom_debug_info("Document %llu changed either title, size or url, "
+                                  "removing from uploaded\n", (unsigned long long)doc_id);
         }
     }, [=]() {
         VkData& gc_data = get_data(gc);
@@ -217,8 +217,10 @@ void find_or_upload_doc(PurpleConnection* gc, PurpleXfer* xfer, const VkUploaded
         for (const pair<uint64, VkUploadedDocInfo>& p: get_data(gc).uploaded_docs) {
             uint64 doc_id = p.first;
             const VkUploadedDocInfo& updoc = p.second;
-            if (updoc.filename == doc.filename && updoc.size == doc.size && updoc.md5sum == doc.md5sum) {
-                vkcom_debug_info("Filename, size and md5sum matches the doc %" PRIu64 ", resending it.\n", doc_id);
+            if (updoc.filename == doc.filename && updoc.size == doc.size
+                    && updoc.md5sum == doc.md5sum) {
+                vkcom_debug_info("Filename, size and md5sum matches the doc %llu, resending it.\n",
+                                 (unsigned long long)doc_id);
 
                 uint64 user_id = *(uint64*)xfer->data;
                 send_doc_url(gc, user_id, updoc.url, true);

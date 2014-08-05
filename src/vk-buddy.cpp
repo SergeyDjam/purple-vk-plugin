@@ -117,9 +117,10 @@ void update_user_info_from(PurpleConnection* gc, const picojson::value& fields)
         info.online_mobile = online_mobile;
     } else {
         if (info.online != online || info.online_mobile != online_mobile)
-            vkcom_debug_error("Strange, got different online status for %" PRIu64
-                               " in friends.get vs Long Poll: %d, %d vs %d, %d\n",
-                               user_id, online, online_mobile, info.online, info.online_mobile);
+            vkcom_debug_error("Strange, got different online status for %llu"
+                              " in friends.get vs Long Poll: %d, %d vs %d, %d\n",
+                              (unsigned long long)user_id, online, online_mobile,
+                              info.online, info.online_mobile);
     }
 
     if (field_is_present<picojson::object>(fields, "last_seen"))
@@ -634,7 +635,8 @@ void update_blist_chat(PurpleConnection* gc, uint64 chat_id, const VkChatInfo& i
     } else {
         if (!purple_blist_node_get_bool(&chat->node, "custom-alias")) {
             if (info.title != purple_chat_get_name(chat)) {
-                vkcom_debug_info("Renaming chat%" PRIu64 " to %s\n", chat_id, info.title.data());
+                vkcom_debug_info("Renaming chat%llu to %s\n", (unsigned long long)chat_id,
+                                 info.title.data());
                 purple_blist_alias_chat(chat, info.title.data());
             }
 
@@ -647,7 +649,8 @@ void update_blist_chat(PurpleConnection* gc, uint64 chat_id, const VkChatInfo& i
             // and chat is in the Group for Chats.
             PurpleGroup* old_group = purple_chat_get_group(chat);
             if (!g_str_equal(purple_group_get_name(group), purple_group_get_name(old_group))) {
-                vkcom_debug_info("Moving chat%" PRIu64 " to %s\n", chat_id, purple_group_get_name(group));
+                vkcom_debug_info("Moving chat%llu to %s\n", (unsigned long long)chat_id,
+                                 purple_group_get_name(group));
                 // add_chat moves existing chats from group to group.
                 purple_blist_add_chat(chat, group, nullptr);
             }
@@ -663,7 +666,7 @@ void update_blist_chat(PurpleConnection* gc, uint64 chat_id, const VkChatInfo& i
 // Removes chat from blist.
 void remove_blist_chat(PurpleConnection* gc, PurpleChat* chat, uint64 chat_id)
 {
-    vkcom_debug_info("Removing chat%" PRIu64 " from buddy list\n", chat_id);
+    vkcom_debug_info("Removing chat%llu from buddy list\n", (unsigned long long)chat_id);
     get_data(gc).blist_chats.erase(chat_id);
     purple_blist_remove_chat(chat);
 }
@@ -860,7 +863,8 @@ void update_open_conv_presence(PurpleConnection *gc)
             uint64 user_id = v.get("id").get<double>();
             bool online = v.get("online").get<double>() == 1;
             bool online_mobile = field_is_present<double>(v, "online_mobile");
-            vkcom_debug_info("Got status %d, %d for %" PRIu64 "\n", online, online_mobile, user_id);
+            vkcom_debug_info("Got status %d, %d for %llu\n", online, online_mobile,
+                             (unsigned long long)user_id);
 
             VkUserInfo* info = get_user_info(gc, user_id);
             // We still have not updated info. It is highly unlikely, but still possible.
@@ -1132,7 +1136,8 @@ void remove_chat_if_needed(PurpleConnection* gc, uint64 chat_id)
 
     PurpleChat* chat = find_purple_chat_by_id(gc, chat_id);
     if (!chat) {
-        vkcom_debug_info("Trying to remove chat%" PRIu64 " not in buddy list\n", chat_id);
+        vkcom_debug_info("Trying to remove chat%llu not in buddy list\n",
+                         (unsigned long long)chat_id);
         return;
     }
 

@@ -514,7 +514,7 @@ void vk_chat_leave(PurpleConnection* gc, int id)
         return;
     }
 
-    vkcom_debug_error("Leaving chat%" PRIu64 "\n", chat_id);
+    vkcom_debug_error("Leaving chat%llu\n", (unsigned long long)chat_id);
     remove_conv_id(gc, id);
     remove_chat_if_needed(gc, chat_id);
 }

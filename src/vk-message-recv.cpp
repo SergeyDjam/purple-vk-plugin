@@ -1,5 +1,4 @@
 #define __STDC_FORMAT_MACROS
-#include <inttypes.h>
 #include <time.h>
 
 #include <debug.h>
@@ -198,8 +197,8 @@ void get_last_message_id(PurpleConnection* gc, LastMessageIdCb last_message_id_c
 
 void receive_messages_range_internal(const MessagesData_ptr& data, uint64 last_msg_id, bool outgoing)
 {
-    vkcom_debug_info("Receiving %s messages starting from %" PRIu64 "\n",
-                      outgoing ? "outgoing" : "incoming", last_msg_id + 1);
+    vkcom_debug_info("Receiving %s messages starting from %llu\n",
+                      outgoing ? "outgoing" : "incoming", (unsigned long long)last_msg_id + 1);
 
     CallParams params = { {"out", outgoing ? "1" : "0"}, {"count", "200"},
                           {"last_message_id", to_string(last_msg_id) } };
@@ -378,7 +377,8 @@ void process_photo_attachment(const picojson::value& fields, Message& message)
         else
             url = thumbnail;
     } else {
-        url = str_format("https://vk.com/photo%" PRId64 "_%" PRIu64, owner_id, id);
+        url = str_format("https://vk.com/photo%lld_%llu", (long long)owner_id,
+                         (unsigned long long)id);
     }
 
     if (!photo_text.empty())
@@ -401,8 +401,8 @@ void process_video_attachment(const picojson::value& fields, Message& message)
     const string& title = fields.get("title").get<string>();
     const string& thumbnail = fields.get("photo_320").get<string>();
 
-    message.text += str_format("<a href='https://vk.com/video%" PRId64 "_%" PRIu64 "'>%s</a>", owner_id,
-                               id, title.data());
+    message.text += str_format("<a href='https://vk.com/video%lld_%llu'>%s</a>",
+                               (long long)owner_id, (unsigned long long)id, title.data());
 
     append_thumbnail_placeholder(thumbnail, message);
 }
@@ -469,7 +469,8 @@ void process_wall_attachment(PurpleConnection* gc, const picojson::value& fields
         message.text += get_group_placeholder(gc, -to_id, message);
     }
 
-    string wall_url = str_format("https://vk.com/wall%" PRIi64 "_%" PRIu64, to_id, id);
+    string wall_url = str_format("https://vk.com/wall%lld_%llu", (long long)to_id,
+                                 (unsigned long long)id);
     const char* verb = (fields.contains("copy_text") || fields.contains("copy_history"))
                         ? i18n("reposted") : i18n("posted");
     string date = timestamp_to_long_format(fields.get("date").get<double>());

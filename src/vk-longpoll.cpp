@@ -44,7 +44,7 @@ void start_long_poll_impl(PurpleConnection* gc, uint64 last_msg_id);
 void start_long_poll(PurpleConnection* gc)
 {
     uint64 last_msg_id = load_last_msg_id(gc);
-    vkcom_debug_info("Starting Long Poll with last msg id %" PRIu64 "\n", last_msg_id);
+    vkcom_debug_info("Starting Long Poll with last msg id %llu\n", (unsigned long long)last_msg_id);
     start_long_poll_impl(gc, last_msg_id);
 }
 
@@ -310,7 +310,7 @@ void process_message(PurpleConnection* gc, const picojson::value& v, LastMsg& la
 
     if (!(flags & MESSAGE_FLAGS_OUTBOX)) {
         // Processing incoming message
-        vkcom_debug_info("Got incoming message from %" PRIu64 "\n", user_id);
+        vkcom_debug_info("Got incoming message from %llu\n", (unsigned long long)user_id);
 
         process_incoming_message_internal(gc, msg_id, flags, user_id, std::move(text), timestamp,
                                           attachments);
@@ -343,7 +343,8 @@ void process_message(PurpleConnection* gc, const picojson::value& v, LastMsg& la
                 return false;
 
             vkcom_debug_error("We have sent a message not long ago, but not all"
-                              " msg id are belong to us (msg id %" PRIu64 ")\n", msg_id);
+                              " msg id are belong to us (msg id %llu)\n",
+                              (unsigned long long)msg_id);
             process_outgoing_message_internal(gc, msg_id, flags, user_id, std::move(text),
                                               timestamp);
             return false;
@@ -520,7 +521,7 @@ void process_chat_update(PurpleConnection* gc, const picojson::value& v)
     }
     uint64 chat_id = v.get(1).get<double>();
 
-    vkcom_debug_info("Updating parameters for chat %" PRIu64 "\n", chat_id);
+    vkcom_debug_info("Updating parameters for chat %llu\n", (unsigned long long)chat_id);
 
     update_chat_infos(gc, { chat_id }, nullptr, true);
 }

@@ -14,7 +14,7 @@
 void set_account_alias(PurpleConnection* gc)
 {
     uint64 user_id = get_data(gc).self_user_id();
-    vkcom_debug_info("Getting full name for %" PRIu64 "\n", user_id);
+    vkcom_debug_info("Getting full name for %llu\n", (unsigned long long)user_id);
 
     CallParams params = { {"user_ids", to_string(user_id)}, {"fields", "first_name,last_name"} };
     vk_call_api(gc, "users.get", params, [=](const picojson::value& result) {
@@ -154,7 +154,7 @@ string get_unique_display_name(PurpleConnection* gc, uint64 user_id)
     if (!info->domain.empty())
         return str_format("%s (%s)", info->real_name.data(), info->domain.data());
     else
-        return str_format("%s (%" PRIu64 ")", info->real_name.data(), user_id);
+        return str_format("%s (%llu)", info->real_name.data(), (unsigned long long)user_id);
 }
 
 bool user_in_buddy_list(PurpleConnection* gc, uint64 user_id)
@@ -370,9 +370,11 @@ void update_groups_info(PurpleConnection* gc, vector<uint64> group_ids, const Su
 string get_user_href(uint64 user_id, const VkUserInfo& info)
 {
     if (!info.domain.empty())
-        return str_format("<a href='https://vk.com/%s'>%s</a>", info.domain.data(), info.real_name.data());
+        return str_format("<a href='https://vk.com/%s'>%s</a>", info.domain.data(),
+                          info.real_name.data());
     else
-        return str_format("<a href='https://vk.com/id%" PRIu64 "'>%s</a>", user_id, info.real_name.data());
+        return str_format("<a href='https://vk.com/id%llu'>%s</a>", (unsigned long long)user_id,
+                          info.real_name.data());
 }
 
 string get_group_href(uint64 group_id, const VkGroupInfo& info)
@@ -381,11 +383,14 @@ string get_group_href(uint64 group_id, const VkGroupInfo& info)
         return str_format("<a href='https://vk.com/%s'>%s</a>", info.screen_name.data(), info.name.data());
     // How the fuck am I supposed to learn these URL patterns?
     if (info.type == "group") {
-        return str_format("<a href='https://vk.com/club%" PRIu64 "'>%s</a>", group_id, info.name.data());
+        return str_format("<a href='https://vk.com/club%llu'>%s</a>", (unsigned long long)group_id,
+                          info.name.data());
     } else if (info.type == "page") {
-        return str_format("<a href='https://vk.com/public%" PRIu64 "'>%s</a>", group_id, info.name.data());
+        return str_format("<a href='https://vk.com/public%llu'>%s</a>",
+                          (unsigned long long)group_id, info.name.data());
     } else if (info.type == "event") {
-        return str_format("<a href='https://vk.com/event%" PRIu64 "'>%s</a>", group_id, info.name.data());
+        return str_format("<a href='https://vk.com/event%llu'>%s</a>", (unsigned long long)group_id,
+                          info.name.data());
     } else {
         vkcom_debug_error("Unknown group types %s\n", info.type.data());
         return "https://vk.com";

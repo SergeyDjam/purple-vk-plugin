@@ -86,7 +86,7 @@ void update_open_chat_conv_impl(PurpleConnection* gc, PurpleConversation* conv, 
 
     // Try to check if all users are present.
     if (!are_equal_chat_users(gc, PURPLE_CONV_CHAT(conv), info)) {
-        vkcom_debug_info("Updating users in chat %" PRIu64 "\n", chat_id);
+        vkcom_debug_info("Updating users in chat %llu\n", (unsigned long long)chat_id);
 
         purple_conv_chat_clear_users(PURPLE_CONV_CHAT(conv));
 
@@ -142,7 +142,7 @@ void update_open_chat_conv(PurpleConnection* gc, int conv_id)
 
     PurpleConversation* conv = find_conv_for_id(gc, 0, chat_id);
     if (!conv) {
-        vkcom_debug_error("Unable to find chat%" PRIu64 "\n", chat_id);
+        vkcom_debug_error("Unable to find chat%llu\n", (unsigned long long)chat_id);
         return;
     }
 
@@ -176,7 +176,7 @@ uint64 find_user_id_from_conv(PurpleConnection* gc, int conv_id, const char* who
 
     VkChatInfo* chat_info = get_chat_info(gc, chat_id);
     if (!chat_info) {
-        vkcom_debug_error("Unknown chat%" PRIu64 "\n", chat_id);
+        vkcom_debug_error("Unknown chat%llu\n", (unsigned long long)chat_id);
         return 0;
     }
 
@@ -184,7 +184,7 @@ uint64 find_user_id_from_conv(PurpleConnection* gc, int conv_id, const char* who
         if (p.second == who)
             return p.first;
 
-    vkcom_debug_error("Unknown user %s in chat%" PRIu64 "\n", who, chat_id);
+    vkcom_debug_error("Unknown user %s in chat%llu\n", who, (unsigned long long)chat_id);
     return 0;
 }
 
@@ -294,7 +294,7 @@ void remove_user_from_chat(PurpleConnection* gc, uint64 chat_id, uint64 user_id)
 
 void set_chat_title(PurpleConnection* gc, uint64 chat_id, const char* title)
 {
-    vkcom_debug_info("Setting title of chat %" PRIu64 " to %s\n", chat_id, title);
+    vkcom_debug_info("Setting title of chat %llu to %s\n", (unsigned long long)chat_id, title);
 
     // We need to store title to update it in callback.
     string title_str = title;

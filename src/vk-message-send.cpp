@@ -50,7 +50,7 @@ void show_error(PurpleConnection* gc, const SendMessage& message);
 int send_im_message(PurpleConnection* gc, uint64 user_id, const char* raw_message,
                     const SuccessCb& success_cb, const ErrorCb& error_cb)
 {
-    vkcom_debug_info("Sending IM message to %" PRIu64 "\n", user_id);
+    vkcom_debug_info("Sending IM message to %llu\n", (unsigned long long)user_id);
 
     return send_message(gc, user_id, 0, raw_message, success_cb, error_cb);
 }
@@ -58,7 +58,7 @@ int send_im_message(PurpleConnection* gc, uint64 user_id, const char* raw_messag
 int send_chat_message(PurpleConnection* gc, uint64 chat_id, const char* raw_message,
                       const SuccessCb& success_cb, const ErrorCb& error_cb)
 {
-    vkcom_debug_info("Sending chat message to %" PRIu64 "\n", chat_id);
+    vkcom_debug_info("Sending chat message to %llu\n", (unsigned long long)chat_id);
 
     return send_message(gc, 0, chat_id, raw_message, success_cb, error_cb);
 }
@@ -169,7 +169,8 @@ void upload_imgstore_images_impl(PurpleConnection* gc, const UploadImgstoreImage
         // vk.com will automatically add access_key to your private photos.
         int64 owner_id = (int64)fields.get("owner_id").get<double>();
         uint64 id = (uint64)fields.get("id").get<double>();
-        images->attachments += str_format("photo%" PRId64 "_%" PRIu64, owner_id, id);
+        images->attachments += str_format("photo%lld_%llu", (long long)owner_id,
+                                          (unsigned long long)id);
 
         if ((size_t)offset == images->img_ids.size() - 1) {
             uploaded_cb(images->attachments);
@@ -328,8 +329,8 @@ void process_im_error(const picojson::value& error, PurpleConnection* gc, const 
 
 void show_error(PurpleConnection* gc, const SendMessage& message)
 {
-    vkcom_debug_error("Error sending message to %" PRIu64 "/%" PRIu64 "\n",
-                       message.user_id, message.chat_id);
+    vkcom_debug_error("Error sending message to %llu/%llu\n", (unsigned long long)message.user_id,
+                      (unsigned long long)message.chat_id);
 
     PurpleConversation* conv = find_conv_for_id(gc, message.user_id, message.chat_id);
     if (conv) {

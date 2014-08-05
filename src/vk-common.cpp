@@ -249,7 +249,7 @@ PurpleHttpKeepalivePool* VkData::get_keepalive_pool()
 
 string user_name_from_id(uint64 user_id)
 {
-    return str_format("id%" PRIu64, user_id);
+    return str_format("id%llu", (unsigned long long)user_id);
 }
 
 uint64 user_id_from_name(const char* name, bool quiet)
@@ -274,7 +274,7 @@ uint64 user_id_from_name(const char* name, bool quiet)
 // conversation id is generated when opening chat conversation window.
 string chat_name_from_id(uint64 chat_id)
 {
-    return str_format("chat%" PRIu64, chat_id);
+    return str_format("chat%llu", (unsigned long long)chat_id);
 }
 
 uint64 chat_id_from_name(const char* name, bool quiet)

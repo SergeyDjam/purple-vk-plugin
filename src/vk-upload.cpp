@@ -179,13 +179,13 @@ PurpleHttpRequest* prepare_upload_request(const string& url, const char* partnam
         mime_type = g_strdup("application/octet-stream");
     g_free(content_type);
 
-    vkcom_debug_info("Sending file %s with size %" PRIu64 " and mime-type %s to %s\n", name, (uint64)size,
+    vkcom_debug_info("Sending file %s with size %zu and mime-type %s to %s\n", name, size,
                      mime_type, url.data());
     string body_header = str_format("--%s\r\n"
                                     "Content-Disposition: form-data; name=\"%s\"; filename=\"%s\"\r\n"
                                     "Content-Type: %s\r\n"
-                                    "Content-Length: %" PRIu64 "\r\n"
-                                    "\r\n", boundary.data(), partname, name, mime_type, (uint64)size);
+                                    "Content-Length: %zu\r\n"
+                                    "\r\n", boundary.data(), partname, name, mime_type, size);
     string body_footer = str_format("\r\n--%s--", boundary.data());
     g_free(mime_type);
 

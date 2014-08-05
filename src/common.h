@@ -9,7 +9,6 @@
 
 #include <cassert>
 #include <chrono>
-#include <cinttypes>
 #include <cstdio>
 #include <functional>
 #include <memory>
@@ -118,9 +117,7 @@ string str_concat_int(Sep sep, It first, It last)
     for (It it = first; it != last; it++) {
         if (!s.empty())
             s += sep;
-        char buf[128];
-        sprintf(buf, "%" PRId64, *it);
-        s += buf;
+        s += to_string(*it);
     }
     return s;
 }
