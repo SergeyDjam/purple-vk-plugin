@@ -107,7 +107,6 @@ if(WIN32)
   list(APPEND EXTRA_LIBRARIES "ws2_32")
 endif()
 
-include_directories(src)
 include_directories(src/contrib/cpputils/include)
 
 set(SOURCES
@@ -145,6 +144,8 @@ set(SOURCES
   src/vk-upload.h
   src/vk-utils.cpp
   src/vk-utils.h
+
+  src/contrib/picojson/picojson.h
 
   src/contrib/purple/http.c
   src/contrib/purple/http.h

@@ -6,8 +6,8 @@
 
 #include <connection.h>
 
-#include <contrib/purple/http.h>
-#include "contrib/picojson.h"
+#include "contrib/picojson/picojson.h"
+#include "contrib/purple/http.h"
 
 // Vk.com requires 200mb max file size, let's lower the limit even more.
 const int MAX_UPLOAD_SIZE = 150 * 1024 * 1024;

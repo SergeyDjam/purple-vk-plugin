@@ -10,7 +10,7 @@ using std::pair;
 
 #include <connection.h>
 
-#include "contrib/picojson.h"
+#include "contrib/picojson/picojson.h"
 
 // Calls method with params.
 typedef vector<pair<string, string>> CallParams;

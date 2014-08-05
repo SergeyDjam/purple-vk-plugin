@@ -26,10 +26,11 @@ the required capabilities (modifying request headers, storing and setting cookie
 number of redirects). Adding an external library (libcurl, libevent) dependancy seemed
 a bit too much.
 
-picojson.h
-==========
+picojson
+========
 
-The only file in the PicoJSON library (https://github.com/kazuho/picojson/).
+The header-only PicoJSON library (https://github.com/kazuho/picojson/).
 
-PicoJSON was chosen, because it is the smallest C++ JSON library with nice interface. Unfortunately,
-there is no "golden standard" among C++ JSON libraries like libxml2 for XML libraries.
+PicoJSON was chosen because it is the smallest C++ JSON library with nice interface.
+Unfortunately, there is no "golden standard" among C++ JSON libraries like libxml2
+for XML libraries.
