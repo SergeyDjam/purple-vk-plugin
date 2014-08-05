@@ -8,7 +8,6 @@
 
 #pragma once
 
-#include <cinttypes>
 #include <cstring>
 #include <string>
 
