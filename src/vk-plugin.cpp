@@ -1,6 +1,5 @@
 #include <accountopt.h>
 #include <cmds.h>
-#include <debug.h>
 #include <prpl.h>
 #include <request.h>
 #include <version.h>

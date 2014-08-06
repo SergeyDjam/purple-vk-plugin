@@ -1,4 +1,3 @@
-#include <debug.h>
 #include <request.h>
 
 #include "contrib/purple/http.h"

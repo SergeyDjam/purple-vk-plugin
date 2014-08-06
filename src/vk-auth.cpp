@@ -1,5 +1,4 @@
 #include <cstring>
-#include <debug.h>
 #include <libxml/HTMLparser.h>
 #include <libxml/xpath.h>
 

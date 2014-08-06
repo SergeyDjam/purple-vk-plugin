@@ -133,23 +133,24 @@ string str_concat_int(Sep sep, const C& c)
 
 // Converts container to vector.
 template<typename Cont>
-inline vector<typename Cont::value_type, typename Cont::allocator_type> to_vector(const Cont& cont)
+vector<typename Cont::value_type, typename Cont::allocator_type> to_vector(const Cont& cont)
 {
     return vector<typename Cont::value_type, typename Cont::allocator_type>(cont.begin(), cont.end());
 }
+
 
 // Time functions
 
 // Converts the given duration to milliseconds.
 template<typename T>
-inline std::chrono::milliseconds::rep to_milliseconds(T duration)
+std::chrono::milliseconds::rep to_milliseconds(T duration)
 {
     return std::chrono::duration_cast<std::chrono::milliseconds>(duration).count();
 }
 
 // Converts the given duration to seconds.
 template<typename T>
-inline std::chrono::seconds::rep to_seconds(T duration)
+std::chrono::seconds::rep to_seconds(T duration)
 {
     return std::chrono::duration_cast<std::chrono::seconds>(duration).count();
 }
@@ -160,7 +161,32 @@ inline std::chrono::seconds::rep to_seconds(T duration)
 
 // Debugging macros
 
+// We copy a tiny part of debug.h from libpurple for the following reasons:
+//  1) We do not want to include the whole file just for two functions;
+//  2) [Actually important] purple_debug_info/_error is declared as supporting MS printf format
+//     on mingw and results in errors when trying to print %lld/llu.
+
+#ifdef __GNUC__
+#ifdef __MINGW32__
+#define FORMAT_CHECK(fmt_pos, arg_pos) __attribute__((format (gnu_printf, fmt_pos, arg_pos)))
+#else
+#define FORMAT_CHECK(fmt_pos, arg_pos) __attribute__((format (printf, fmt_pos, arg_pos)))
+#endif
+#else
+#define FORMAT_CHECK
+#endif
+
+extern "C"
+{
+
+void purple_debug_info(const char* category, const char* format, ...) FORMAT_CHECK(2, 3);
+void purple_debug_error(const char* category, const char* format, ...) FORMAT_CHECK(2, 3);
+
+}
+
 #define vkcom_debug_info(fmt, ...) \
     purple_debug_info("prpl-vkcom", fmt, ##__VA_ARGS__)
 #define vkcom_debug_error(fmt, ...) \
     purple_debug_error("prpl-vkcom", fmt, ##__VA_ARGS__)
+
+#undef FORMAT_CHECK

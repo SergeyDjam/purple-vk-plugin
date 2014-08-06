@@ -1,7 +1,5 @@
-#define __STDC_FORMAT_MACROS
 #include <time.h>
 
-#include <debug.h>
 #include <imgstore.h>
 #include <server.h>
 #include <util.h>

@@ -1,4 +1,3 @@
-#include <debug.h>
 #include <imgstore.h>
 #include <server.h>
 #include <util.h>

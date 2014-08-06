@@ -1,5 +1,3 @@
-#include <debug.h>
-
 #include "vk-common.h"
 
 #include "httputils.h"

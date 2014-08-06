@@ -1,7 +1,6 @@
 #include "common.h"
 
 #include <ctime>
-#include <debug.h>
 #include <server.h>
 
 #include "strutils.h"
