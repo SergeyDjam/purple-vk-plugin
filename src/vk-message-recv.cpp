@@ -558,6 +558,8 @@ void process_sticker_attachment(const picojson::value& fields, Message& message)
 
 void append_thumbnail_placeholder(const string& thumbnail_url, Message& message, bool prepend_br)
 {
+    // Append the image placeholder only when the message will not be stored directly to log,
+    // otherwise the image will not be shown anyway.
     // TODO: If the conversation is open and an outgoing message has been received, we should show
     // the image too.
     if (message.status == MESSAGE_INCOMING_UNREAD) {
@@ -566,10 +568,6 @@ void append_thumbnail_placeholder(const string& thumbnail_url, Message& message,
             message.text += "<br>";
         message.text += str_format("<thumbnail-placeholder-%d>", message.thumbnail_urls.size());
         message.thumbnail_urls.push_back(thumbnail_url);
-    } else {
-        // Pidgin does not store images in logs, store the URL itself. so that the information
-        // does not get lost.
-        message.text += str_format("%s", thumbnail_url.data());
     }
 }
 
