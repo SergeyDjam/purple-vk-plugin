@@ -566,7 +566,7 @@ void append_thumbnail_placeholder(const string& thumbnail_url, Message& message,
         // We will download the image later and replace the placeholder.
         if (!message.text.empty() || prepend_br)
             message.text += "<br>";
-        message.text += str_format("<thumbnail-placeholder-%d>", message.thumbnail_urls.size());
+        message.text += str_format("<thumbnail-placeholder-%zu>", message.thumbnail_urls.size());
         message.thumbnail_urls.push_back(thumbnail_url);
     }
 }
@@ -582,7 +582,7 @@ string get_user_placeholder(PurpleConnection* gc, uint64 user_id, Message& messa
         return get_user_href(user_id, *info);
     } else {
         // We will get user information later and replace the placeholder.
-        string text = str_format("<user-placeholder-%d>", message.unknown_user_ids.size());
+        string text = str_format("<user-placeholder-%zu>", message.unknown_user_ids.size());
         message.unknown_user_ids.push_back(user_id);
         return text;
     }
@@ -599,7 +599,7 @@ string get_group_placeholder(PurpleConnection* gc, uint64 group_id, Message& mes
         return get_group_href(group_id, *info);
     } else {
         // We will get group information later and replace the placeholder.
-        string text = str_format("<group-placeholder-%d>", message.unknown_group_ids.size());
+        string text = str_format("<group-placeholder-%zu>", message.unknown_group_ids.size());
         message.unknown_group_ids.push_back(group_id);
         return text;
     }
@@ -630,7 +630,7 @@ void download_thumbnail(const MessagesData_ptr& data, size_t msg_num, size_t thu
         int img_id = purple_imgstore_add_with_id(g_memdup(img_data, size), size, nullptr);
 
         string img_tag = str_format("<img id=\"%d\">", img_id);
-        string img_placeholder = str_format("<thumbnail-placeholder-%d>", thumb_num);
+        string img_placeholder = str_format("<thumbnail-placeholder-%zu>", thumb_num);
         str_replace(data->messages[msg_num].text, img_placeholder, img_tag);
 
         download_thumbnail(data, msg_num, thumb_num + 1);
@@ -656,7 +656,7 @@ void replace_user_ids(const MessagesData_ptr& data)
                 if (!info)
                     continue;
 
-                string placeholder = str_format("<user-placeholder-%d>", i);
+                string placeholder = str_format("<user-placeholder-%zu>", i);
                 string href = get_user_href(id, *info);
                 str_replace(m.text, placeholder, href);
             }
@@ -684,7 +684,7 @@ void replace_group_ids(const MessagesData_ptr& data)
                 if (!info)
                     continue;
 
-                string placeholder = str_format("<group-placeholder-%d>", i);
+                string placeholder = str_format("<group-placeholder-%zu>", i);
                 string href = get_group_href(group_id, *info);
                 str_replace(m.text, placeholder, href);
             }
