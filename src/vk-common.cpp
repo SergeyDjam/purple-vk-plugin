@@ -202,7 +202,6 @@ void VkData::authenticate(const SuccessCb& success_cb, const ErrorCb& error_cb)
 {
     if (!m_access_token.empty()) {
         vkcom_debug_info("No need to auth, we have an access token\n");
-        purple_connection_set_state(m_gc, PURPLE_CONNECTED);
         success_cb();
         return;
     }

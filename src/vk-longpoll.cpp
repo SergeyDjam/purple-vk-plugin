@@ -87,6 +87,12 @@ void start_long_poll_impl(PurpleConnection* gc, uint64 last_msg_id)
 {
     CallParams params = { {"use_ssl", "1"} };
     vk_call_api(gc, "messages.getLongPollServer", params, [=](const picojson::value& v) {
+        // The connection status can be not connected, because we could've skipped the whole authentication part
+        // in vk-auth.cpp if the access token is stored. Here is the first place where we can guarantee, that
+        // the connection really succeeded.
+        if (purple_connection_get_state(gc) != PURPLE_CONNECTED)
+            purple_connection_set_state(gc, PURPLE_CONNECTED);
+
         if (!v.is<picojson::object>() || !field_is_present<string>(v, "key")
                 || !field_is_present<string>(v, "server") || !field_is_present<double>(v, "ts")) {
             vkcom_debug_error("Strange response from messages.getLongPollServer: %s\n",
