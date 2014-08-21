@@ -2,6 +2,7 @@
 #include <cmds.h>
 #include <prpl.h>
 #include <request.h>
+#include <util.h>
 #include <version.h>
 
 #include "strutils.h"
@@ -415,6 +416,12 @@ void vk_get_info(PurpleConnection* gc, const char* who)
         if (!user_info->activity.empty())
             purple_notify_user_info_add_pair_plaintext(info, i18n("Status"),
                                                        user_info->activity.data());
+
+        if (!user_info->online && user_info->last_seen != 0) {
+            const char* date_buf = purple_date_format_full(localtime(&user_info->last_seen));
+            purple_notify_user_info_add_pair_plaintext(info, i18n("Last seen"), date_buf);
+        }
+
         purple_notify_userinfo(gc, who, info, nullptr, nullptr);
     });
 }
