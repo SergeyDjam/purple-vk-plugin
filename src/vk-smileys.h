@@ -19,16 +19,19 @@
 void initialize_smileys();
 
 // Converts smileys in outgoing messages. Must be called before passing the text to messages.send.
+//
+// NOTE: message MUST NOT be escaped.
 void convert_outgoing_smileys(string& message);
 
 // Converts smileys in incoming messages. Must be called after receiving the messages from longpoll
 // or from messages.get.
 //
-// NOTE: Escaping message is considered to be already escaped, added smileys will be escaped
-// (e.g. &amp;3 instead <3).
+// NOTE: message MUST be escaped, added smileys will be escaped (e.g. "&amp;3" instead "<3").
 void convert_incoming_smileys(string& message);
 
 
 // Adds custom smileys to the conversation, based on the smileys present in the message. This is
 // used so that even if the user did not enable the smiley theme, smileys are still shown to him.
+//
+// NOTE: message MUST be escaped (e.g. "&gt;(" instead of ">(").
 void add_custom_smileys(PurpleConversation* conv, const char* message);

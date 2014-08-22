@@ -17,7 +17,7 @@ namespace
 // Map from text smiley to unicode version. Used when converting messages before sending.
 Trie<string> ascii_to_unicode_smiley;
 // Map from unicode version to "canonical" text smiley. Used when converting messages after
-// receiving. Note, that the smiley is escaped.
+// receiving. Ascii smileys ARE escaped.
 Trie<string> unicode_to_ascii_smiley;
 // Map from smiley to smiley image.
 typedef vector<char> SmileyImage;
@@ -231,7 +231,8 @@ void convert_incoming_smileys(string& message)
 
 void add_custom_smileys(PurpleConversation* conv, const char* message)
 {
-    for (const char* p = message; *p != '\0';) {
+    char* unescaped_message = purple_unescape_text(message);
+    for (const char* p = unescaped_message; *p != '\0';) {
         size_t smiley_length;
         shared_ptr<SmileyImage>* image_ptr = smiley_images.match(p, &smiley_length);
         if (image_ptr) {
@@ -254,4 +255,5 @@ void add_custom_smileys(PurpleConversation* conv, const char* message)
             p++;
         }
     }
+    g_free(unescaped_message);
 }
