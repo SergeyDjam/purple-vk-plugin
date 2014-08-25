@@ -23,6 +23,7 @@ struct VkOptions
     bool chats_in_blist;
     bool mark_as_read_online_only;
     bool imitate_mobile_client;
+    bool enable_webkit_workarounds;
     string blist_default_group;
     string blist_chat_group;
 };

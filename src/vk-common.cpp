@@ -1,5 +1,7 @@
 #include <cstdlib>
 
+#include <plugin.h>
+
 #include "strutils.h"
 
 #include "miscutils.h"
@@ -122,6 +124,33 @@ string uploaded_docs_to_string(const map<uint64, VkUploadedDocInfo>& docs)
     return picojson::value(a).serialize();
 }
 
+// Try to find plugin which has "webkit" in id.
+PurplePlugin* find_plugin_with_webkit_id()
+{
+    GList* plugins = purple_plugins_get_loaded();
+    for (GList* it = plugins; it; it = it->next) {
+        PurplePlugin* plugin = (PurplePlugin*)it->data;
+        if (strstr(plugin->info->id, "webkit"))
+            return plugin;
+    }
+    return NULL;
+}
+
+bool check_if_webkit_enabled()
+{
+    PurplePlugin* webkit_plugin = find_plugin_with_webkit_id();
+    if (!webkit_plugin) {
+        vkcom_debug_info("Webkit plugin not present.\n");
+        return false;
+    }
+    if (!webkit_plugin->loaded) {
+        vkcom_debug_info("Webkit plugin present but not loaded.\n");
+        return false;
+    }
+    vkcom_debug_info("Webkit plugin present and loaded, enabling workarounds for it.\n");
+    return true;
+}
+
 } // End of anonymous namespace
 
 VkData::VkData(PurpleConnection* gc, const string& email, const string& password)
@@ -137,10 +166,13 @@ VkData::VkData(PurpleConnection* gc, const string& email, const string& password
     // Ids are 64-bit integers, so let's store this id in a string representation.
     m_self_user_id = atoll(purple_account_get_string(account, "self_user_id", "0"));
 
-    m_options.only_friends_in_blist = purple_account_get_bool(account, "only_friends_in_blist", false);
+    m_options.only_friends_in_blist = purple_account_get_bool(account,
+                                                              "only_friends_in_blist", false);
     m_options.chats_in_blist = purple_account_get_bool(account, "chats_in_blist", true);
-    m_options.mark_as_read_online_only = purple_account_get_bool(account, "mark_as_read_online_only", true);
-    m_options.imitate_mobile_client = purple_account_get_bool(account, "imitate_mobile_client", false);
+    m_options.mark_as_read_online_only = purple_account_get_bool(account,
+                                                                 "mark_as_read_online_only", true);
+    m_options.imitate_mobile_client = purple_account_get_bool(account,
+                                                              "imitate_mobile_client", false);
     m_options.blist_default_group = purple_account_get_string(account, "blist_default_group", "");
     m_options.blist_chat_group = purple_account_get_string(account, "blist_chat_group", "");
 
@@ -161,6 +193,8 @@ VkData::VkData(PurpleConnection* gc, const string& email, const string& password
 
     str = purple_account_get_string(account, "uploaded_docs", "[]");
     uploaded_docs = uploaded_docs_from_string(str);
+
+    m_options.enable_webkit_workarounds = check_if_webkit_enabled();
 }
 
 VkData::~VkData()

@@ -146,7 +146,8 @@ void convert_option_bool(PurpleAccount* account, const char* name, bool previous
 void convert_options(PurpleAccount* account)
 {
     // The change may seem strange, but the old option name was really inappropriate.
-    bool mark_as_read_inactive_tab = purple_account_get_bool(account, "mark_as_read_instantaneous", false);
+    bool mark_as_read_inactive_tab = purple_account_get_bool(account, "mark_as_read_instantaneous",
+                                                             false);
     convert_option_bool(account, "mark_as_read_inactive_tab", mark_as_read_inactive_tab);
 }
 

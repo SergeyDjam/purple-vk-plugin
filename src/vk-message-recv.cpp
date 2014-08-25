@@ -75,26 +75,29 @@ void process_attachments(PurpleConnection* gc, const picojson::array& items, Mes
 // Processes forwarded messages: appends message text and processes attachments.
 void process_fwd_message(PurpleConnection* gc, const picojson::value& fields, Message& message);
 // Processes photo attachment.
-void process_photo_attachment(const picojson::value& fields, Message& message);
+void process_photo_attachment(const picojson::value& fields, Message& message,
+                              const VkOptions& options);
 // Processes video attachment.
-void process_video_attachment(const picojson::value& fields, Message& message);
+void process_video_attachment(const picojson::value& fields, Message& message,
+                              const VkOptions& options);
 // Processes audio attachment.
 void process_audio_attachment(const picojson::value& fields, Message& message);
 // Processes doc attachment.
-void process_doc_attachment(const picojson::value& fields, Message& message);
+void process_doc_attachment(const picojson::value& fields, Message& message, const VkOptions& options);
 // Processes wall post attachment.
 void process_wall_attachment(PurpleConnection* gc, const picojson::value& fields, Message& message);
 // Processes link attachment.
-void process_link_attachment(const picojson::value& fields, Message& message);
+void process_link_attachment(const picojson::value& fields, Message& message, const VkOptions& options);
 // Processes album attachment.
 void process_album_attachment(const picojson::value& fields, Message& message);
 // Processes sticker attachment.
-void process_sticker_attachment(const picojson::value& fields, Message& message);
+void process_sticker_attachment(const picojson::value& fields, Message& message, const VkOptions& options);
 
 // Appends specific thumbnail placeholder to the end of message text. Placeholder will be replaced
 // by actual image later in download_thumbnail(). If prepend_br is false, <br> is prepended only
 // when message text is not empty.
-void append_thumbnail_placeholder(const string& thumbnail_url, Message& message, bool prepend_br = true);
+void append_thumbnail_placeholder(const string& thumbnail_url, Message& message,
+                                  const VkOptions& options, bool prepend_br = true);
 // Returns user/group placeholder, which should be appended to the message text. It will
 // be replaced with actual user/group name and link to the page later in replace_user/group_ids().
 string get_user_placeholder(PurpleConnection* gc, uint64 user_id, Message& message);
@@ -293,22 +296,23 @@ void process_attachments(PurpleConnection* gc, const picojson::array& items, Mes
         if (!message.text.empty())
             message.text += "<br>";
 
+        const VkOptions& options = get_data(gc).options();
         if (type == "photo") {
-            process_photo_attachment(fields, message);
+            process_photo_attachment(fields, message, options);
         } else if (type == "video") {
-            process_video_attachment(fields, message);
+            process_video_attachment(fields, message, options);
         } else if (type == "audio") {
             process_audio_attachment(fields, message);
         } else if (type == "doc") {
-            process_doc_attachment(fields, message);
+            process_doc_attachment(fields, message, options);
         } else if (type == "wall") {
             process_wall_attachment(gc, fields, message);
         } else if (type == "link") {
-            process_link_attachment(fields, message);
+            process_link_attachment(fields, message, options);
         } else if (type == "album") {
             process_album_attachment(fields, message);
         } else if (type == "sticker") {
-            process_sticker_attachment(fields, message);
+            process_sticker_attachment(fields, message, options);
         } else {
             vkcom_debug_error("Strange attachment in response from messages.get "
                                "or messages.getById: type %s, %s\n", type.data(), fields.serialize().data());
@@ -347,7 +351,8 @@ void process_fwd_message(PurpleConnection* gc, const picojson::value& fields, Me
         process_attachments(gc, fields.get("attachments").get<picojson::array>(), message);
 }
 
-void process_photo_attachment(const picojson::value& fields, Message& message)
+void process_photo_attachment(const picojson::value& fields, Message& message,
+                              const VkOptions& options)
 {
     if (!field_is_present<double>(fields, "id") || !field_is_present<double>(fields, "owner_id")
             || !field_is_present<string>(fields, "text") || !field_is_present<string>(fields, "photo_604")) {
@@ -383,10 +388,11 @@ void process_photo_attachment(const picojson::value& fields, Message& message)
         message.text += str_format("<a href='%s'>%s</a>", url.data(), photo_text.data());
     else
         message.text += str_format("<a href='%s'>%s</a>", url.data(), url.data());
-    append_thumbnail_placeholder(thumbnail, message);
+    append_thumbnail_placeholder(thumbnail, message, options);
 }
 
-void process_video_attachment(const picojson::value& fields, Message& message)
+void process_video_attachment(const picojson::value& fields, Message& message,
+                              const VkOptions& options)
 {
     if (!field_is_present<double>(fields, "id") || !field_is_present<double>(fields, "owner_id")
             || !field_is_present<string>(fields, "title") || !field_is_present<string>(fields, "photo_320")) {
@@ -402,7 +408,7 @@ void process_video_attachment(const picojson::value& fields, Message& message)
     message.text += str_format("<a href='https://vk.com/video%lld_%llu'>%s</a>",
                                (long long)owner_id, (unsigned long long)id, title.data());
 
-    append_thumbnail_placeholder(thumbnail, message);
+    append_thumbnail_placeholder(thumbnail, message, options);
 }
 
 void process_audio_attachment(const picojson::value& fields, Message& message)
@@ -420,7 +426,8 @@ void process_audio_attachment(const picojson::value& fields, Message& message)
     message.text += str_format("<a href='%s'>%s - %s</a>", url.data(), artist.data(), title.data());
 }
 
-void process_doc_attachment(const picojson::value& fields, Message& message)
+void process_doc_attachment(const picojson::value& fields, Message& message,
+                            const VkOptions& options)
 {
     if (!field_is_present<string>(fields, "url") || !field_is_present<string>(fields, "title")) {
         vkcom_debug_error("Strange attachment in response from messages.get "
@@ -435,7 +442,7 @@ void process_doc_attachment(const picojson::value& fields, Message& message)
     // Check if we've got a thumbnail.
     if (field_is_present<string>(fields, "photo_130")) {
         const string& thumbnail = fields.get("photo_130").get<string>();
-        append_thumbnail_placeholder(thumbnail, message);
+        append_thumbnail_placeholder(thumbnail, message, options);
     }
 }
 
@@ -492,7 +499,8 @@ void process_wall_attachment(PurpleConnection* gc, const picojson::value& fields
     }
 }
 
-void process_link_attachment(const picojson::value& fields, Message& message)
+void process_link_attachment(const picojson::value& fields, Message& message,
+                             const VkOptions& options)
 {
     if (!field_is_present<string>(fields, "url")) {
         vkcom_debug_error("Strange attachment in response from messages.get "
@@ -525,7 +533,7 @@ void process_link_attachment(const picojson::value& fields, Message& message)
     }
 
     if (!image_src.empty())
-        append_thumbnail_placeholder(image_src, message);
+        append_thumbnail_placeholder(image_src, message, options);
 }
 
 void process_album_attachment(const picojson::value& fields, Message& message)
@@ -544,7 +552,8 @@ void process_album_attachment(const picojson::value& fields, Message& message)
     message.text += str_format("%s: <a href='%s'>%s</a>", i18n("Album"), url.data(), title.data());
 }
 
-void process_sticker_attachment(const picojson::value& fields, Message& message)
+void process_sticker_attachment(const picojson::value& fields, Message& message,
+                                const VkOptions& options)
 {
     if (!field_is_present<string>(fields, "photo_64")) {
         vkcom_debug_error("Strange attachment in response from messages.get "
@@ -553,10 +562,11 @@ void process_sticker_attachment(const picojson::value& fields, Message& message)
     }
     const string& thumbnail = fields.get("photo_64").get<string>();
 
-    append_thumbnail_placeholder(thumbnail, message, false);
+    append_thumbnail_placeholder(thumbnail, message, options, false);
 }
 
-void append_thumbnail_placeholder(const string& thumbnail_url, Message& message, bool prepend_br)
+void append_thumbnail_placeholder(const string& thumbnail_url, Message& message,
+                                  const VkOptions& options, bool prepend_br)
 {
     // Append the image placeholder only when the message will not be stored directly to log,
     // otherwise the image will not be shown anyway.
@@ -566,8 +576,14 @@ void append_thumbnail_placeholder(const string& thumbnail_url, Message& message,
         // We will download the image later and replace the placeholder.
         if (!message.text.empty() || prepend_br)
             message.text += "<br>";
-        message.text += str_format("<thumbnail-placeholder-%zu>", message.thumbnail_urls.size());
-        message.thumbnail_urls.push_back(thumbnail_url);
+        if (options.enable_webkit_workarounds) {
+            // Webkit ignores <img id=>, but recognizes <img src=>. Do not download thumbnails
+            // at all and append <img src=> instead.
+            message.text += str_format("<img src=\"%s\" width=\"100%%\">", thumbnail_url.data());
+        } else {
+            message.text += str_format("<thumbnail-placeholder-%zu>", message.thumbnail_urls.size());
+            message.thumbnail_urls.push_back(thumbnail_url);
+        }
     }
 }
 
