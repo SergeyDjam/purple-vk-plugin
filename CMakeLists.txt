@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 2.6)
+cmake_minimum_required(VERSION 2.8.6)
 
 project(purple-vk-plugin)
 
@@ -179,4 +179,28 @@ if(UNIX AND NOT APPLE)
   install(TARGETS ${PROJECT_NAME} DESTINATION ${PURPLE_PLUGIN_DIR})
   install(DIRECTORY "data/protocols" DESTINATION "share/pixmaps/pidgin")
   install(DIRECTORY "data/smileys/vk" DESTINATION "share/pixmaps/pidgin/emotes")
+endif()
+
+# Translations. Supported only on Linux for now.
+
+if(UNIX)
+  find_package(Gettext REQUIRED)
+
+  set(POT_FILE data/i18n/${PROJECT_NAME}.pot)
+  set(PO_FILES
+    data/i18n/ru.po
+  )
+
+  # Add custom target for running xgettext. xgettext runs in almost no time, so add
+  # add it to ALL target.
+  set(XGETTEXT_OPTIONS --language=C++ --add-comments=i18n --keyword=i18n --no-location --package-name=${PROJECT_NAME})
+  add_custom_command(OUTPUT ${POT_FILE}
+    COMMAND xgettext ${XGETTEXT_OPTIONS} -o ${POT_FILE} ${SOURCES}
+    DEPENDS ${SOURCES}
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+    COMMENT "Extract translatable messages to ${POT_FILE}"
+  )
+  add_custom_target(extractpot ALL DEPENDS ${POT_FILE})
+
+  gettext_create_translations(${POT_FILE} ALL ${PO_FILES})
 endif()

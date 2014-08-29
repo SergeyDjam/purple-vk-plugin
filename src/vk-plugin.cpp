@@ -824,6 +824,12 @@ PurplePluginInfo info = {
 
 void vkcom_prpl_init(PurplePlugin*)
 {
+    // Specify locale path and encoding.
+    char* locale_path = g_build_filename(get_data_dir().data(), "locale", nullptr);
+    bindtextdomain("purple-vk-plugin", locale_path);
+    bind_textdomain_codeset("purple-vk-plugin", "utf-8");
+    g_free(locale_path);
+
     // Options, listed on "Advanced" page when creating or modifying account.
     PurpleAccountOption *option;
     option = purple_account_option_bool_new(i18n("Show only friends in buddy list"),
@@ -834,11 +840,11 @@ void vkcom_prpl_init(PurplePlugin*)
                                             "chats_in_blist", true);
     prpl_info.protocol_options = g_list_append(prpl_info.protocol_options, option);
 
-    option = purple_account_option_bool_new(i18n("Do not mark messages as read when away"),
+    option = purple_account_option_bool_new(i18n("Mark messages as read only when status is Online"),
                                             "mark_as_read_online_only", true);
     prpl_info.protocol_options = g_list_append(prpl_info.protocol_options, option);
 
-    option = purple_account_option_bool_new(i18n("Imitate using mobile client"),
+    option = purple_account_option_bool_new(i18n("Show this client as mobile client"),
                                             "imitate_mobile_client", false);
     prpl_info.protocol_options = g_list_append(prpl_info.protocol_options, option);
 

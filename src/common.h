@@ -11,9 +11,11 @@
 #include <chrono>
 #include <cstdio>
 #include <functional>
+#include <libintl.h>
 #include <memory>
 #include <string>
 #include <vector>
+
 
 // Let's make using most popular names easier.
 using std::shared_ptr;
@@ -157,7 +159,7 @@ std::chrono::seconds::rep to_seconds(T duration)
 
 // I18n
 
-#define i18n(x) (x)
+#define i18n(x) dgettext("purple-vk-plugin", x)
 
 // Debugging macros
 

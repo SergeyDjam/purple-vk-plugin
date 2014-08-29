@@ -1,0 +1,215 @@
+# Russian translations for purple-vk-plugin package
+# Английские переводы для пакета purple-vk-plugin.
+# Copyright (C) 2014 THE purple-vk-plugin'S COPYRIGHT HOLDER
+# This file is distributed under the same license as the purple-vk-plugin package.
+# oleg <OlegOAndreev@yandex.ru>, 2014.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: purple-vk-plugin\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2014-08-29 13:48+0400\n"
+"PO-Revision-Date: 2014-08-29 13:13+0400\n"
+"Last-Translator: oleg <OlegOAndreev@yandex.ru>\n"
+"Language-Team: Russian\n"
+"Language: ru\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=3; plural=(n%10==1 && n%100!=11 ? 0 : n%10>=2 && n"
+"%10<=4 && (n%100<10 || n%100>=20) ? 1 : 2);\n"
+
+#, c-format
+msgid "%s (you)"
+msgstr ""
+
+msgid "Album"
+msgstr ""
+
+msgid "Are you classified as human?"
+msgstr ""
+
+msgid "Authentication process failed"
+msgstr ""
+
+msgid "Birthdate"
+msgstr ""
+
+msgid "Cancel"
+msgstr ""
+
+msgid "Captcha"
+msgstr ""
+
+msgid "Connecting"
+msgstr ""
+
+msgid "E-mail or telephone"
+msgstr ""
+
+msgid "Education"
+msgstr ""
+
+msgid "Error retrieving login confirmation page"
+msgstr ""
+
+msgid "Error retrieving login page"
+msgstr ""
+
+#, c-format
+msgid "Forwarded message (from %s on %s):\n"
+msgstr ""
+
+msgid "Group for buddies"
+msgstr "Группа для пользователей"
+
+msgid "Group for chats"
+msgstr "Группа для бесед"
+
+msgid "Internal auth error"
+msgstr ""
+
+msgid "Internal server error"
+msgstr ""
+
+msgid "Last seen"
+msgstr ""
+
+msgid "Mark messages as read only when status is Online"
+msgstr "Отмечать сообщения как прочитанные только при статусе Доступен"
+
+msgid "Mobile phone"
+msgstr ""
+
+msgid "Name"
+msgstr ""
+
+msgid "Nickname"
+msgstr ""
+
+msgid "Ok"
+msgstr ""
+
+msgid "Page"
+msgstr ""
+
+msgid "Please open https://vk.com in your browser and validate yourself"
+msgstr ""
+
+#, c-format
+msgid ""
+"Please open the following link in your browser:\n"
+"%s"
+msgstr ""
+
+msgid "Please validate yourself"
+msgstr ""
+
+#, c-format
+msgid "Sent file has already been uploaded and is permanently available at %s"
+msgstr ""
+
+#, c-format
+msgid "Sent file will be permanently available at %s"
+msgstr ""
+
+msgid "Show chats in buddy list"
+msgstr "Показывать в контакт-листе беседы"
+
+msgid "Show only friends in buddy list"
+msgstr "Показывать в контакт-листе только друзей"
+
+msgid "Show this client as mobile client"
+msgstr "Показывать данный клиент как мобильный"
+
+msgid "Status"
+msgstr ""
+
+msgid "Text"
+msgstr ""
+
+msgid "Unable retrieve online info"
+msgstr ""
+
+#, c-format
+msgid "Unable to add user %s"
+msgstr ""
+
+msgid "Unable to connect to Long Poll server"
+msgstr ""
+
+#, c-format
+msgid "Unable to find user %s"
+msgstr ""
+
+#, c-format
+msgid ""
+"Unable to find user %s. User name should be either idXXXXXX or nickname (i."
+"e. the last part of https://vk.com/nickname)"
+msgstr ""
+
+msgid "Unable to receive message"
+msgstr ""
+
+#, c-format
+msgid "Unable to remove user %s"
+msgstr ""
+
+msgid "Unable to retrieve buddy list"
+msgstr ""
+
+msgid "Unable to retrieve chat info"
+msgstr ""
+
+msgid "Unable to retrieve dialogs list"
+msgstr ""
+
+msgid "Unable to retrieve online info"
+msgstr ""
+
+msgid "Unable to set chat title"
+msgstr ""
+
+msgid "Unable to update user infos"
+msgstr ""
+
+msgid "Unknown attachement type "
+msgstr ""
+
+msgid "Updating data..."
+msgstr ""
+
+msgid "User is not a Vk.com user"
+msgstr ""
+
+msgid ""
+"User name should be either idXXXXXX or nickname (i.e. the last part of "
+"https://vk.com/nickname)"
+msgstr ""
+
+msgid "Uses mobile client"
+msgstr ""
+
+msgid "Validate yourself"
+msgstr ""
+
+msgid "Wrong username or password"
+msgstr ""
+
+msgid "add &lt;user&gt;: Add user to chat"
+msgstr ""
+
+msgid "on"
+msgstr ""
+
+msgid "posted"
+msgstr ""
+
+msgid "remove &lt;user&gt;: Remove user from chat"
+msgstr ""
+
+msgid "reposted"
+msgstr ""
+
+msgid "title &lt;title&gt;: Set chat title"
+msgstr ""
