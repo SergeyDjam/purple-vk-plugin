@@ -104,6 +104,7 @@ if(WIN32)
   # Link with libgcc and libstdc++ statically on Windows to ease the deployment.
   set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -static-libgcc -static-libstdc++")
 
+  list(APPEND EXTRA_LIBRARIES "intl")
   list(APPEND EXTRA_LIBRARIES "ws2_32")
 endif()
 
@@ -183,7 +184,7 @@ endif()
 
 # Translations. Supported only on Linux for now.
 
-if(UNIX)
+#if(UNIX)
   find_package(Gettext REQUIRED)
 
   set(POT_FILE data/i18n/${PROJECT_NAME}.pot)
@@ -203,4 +204,4 @@ if(UNIX)
   add_custom_target(extract-translations ALL DEPENDS ${POT_FILE})
 
   gettext_create_translations(${POT_FILE} ALL ${PO_FILES})
-endif()
+#endif()

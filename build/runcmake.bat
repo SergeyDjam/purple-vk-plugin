@@ -13,6 +13,7 @@ set PIDGINBINPATH=\src\pidgin-bin\
 :: The following mingw packages must be additionally installed:
 ::   mingw32-libiconv
 ::   mingw32-libz
+::   mingw32-gettext-dev
 ::
 :: Please check that msys-zlib is not installed, as it fucks up the linking process.
 ::

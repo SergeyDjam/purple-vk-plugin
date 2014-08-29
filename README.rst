@@ -89,6 +89,7 @@ https://build.opensuse.org/package/show/home:Dmitry_R:purple-vk-plugin/purple-vk
 * компилятор, поддерживающий C++11 (проверялось gcc 4.6, 4.7, 4.8, clang 3.2, 3.4)
 * libpurple >= 2.7
 * libxml2 >= 2.7
+* gettext
 
 Инструкции даются для свежих версий Ubuntu, но должны легко транслироватьс€ и на другие дистрибутивы Linux.
 
