@@ -194,7 +194,7 @@ endif()
 
   # Add custom target for running xgettext. xgettext runs in almost no time, so add
   # add it to ALL target.
-  set(XGETTEXT_OPTIONS --language=C++ --add-comments=i18n --keyword=i18n --no-location --no-wrap --omit-header)
+  set(XGETTEXT_OPTIONS --language=C++ --add-comments=i18n --keyword=i18n --no-location --no-wrap --omit-header --sort-output)
   add_custom_command(OUTPUT ${POT_FILE}
     COMMAND xgettext ${XGETTEXT_OPTIONS} -o ${POT_FILE} ${SOURCES}
     DEPENDS ${SOURCES}
