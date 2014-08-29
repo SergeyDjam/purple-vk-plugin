@@ -6,4 +6,4 @@ pkgdesc="Plugin for Pidgin, adding Vk.com support"
 url="http://bitbucket.org/olegoandreev/purple-vk-plugin"
 license='GPL3'
 depends='libpurple'
-makedepends='cmake'
+makedepends='cmake gettext'
