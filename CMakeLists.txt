@@ -193,14 +193,14 @@ if(UNIX)
 
   # Add custom target for running xgettext. xgettext runs in almost no time, so add
   # add it to ALL target.
-  set(XGETTEXT_OPTIONS --language=C++ --add-comments=i18n --keyword=i18n --no-location --package-name=${PROJECT_NAME})
+  set(XGETTEXT_OPTIONS --language=C++ --add-comments=i18n --keyword=i18n --no-location --no-wrap --omit-header)
   add_custom_command(OUTPUT ${POT_FILE}
     COMMAND xgettext ${XGETTEXT_OPTIONS} -o ${POT_FILE} ${SOURCES}
     DEPENDS ${SOURCES}
     WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
     COMMENT "Extract translatable messages to ${POT_FILE}"
   )
-  add_custom_target(extractpot ALL DEPENDS ${POT_FILE})
+  add_custom_target(extract-translations ALL DEPENDS ${POT_FILE})
 
   gettext_create_translations(${POT_FILE} ALL ${PO_FILES})
 endif()
