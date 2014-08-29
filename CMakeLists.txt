@@ -87,7 +87,7 @@ list(APPEND EXTRA_LIBRARIES ${ZLIB_LIBRARIES})
 # 
 # When compiling on Windows, specify LIBXML2_INCLUDE_DIR, LIBXML2_LIBRARY_DIRS and LIBXML2_LIBRARIES when calling CMake.
 if(UNIX)
-  include(FindLibXml2)
+  find_package(LibXml2 REQUIRED)
 endif()
 include_directories(${LIBXML2_INCLUDE_DIR})
 add_definitions(${LIBXML2_DEFINITIONS})
@@ -170,8 +170,13 @@ target_link_libraries(${PROJECT_NAME} ${EXTRA_LIBRARIES})
 
 # Install target for Linux (not tested on BSD)
 
-if (UNIX AND NOT APPLE)
+if(UNIX AND NOT APPLE)
+  # Default install prefix is /usr/local, change it to /usr
+  if(NOT DEFINED CMAKE_INSTALL_PREFIX_INITIALIZED_TO_DEFAULT)
+    set(CMAKE_INSTALL_PREFIX "/usr")
+  endif()
+
   install(TARGETS ${PROJECT_NAME} DESTINATION ${PURPLE_PLUGIN_DIR})
-  install(DIRECTORY "data/protocols" DESTINATION "/usr/share/pixmaps/pidgin")
-  install(DIRECTORY "data/smileys/vk" DESTINATION "/usr/share/pixmaps/pidgin/emotes")
+  install(DIRECTORY "data/protocols" DESTINATION "share/pixmaps/pidgin")
+  install(DIRECTORY "data/smileys/vk" DESTINATION "share/pixmaps/pidgin/emotes")
 endif()
