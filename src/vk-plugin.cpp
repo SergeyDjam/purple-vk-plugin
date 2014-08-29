@@ -180,7 +180,7 @@ PurpleCmdRet cmd_chat_add(PurpleConversation *conv, const char*, char** args, ch
     PurpleConnection* gc = purple_account_get_connection(purple_conversation_get_account(conv));
     call_func_for_user(gc, user_name.data(), [=] (uint64 user_id) {
         if (user_id == 0) {
-            const char* message = i18n("Unable to find user %s. User name should be either"
+            const char* message = i18n("User %s does not exist. User name should be either"
                                        " idXXXXXX or nickname (i.e. the last part of"
                                        " https://vk.com/nickname)");
             string error_msg = str_format(message, user_name.data());
@@ -209,7 +209,7 @@ PurpleCmdRet cmd_chat_remove(PurpleConversation *conv, const char*, char** args,
     PurpleConnection* gc = purple_account_get_connection(purple_conversation_get_account(conv));
     call_func_for_user(gc, user_name.data(), [=] (uint64 user_id) {
         if (user_id == 0) {
-            const char* message = i18n("Unable to find user %s. User name should be either"
+            const char* message = i18n("User %s does not exist. User name should be either"
                                        " idXXXXXX or nickname (i.e. the last part of"
                                        " https://vk.com/nickname)");
             string error_msg = str_format(message, user_name.data());
@@ -500,7 +500,7 @@ void vk_chat_invite(PurpleConnection* gc, int conv_id, const char*, const char* 
     call_func_for_user(gc, who, [=] (uint64 user_id) {
         if (user_id == 0) {
             PurpleConversation* conv = purple_find_chat(gc, conv_id);
-            const char* message = i18n("Unable to find user %s. User name should be either"
+            const char* message = i18n("User %s does not exist. User name should be either"
                                        " idXXXXXX or nickname (i.e. the last part of"
                                        " https://vk.com/nickname)");
             string error_msg = str_format(message, user_name.data());
@@ -660,8 +660,8 @@ void vk_add_buddy_with_invite(PurpleConnection* gc, PurpleBuddy* buddy, PurpleGr
         purple_blist_remove_buddy(buddy);
 
         if (user_id == 0) {
-            string title = str_format(i18n("Unable to find user %s"), buddy_name.data());
-            const char* message = i18n("User name should be either idXXXXXX or nickname"
+            string title = str_format(i18n("User %s does not exist"), buddy_name.data());
+            const char* message = i18n("User %s does not exist. User name should be either idXXXXXX or nickname"
                                        " (i.e. the last part of https://vk.com/nickname)");
             purple_notify_error(gc, title.data(), title.data(), message);
             return;

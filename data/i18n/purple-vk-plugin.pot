@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: purple-vk-plugin\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2014-08-29 13:48+0400\n"
+"POT-Creation-Date: 2014-08-29 14:18+0400\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -60,9 +60,6 @@ msgid "Unable to retrieve buddy list"
 msgstr ""
 
 msgid "Unable to retrieve dialogs list"
-msgstr ""
-
-msgid "Unable retrieve online info"
 msgstr ""
 
 msgid "Unable to retrieve online info"
@@ -144,7 +141,7 @@ msgstr ""
 
 #, c-format
 msgid ""
-"Unable to find user %s. User name should be either idXXXXXX or nickname (i."
+"User %s does not exist. User name should be either idXXXXXX or nickname (i."
 "e. the last part of https://vk.com/nickname)"
 msgstr ""
 
@@ -182,12 +179,7 @@ msgid "E-mail or telephone"
 msgstr ""
 
 #, c-format
-msgid "Unable to find user %s"
-msgstr ""
-
-msgid ""
-"User name should be either idXXXXXX or nickname (i.e. the last part of "
-"https://vk.com/nickname)"
+msgid "User %s does not exist"
 msgstr ""
 
 msgid "Show only friends in buddy list"

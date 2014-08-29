@@ -765,7 +765,7 @@ void update_friends_presence(PurpleConnection* gc, const SuccessCb& on_update_cb
             vkcom_debug_error("Strange response from friends.getOnline: %s\n",
                               result.serialize().data());
             purple_connection_error_reason(gc, PURPLE_CONNECTION_ERROR_NETWORK_ERROR,
-                                           i18n("Unable retrieve online info"));
+                                           i18n("Unable to retrieve online info"));
             return;
         }
 
@@ -778,7 +778,7 @@ void update_friends_presence(PurpleConnection* gc, const SuccessCb& on_update_cb
                 vkcom_debug_error("Strange response from friends.getOnline: %s\n",
                                   result.serialize().data());
                 purple_connection_error_reason(gc, PURPLE_CONNECTION_ERROR_NETWORK_ERROR,
-                                               i18n("Unable retrieve online info"));
+                                               i18n("Unable to retrieve online info"));
                 return;
             }
 
@@ -799,7 +799,7 @@ void update_friends_presence(PurpleConnection* gc, const SuccessCb& on_update_cb
                 vkcom_debug_error("Strange response from friends.getOnline: %s\n",
                                   result.serialize().data());
                 purple_connection_error_reason(gc, PURPLE_CONNECTION_ERROR_NETWORK_ERROR,
-                                               i18n("Unable retrieve online info"));
+                                               i18n("Unable to retrieve online info"));
                 return;
             }
 
