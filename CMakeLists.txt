@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 2.8.6)
+cmake_minimum_required(VERSION 2.8)
 
 project(purple-vk-plugin)
 
@@ -182,26 +182,57 @@ if(UNIX AND NOT APPLE)
   install(DIRECTORY "data/smileys/vk" DESTINATION "share/pixmaps/pidgin/emotes")
 endif()
 
-# Translations. Supported only on Linux for now.
+# Translations.
 
-#if(UNIX)
-  find_package(Gettext REQUIRED)
+find_package(Gettext REQUIRED)
 
-  set(POT_FILE data/i18n/${PROJECT_NAME}.pot)
-  set(PO_FILES
-    data/i18n/ru.po
-  )
+set(LANGUAGES ru)
+set(PO_DIR data/i18n)
 
-  # Add custom target for running xgettext. xgettext runs in almost no time, so add
-  # add it to ALL target.
-  set(XGETTEXT_OPTIONS --language=C++ --add-comments=i18n --keyword=i18n --no-location --no-wrap --omit-header --sort-output)
-  add_custom_command(OUTPUT ${POT_FILE}
-    COMMAND xgettext ${XGETTEXT_OPTIONS} -o ${POT_FILE} ${SOURCES}
-    DEPENDS ${SOURCES}
+# Add custom target "extract-pot" for running xgettext and msgmerge for all languages.
+set(POT_FILE ${PO_DIR}/${PROJECT_NAME}.pot)
+set(XGETTEXT_OPTIONS --language=C++ --add-comments=i18n --keyword=i18n --no-location --no-wrap --omit-header --sort-output)
+add_custom_command(OUTPUT ${POT_FILE}
+  COMMAND xgettext ${XGETTEXT_OPTIONS} -o ${POT_FILE} ${SOURCES}
+  DEPENDS ${SOURCES}
+  WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+  COMMENT "Extract translatable messages to ${POT_FILE}"
+)
+
+# We do not want to call these commands each time on every build due to the dependency
+# from po -> gmo compilation process, so we use phony targets instead of the proper
+# OUTPUT in add_custom_command
+set(PO_FILE_TARGETS)
+set(MSGMERGE_OPTIONS --quiet --update --backup=none --no-wrap)
+foreach(lang ${LANGUAGES})
+  set(PO_FILE ${PO_DIR}/${lang}.po)
+  add_custom_target(phony-${lang}-po
+    COMMAND ${GETTEXT_MSGMERGE_EXECUTABLE} ${MSGMERGE_OPTIONS} -s ${PO_FILE} ${POT_FILE}
+    DEPENDS ${POT_FILE}
     WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
-    COMMENT "Extract translatable messages to ${POT_FILE}"
+    COMMENT "Merging translatable messages to ${PO_FILE}"
   )
-  add_custom_target(extract-translations ALL DEPENDS ${POT_FILE})
+  list(APPEND PO_FILE_TARGETS phony-${lang}-po)
+endforeach()
 
-  gettext_create_translations(${POT_FILE} ALL ${PO_FILES})
-#endif()
+add_custom_target(extract-pot DEPENDS ${PO_FILE_TARGETS})
+
+# Po -> gmo compiles are performed during each build.
+set(GMO_FILES)
+foreach(lang ${LANGUAGES})
+  set(PO_FILE ${PO_DIR}/${lang}.po)
+  set(GMO_FILE ${CMAKE_CURRENT_BINARY_DIR}/${lang}.gmo)
+  add_custom_command(OUTPUT ${GMO_FILE}
+    COMMAND ${GETTEXT_MSGFMT_EXECUTABLE} -o ${GMO_FILE} ${PO_FILE}
+    DEPENDS ${PO_FILE}
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+    COMMENT "Compiling translatable messages to ${GMO_FILE}"
+  )
+  list(APPEND GMO_FILES ${GMO_FILE})
+
+  if(UNIX)
+    install(FILES ${GMO_FILE} DESTINATION "share/locale/${lang}/LC_MESSAGES/" RENAME ${PROJECT_NAME}.mo)
+  endif()
+endforeach()
+
+add_custom_target(gmofiles ALL DEPENDS ${GMO_FILES})
