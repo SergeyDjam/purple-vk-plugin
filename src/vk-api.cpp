@@ -1,6 +1,7 @@
 #include <request.h>
 
 #include "contrib/purple/http.h"
+#include "contutils.h"
 #include "strutils.h"
 
 #include "vk-common.h"
@@ -305,7 +306,7 @@ void vk_call_api_ids_impl(PurpleConnection* gc, const char* method_name, const C
                           const CallFinishedCb& call_finished_cb, const CallErrorCb& error_cb, size_t offset)
 {
     size_t num = max_urlencoded_int(id_values->data() + offset, id_values->data() + id_values->size());
-    string ids_str = str_concat_int(',', id_values->begin() + offset, id_values->begin() + offset + num);
+    string ids_str = str_concat_int(',', itrange_n(id_values->begin() + offset, num));
     add_or_replace_call_param(*params, id_param_name, ids_str.data());
 
     vk_call_api(gc, method_name, *params, [=](const picojson::value& v) {

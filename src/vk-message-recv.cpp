@@ -154,7 +154,7 @@ void receive_messages_impl(PurpleConnection* gc, const vector<uint64>& message_i
     data->received_cb = nullptr;
 
     size_t num = max_urlencoded_int(message_ids.data() + offset, message_ids.data() + message_ids.size());
-    string ids_str = str_concat_int(',', message_ids.begin() + offset, message_ids.begin() + offset + num);
+    string ids_str = str_concat_int(',', itrange_n(message_ids.begin() + offset, num));
     CallParams params = { {"message_ids", ids_str} };
     vk_call_api_items(data->gc, "messages.getById", params, false, [=](const picojson::value& message) {
         process_message(data, message);

@@ -112,23 +112,16 @@ private:
 // Miscellaneous string functions
 
 // Creates string of integers, separated by sep.
-template<typename Sep, typename It>
-string str_concat_int(Sep sep, It first, It last)
+template<typename Sep, typename Range>
+string str_concat_int(Sep sep, const Range& r)
 {
     string s;
-    for (It it = first; it != last; it++) {
+    for (const auto& i: r) {
         if (!s.empty())
             s += sep;
-        s += to_string(*it);
+        s += to_string(i);
     }
     return s;
-}
-
-// Version of str_concat_int, which accepts container.
-template<typename Sep, typename C>
-string str_concat_int(Sep sep, const C& c)
-{
-    return str_concat_int(sep, c.cbegin(), c.cend());
 }
 
 // Miscellaneous ontainer functions
