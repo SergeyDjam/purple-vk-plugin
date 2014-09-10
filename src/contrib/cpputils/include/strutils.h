@@ -63,25 +63,19 @@ void str_replace(std::string& s, const std::string& from, const std::string& to)
 
 // Concat functions
 
-// Concatenates strings into one string, separating them with given separator like "smth".join() in Python.
-// ForwardIt must be a forward iterator, pointing to std::string (or an object which has length() method and
+// Concatenates strings into one string, separating them with given separator like "smth".join()
+// in Python. Range must be a range, pointing to std::string or any other object which has
 // operator += with std::string).
-template<typename Sep, typename ForwardIt>
-inline std::string str_concat(const Sep& sep, ForwardIt first, ForwardIt last)
+template<typename Sep, typename Range>
+inline std::string str_concat(const Sep& sep, const Range& range)
 {
     std::string ret;
-    for (ForwardIt it = first; it != last; ++it) {
+    for (const auto& s: range) {
         if (!ret.empty())
             ret += sep;
-        ret += *it;
+        ret += s;
     }
     return ret;
-}
-
-template<typename Sep, typename Cont>
-inline std::string str_concat(const Sep& sep, const Cont& cont)
-{
-    return str_concat(sep, cont.cbegin(), cont.cend());
 }
 
 // Split functions

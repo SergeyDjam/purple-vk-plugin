@@ -420,7 +420,8 @@ const T* Trie<T>::match_impl(const char* key, size_t offset, const Trie::Node* n
                 return match;
             } else {
                 // No longer matches have been found, return the current match.
-                *length = offset;
+                if (length)
+                    *length = offset;
                 return child_zero->value();
             }
         } else {
