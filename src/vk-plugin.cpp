@@ -844,6 +844,10 @@ void vkcom_prpl_init(PurplePlugin*)
                                             "mark_as_read_online_only", true);
     prpl_info.protocol_options = g_list_append(prpl_info.protocol_options, option);
 
+    option = purple_account_option_bool_new(i18n("Mark messages as read only when replying"),
+                                            "mark_as_read_replying_only", false);
+    prpl_info.protocol_options = g_list_append(prpl_info.protocol_options, option);
+
     option = purple_account_option_bool_new(i18n("Show this client as mobile client"),
                                             "imitate_mobile_client", false);
     prpl_info.protocol_options = g_list_append(prpl_info.protocol_options, option);

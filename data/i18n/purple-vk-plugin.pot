@@ -54,6 +54,9 @@ msgstr ""
 msgid "Last seen"
 msgstr ""
 
+msgid "Mark messages as read only when replying"
+msgstr ""
+
 msgid "Mark messages as read only when status is Online"
 msgstr ""
 

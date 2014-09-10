@@ -911,8 +911,8 @@ void mark_message_as_read(PurpleConnection* gc, const vector<VkReceivedMessage>&
 {
     VkData& gc_data = get_data(gc);
 
-    // Check if we should defer all messages, because we are Away.
-    if (is_away(gc)) {
+    // Check if we should defer all messages, because we are Away or mark as read only on user action.
+    if (is_away(gc) || gc_data.options().mark_as_read_replying_only) {
         append(gc_data.deferred_mark_as_read, messages);
         return;
     }
@@ -935,10 +935,10 @@ void mark_message_as_read(PurpleConnection* gc, const vector<VkReceivedMessage>&
 
 void mark_deferred_messages_as_read(PurpleConnection* gc, bool active)
 {
-    if (is_away(gc) && !active)
+    VkData& gc_data = get_data(gc);
+    if ((is_away(gc) || gc_data.options().mark_as_read_replying_only) && !active)
         return;
 
-    VkData& gc_data = get_data(gc);
     vector<uint64> message_ids;
     PurpleConversation* conv = find_active_conv(gc);
     uint64 active_user_id;

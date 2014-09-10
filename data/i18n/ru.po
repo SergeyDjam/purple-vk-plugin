@@ -73,6 +73,9 @@ msgstr "Внутренняя ошибка сервера"
 msgid "Last seen"
 msgstr "Последний раз был(а)"
 
+msgid "Mark messages as read only when replying"
+msgstr "Отмечать сообщения как прочитанные только при ответе"
+
 msgid "Mark messages as read only when status is Online"
 msgstr "Отмечать сообщения как прочитанные только при статусе Доступен"
 

@@ -171,6 +171,8 @@ VkData::VkData(PurpleConnection* gc, const string& email, const string& password
     m_options.chats_in_blist = purple_account_get_bool(account, "chats_in_blist", true);
     m_options.mark_as_read_online_only = purple_account_get_bool(account,
                                                                  "mark_as_read_online_only", true);
+    m_options.mark_as_read_replying_only = purple_account_get_bool(account,
+                                                                 "mark_as_read_replying_only", false);
     m_options.imitate_mobile_client = purple_account_get_bool(account,
                                                               "imitate_mobile_client", false);
     m_options.blist_default_group = purple_account_get_string(account, "blist_default_group", "");
