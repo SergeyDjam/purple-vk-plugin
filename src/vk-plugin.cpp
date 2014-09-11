@@ -390,7 +390,7 @@ void vk_get_info(PurpleConnection* gc, const char* who)
         return;
     }
 
-    http_get(gc, user_info->photo_max.data(),
+    http_get(gc, user_info->photo_max,
     [=](PurpleHttpConnection*, PurpleHttpResponse* response) {
         if (purple_http_response_is_successful(response)) {
             size_t size;

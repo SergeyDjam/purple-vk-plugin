@@ -972,7 +972,7 @@ void find_active_ids(PurpleConversation* conv, uint64* user_id, uint64* chat_id)
     *user_id = user_id_from_name(name, true);
     *chat_id = chat_id_from_name(name, true);
 
-    if (user_id == 0 && chat_id == 0)
+    if (*user_id == 0 && *chat_id == 0)
         vkcom_debug_info("Unknown conversation open: %s\n", name);
 }
 
