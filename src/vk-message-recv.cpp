@@ -92,6 +92,8 @@ void process_link_attachment(const picojson::value& fields, Message& message, co
 void process_album_attachment(const picojson::value& fields, Message& message);
 // Processes sticker attachment.
 void process_sticker_attachment(const picojson::value& fields, Message& message, const VkOptions& options);
+// Processes gift attachment.
+void process_gift_attachment(const picojson::value& fields, Message& message, const VkOptions& options);
 
 // Appends specific thumbnail placeholder to the end of message text. Placeholder will be replaced
 // by actual image later in download_thumbnail(). If prepend_br is false, <br> is prepended only
@@ -313,6 +315,8 @@ void process_attachments(PurpleConnection* gc, const picojson::array& items, Mes
             process_album_attachment(fields, message);
         } else if (type == "sticker") {
             process_sticker_attachment(fields, message, options);
+        } else if (type == "gift") {
+            process_gift_attachment(fields, message, options);
         } else {
             vkcom_debug_error("Strange attachment in response from messages.get "
                                "or messages.getById: type %s, %s\n", type.data(), fields.serialize().data());
@@ -561,6 +565,24 @@ void process_sticker_attachment(const picojson::value& fields, Message& message,
         return;
     }
     const string& thumbnail = fields.get("photo_64").get<string>();
+
+    append_thumbnail_placeholder(thumbnail, message, options, false);
+}
+
+void process_gift_attachment(const picojson::value& fields, Message& message, const VkOptions& options)
+{
+    string thumbnail;
+    if (field_is_present<string>(fields, "thumb_256"))
+        thumbnail = fields.get("thumb_256").get<string>();
+    else if (field_is_present<string>(fields, "thumb_96"))
+        thumbnail = fields.get("thumb_96").get<string>();
+    else if (field_is_present<string>(fields, "thumb_48"))
+        thumbnail = fields.get("thumb_48").get<string>();
+    if (thumbnail.empty()) {
+        vkcom_debug_error("Strange attachment in response from messages.get "
+                           "or messages.getById: %s\n", fields.serialize().data());
+        return;
+    }
 
     append_thumbnail_placeholder(thumbnail, message, options, false);
 }
