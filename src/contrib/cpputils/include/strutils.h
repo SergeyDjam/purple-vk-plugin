@@ -82,15 +82,15 @@ inline std::string str_concat(const Sep& sep, const Range& range)
 
 // Returns the first and last part of the string before and after first separator in input string. If separator
 // is not present in the string, last is set to empty. first and/or last can be null. Separator is not included
-// in either of the output strings.
-void str_lsplit(const char* s, char sep, std::string* first, std::string* last);
-void str_lsplit(const std::string& s, char sep, std::string* first, std::string* last);
+// in either of the output strings. Returns true if sep was found in s (split actually occured), false otherwise.
+bool str_lsplit(const char* s, char sep, std::string* first, std::string* last);
+bool str_lsplit(const std::string& s, char sep, std::string* first, std::string* last);
 
 // Returns the first and last part of the string before and after last separator in input string. If separator
 // is not present in the string, last is set to empty. first and/or last can be null. Separator is not included
-// in either of the output strings.
-void str_rsplit(const char* s, char sep, std::string* first, std::string* last);
-void str_rsplit(const std::string& s, char sep, std::string* first, std::string* last);
+// in either of the output strings. Returns true if sep was found in s (split actually occured), false otherwise.
+bool str_rsplit(const char* s, char sep, std::string* first, std::string* last);
+bool str_rsplit(const std::string& s, char sep, std::string* first, std::string* last);
 
 // Generic split function, calls passed function on std::string of each split. func must accept
 // either std::string or const std::string&

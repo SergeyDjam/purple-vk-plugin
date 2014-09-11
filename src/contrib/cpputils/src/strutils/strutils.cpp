@@ -195,7 +195,7 @@ void str_replace(std::string& s, const std::string& from, const std::string& to)
 }
 
 
-static void str_split_impl(const char* s, const char* split_pos, std::string* first, std::string* last)
+static bool str_split_impl(const char* s, const char* split_pos, std::string* first, std::string* last)
 {
     if (split_pos) {
         if (first) {
@@ -206,38 +206,40 @@ static void str_split_impl(const char* s, const char* split_pos, std::string* fi
             last->clear();
             last->append(split_pos + 1);
         }
+        return true;
     } else {
         if (first)
             *first = s;
         if (last)
             last->clear();
+        return false;
     }
 }
 
 
-void str_lsplit(const char* s, char sep, std::string* first, std::string* last)
+bool str_lsplit(const char* s, char sep, std::string* first, std::string* last)
 {
     const char* first_sep = strchr(s, sep);
-    str_split_impl(s, first_sep, first, last);
+    return str_split_impl(s, first_sep, first, last);
 }
 
 
-void str_lsplit(const std::string& s, char sep, std::string* first, std::string* last)
+bool str_lsplit(const std::string& s, char sep, std::string* first, std::string* last)
 {
-    str_lsplit(s.c_str(), sep, first, last);
+    return str_lsplit(s.c_str(), sep, first, last);
 }
 
 
-void str_rsplit(const char* s, char sep, std::string* first, std::string* last)
+bool str_rsplit(const char* s, char sep, std::string* first, std::string* last)
 {
     const char* last_sep = strrchr(s, sep);
-    str_split_impl(s, last_sep, first, last);
+    return str_split_impl(s, last_sep, first, last);
 }
 
 
-void str_rsplit(const std::string& s, char sep, std::string* first, std::string* last)
+bool str_rsplit(const std::string& s, char sep, std::string* first, std::string* last)
 {
-    str_rsplit(s.c_str(), sep, first, last);
+    return str_rsplit(s.c_str(), sep, first, last);
 }
 
 
