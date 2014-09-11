@@ -54,6 +54,9 @@ msgstr ""
 msgid "Last seen"
 msgstr ""
 
+msgid "Location on OpenStreetMap"
+msgstr ""
+
 msgid "Mark messages as read only when replying"
 msgstr ""
 
@@ -172,6 +175,15 @@ msgid "add &lt;user&gt;: Add user to chat"
 msgstr ""
 
 msgid "on"
+msgstr ""
+
+msgid "on Google maps"
+msgstr ""
+
+msgid "on OpenStreetMap"
+msgstr ""
+
+msgid "on Yandex maps"
 msgstr ""
 
 msgid "posted"

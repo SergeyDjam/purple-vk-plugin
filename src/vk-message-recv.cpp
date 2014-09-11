@@ -94,6 +94,8 @@ void process_album_attachment(const picojson::value& fields, Message& message);
 void process_sticker_attachment(const picojson::value& fields, Message& message, const VkOptions& options);
 // Processes gift attachment.
 void process_gift_attachment(const picojson::value& fields, Message& message, const VkOptions& options);
+// Processes geo: appends link to the map.
+void process_geo(const picojson::value& fields, Message& message);
 
 // Appends specific thumbnail placeholder to the end of message text. Placeholder will be replaced
 // by actual image later in download_thumbnail(). If prepend_br is false, <br> is prepended only
@@ -276,6 +278,9 @@ void process_message(const MessagesData_ptr& data, const picojson::value& fields
         for (const picojson::value& m: fwd_messages)
             process_fwd_message(data->gc, m, message);
     }
+    if (field_is_present<picojson::object>(fields, "geo"))
+        process_geo(fields.get("geo"), message);
+
     data->messages.push_back(std::move(message));
 }
 
@@ -353,6 +358,8 @@ void process_fwd_message(PurpleConnection* gc, const picojson::value& fields, Me
 
     if (field_is_present<picojson::array>(fields, "attachments"))
         process_attachments(gc, fields.get("attachments").get<picojson::array>(), message);
+    if (field_is_present<picojson::object>(fields, "geo"))
+        process_geo(fields.get("geo"), message);
 }
 
 void process_photo_attachment(const picojson::value& fields, Message& message,
@@ -496,6 +503,9 @@ void process_wall_attachment(PurpleConnection* gc, const picojson::value& fields
     if (field_is_present<picojson::array>(fields, "attachments"))
         process_attachments(gc, fields.get("attachments").get<picojson::array>(), message);
 
+    if (field_is_present<picojson::object>(fields, "geo"))
+        process_geo(fields.get("geo"), message);
+
     if (field_is_present<picojson::array>(fields, "copy_history")) {
         const picojson::array& a = fields.get("copy_history").get<picojson::array>();
         for (const picojson::value& v: a)
@@ -585,6 +595,67 @@ void process_gift_attachment(const picojson::value& fields, Message& message, co
     }
 
     append_thumbnail_placeholder(thumbnail, message, options, false);
+}
+
+
+void process_geo(const picojson::value& fields, Message& message)
+{
+    if (!field_is_present<string>(fields, "coordinates")) {
+        vkcom_debug_error("Strange geo in response from messages.get "
+                          "or messages.getById: %s\n", fields.serialize().data());
+        return;
+    }
+    const string& coordinates = fields.get("coordinates").get<string>();
+    string latitude;
+    string longitude;
+    if (!str_lsplit(coordinates, ' ', &latitude, &longitude)) {
+        vkcom_debug_error("Strange geo in response from messages.get "
+                          "or messages.getById: %s\n", fields.serialize().data());
+        return;
+    }
+
+    if (!message.text.empty())
+        message.text += "<br>";
+
+    string description;
+    if (field_is_present<picojson::object>(fields, "place")) {
+        const picojson::value& place = fields.get("place");
+        if (field_is_present<string>(place, "title")) {
+            description = place.get("title").get<string>();
+        } else {
+            if (field_is_present<string>(place, "country")) {
+                if (!description.empty())
+                    description += ", ";
+                description += place.get("country").get<string>();
+            }
+            if (field_is_present<string>(place, "city")) {
+                if (!description.empty())
+                    description += ", ";
+                description += place.get("city").get<string>();
+            }
+        }
+    }
+
+    // 12 is the zoom level, if we do not specify the last part, openstreetmap will open on the last browsed
+    // position
+    string openstreetmap_url = str_format("http://www.openstreetmap.org/search?query=%s %s#map=12/%s/%s",
+                                          latitude.data(), longitude.data(), latitude.data(),
+                                          longitude.data());
+    string google_maps_url = str_format("http://maps.google.com/maps?q=%s+%s" ,
+                                        latitude.data(), longitude.data());
+    string yandex_maps_url = str_format("http://maps.yandex.ru/?text=%s,%s" ,
+                                        latitude.data(), longitude.data());
+
+    if (description.empty())
+        message.text += str_format("<a href='%s'>%s</a>", openstreetmap_url.data(),
+                                   i18n("Location on OpenStreetMap"));
+    else
+        message.text += str_format("<a href='%s'>%s %s</a>", openstreetmap_url.data(), description.data(),
+                                   i18n("on OpenStreetMap"));
+    message.text += str_format(", <a href='%s'>%s</a>", yandex_maps_url.data(),
+                             i18n("on Yandex maps"));
+    message.text += str_format(", <a href='%s'>%s</a>", google_maps_url.data(),
+                             i18n("on Google maps"));
 }
 
 void append_thumbnail_placeholder(const string& thumbnail_url, Message& message,

@@ -73,6 +73,9 @@ msgstr "Внутренняя ошибка сервера"
 msgid "Last seen"
 msgstr "Последний раз был(а)"
 
+msgid "Location on OpenStreetMap"
+msgstr "Место на OpenStreetMap"
+
 msgid "Mark messages as read only when replying"
 msgstr "Отмечать сообщения как прочитанные только при ответе"
 
@@ -194,6 +197,15 @@ msgstr "add &lt;user&gt;: Добавить пользователя в чат"
 
 msgid "on"
 msgstr ""
+
+msgid "on Google maps"
+msgstr "на Google maps"
+
+msgid "on OpenStreetMap"
+msgstr "на OpenStreetMap"
+
+msgid "on Yandex maps"
+msgstr "на Яндекс.картах"
 
 msgid "posted"
 msgstr "запостил(а)"
