@@ -185,6 +185,7 @@ endif()
 # Translations.
 
 find_package(Gettext REQUIRED)
+find_program(XGETTEXT_EXECUTABLE NAMES xgettext)
 
 set(LANGUAGES ru)
 set(PO_DIR data/i18n)
@@ -193,7 +194,7 @@ set(PO_DIR data/i18n)
 set(POT_FILE ${PO_DIR}/${PROJECT_NAME}.pot)
 set(XGETTEXT_OPTIONS --language=C++ --add-comments=i18n --keyword=i18n --no-location --no-wrap --omit-header --sort-output)
 add_custom_command(OUTPUT ${POT_FILE}
-  COMMAND xgettext ${XGETTEXT_OPTIONS} -o ${POT_FILE} ${SOURCES}
+  COMMAND ${XGETTEXT_EXECUTABLE} ${XGETTEXT_OPTIONS} -o ${POT_FILE} ${SOURCES}
   DEPENDS ${SOURCES}
   WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
   COMMENT "Extract translatable messages to ${POT_FILE}"
