@@ -162,9 +162,15 @@ VkData::VkData(PurpleConnection* gc, const string& email, const string& password
 {
     PurpleAccount* account = purple_connection_get_account(m_gc);
 
-    m_access_token = purple_account_get_string(account, "access_token", "");
-    // Ids are 64-bit integers, so let's store this id in a string representation.
-    m_self_user_id = atoll(purple_account_get_string(account, "self_user_id", "0"));
+    // Check if the permissions, for which we received the last token are the same as the ones
+    // we need now (the re-auth is required if this is not the case).
+    if (g_str_equal(purple_account_get_string(account, "access_token_permissions", ""),
+                   VK_PERMISSIONS))
+    {
+        m_access_token = purple_account_get_string(account, "access_token", "");
+        // Ids are 64-bit integers, so let's store this id in a string representation.
+        m_self_user_id = atoll(purple_account_get_string(account, "self_user_id", "0"));
+    }
 
     m_options.only_friends_in_blist = purple_account_get_bool(account,
                                                               "only_friends_in_blist", false);
@@ -203,6 +209,7 @@ VkData::~VkData()
 {
     PurpleAccount* account = purple_connection_get_account(m_gc);
 
+    purple_account_set_string(account, "access_token_permissions", VK_PERMISSIONS);
     purple_account_set_string(account, "access_token", m_access_token.data());
     purple_account_set_string(account, "self_user_id", to_string(m_self_user_id).data());
 
