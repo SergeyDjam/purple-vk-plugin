@@ -434,7 +434,7 @@ void vk_set_status(PurpleAccount* account, PurpleStatus* status)
     PurpleStatusPrimitive primitive_status = purple_status_type_get_primitive(
                                                 purple_status_get_type(status));
     if (primitive_status == PURPLE_STATUS_AVAILABLE)
-        mark_deferred_messages_as_read(purple_account_get_connection(account), true);
+        mark_deferred_messages_as_read(purple_account_get_connection(account), false);
     update_status(purple_account_get_connection(account));
 }
 
