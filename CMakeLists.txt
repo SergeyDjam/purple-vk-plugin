@@ -237,3 +237,44 @@ foreach(lang ${LANGUAGES})
 endforeach()
 
 add_custom_target(gmofiles ALL DEPENDS ${GMO_FILES})
+
+# Separate target for running cppcheck. Running cppcheck from CMake projects is easier
+# because all the defines/includes are readily available. This also makes integration
+# in QtCreator super-easy (just add another build target, the output format is the same
+# as gcc messages).
+
+find_program(CPPCHECK_EXECUTABLE NAMES cppcheck)
+
+# platform=unix64 is used because it should exhibit most of the integer-related problems
+# (different size for int vs long and pointers)
+set(CPPCHECK_OPTIONS --enable=all --inconclusive --library=std --max-configs=1 --platform=unix64 --template=gcc)
+
+get_property(ALL_INCLUDES DIRECTORY PROPERTY INCLUDE_DIRECTORIES)
+set(CPPCHECK_INCLUDE_OPTIONS)
+foreach(include ${ALL_INCLUDES})
+  # cppcheck run times are absolutely atrocious once we start adding /usr/include and similar include
+  # directories, so just skip them.
+  if(${include} MATCHES "^${CMAKE_SOURCE_DIR}")
+    list(APPEND CPPCHECK_INCLUDE_OPTIONS "-I${include}")
+  endif()
+endforeach()
+
+get_property(ALL_DEFINES DIRECTORY PROPERTY COMPILE_DEFINITIONS)
+set(CPPCHECK_DEFINE_OPTIONS)
+foreach(define ${ALL_DEFINES})
+  list(APPEND CPPCHECK_DEFINE_OPTIONS "-D${define}")
+endforeach()
+
+set(CPPCHECK_SOURCES)
+foreach(source ${SOURCES})
+  if(${source} MATCHES ".*cpp$")
+    list(APPEND CPPCHECK_SOURCES "${source}")
+  endif()
+endforeach()
+
+add_custom_target(cppcheck
+                  COMMAND ${CPPCHECK_EXECUTABLE} ${CPPCHECK_OPTIONS}
+                  ${CPPCHECK_INCLUDE_OPTIONS} ${CPPCHECK_DEFINE_OPTIONS} ${CPPCHECK_SOURCES}
+                  COMMENT "Running cppcheck"
+                  WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+                 )
