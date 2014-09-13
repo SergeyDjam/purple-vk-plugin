@@ -110,6 +110,9 @@ msgstr ""
 msgid "Status"
 msgstr ""
 
+msgid "Synchronize status text with Vk.com page"
+msgstr ""
+
 msgid "Text"
 msgstr ""
 
