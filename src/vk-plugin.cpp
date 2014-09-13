@@ -32,23 +32,30 @@ GList* vk_status_types(PurpleAccount*)
     GList* types = nullptr;
     PurpleStatusType* type;
 
-    type = purple_status_type_new_full(PURPLE_STATUS_AVAILABLE, "online", nullptr, TRUE, TRUE,
-                                       FALSE);
+    // message attr is required, otherwise Pidgin will not call set_status when the status text changes.
+    type = purple_status_type_new_with_attrs(PURPLE_STATUS_AVAILABLE, nullptr, nullptr, TRUE, TRUE,
+                                             FALSE, "message", "Message",
+                                             purple_value_new(PURPLE_TYPE_STRING), nullptr);
     types = g_list_prepend(types, type);
 
-    type = purple_status_type_new_full(PURPLE_STATUS_AWAY, "away", nullptr, TRUE, TRUE, FALSE);
+    type = purple_status_type_new_with_attrs(PURPLE_STATUS_AWAY, nullptr, nullptr, TRUE, TRUE,
+                                             FALSE, "message", "Message",
+                                             purple_value_new(PURPLE_TYPE_STRING), nullptr);
     types = g_list_prepend(types, type);
 
-    type = purple_status_type_new_full(PURPLE_STATUS_INVISIBLE, "invisible", nullptr, TRUE, TRUE,
-                                       FALSE);
+    type = purple_status_type_new_with_attrs(PURPLE_STATUS_INVISIBLE, nullptr, nullptr, TRUE, TRUE,
+                                             FALSE, "message", "Message",
+                                             purple_value_new(PURPLE_TYPE_STRING), nullptr);
     types = g_list_prepend(types, type);
 
-    type = purple_status_type_new_full(PURPLE_STATUS_OFFLINE, "offline", nullptr, TRUE, TRUE,
-                                       FALSE);
+    type = purple_status_type_new_with_attrs(PURPLE_STATUS_OFFLINE, nullptr, nullptr, TRUE, TRUE,
+                                             FALSE, "message", "Message",
+                                             purple_value_new(PURPLE_TYPE_STRING), nullptr);
     types = g_list_prepend(types, type);
 
-    type = purple_status_type_new_full(PURPLE_STATUS_MOBILE, "mobile", nullptr, FALSE, FALSE,
-                                       FALSE);
+    type = purple_status_type_new_with_attrs(PURPLE_STATUS_MOBILE, nullptr, nullptr, FALSE, FALSE,
+                                             FALSE, "message", "Message",
+                                             purple_value_new(PURPLE_TYPE_STRING), nullptr);
     types = g_list_prepend(types, type);
 
     return g_list_reverse(types);
@@ -241,6 +248,18 @@ void register_chat_cmds()
                         i18n("remove &lt;user&gt;: Remove user from chat"), nullptr);
 }
 
+void vk_set_status_impl(PurpleConnection* gc, PurpleStatus* status)
+{
+    update_status(gc);
+
+    if (get_data(gc).options().synchronize_status_text) {
+        const char* message = purple_status_get_attr_string(status, "message");
+        if (!message)
+            message = "";
+        set_status_text(gc, message);
+    }
+}
+
 void vk_login(PurpleAccount* account)
 {
     vkcom_debug_info("Opening connection\n");
@@ -288,8 +307,10 @@ void vk_login(PurpleAccount* account)
             return true;
         });
 
+        // Update initial status text and presence.
+        PurpleStatus* status = purple_account_get_active_status(purple_connection_get_account(gc));
+        vk_set_status_impl(gc, status);
         // Update that we are online every 15 minutes.
-        update_status(gc);
         timeout_add(gc, 15 * 60 * 1000, [=] {
             update_status(gc);
             return true;
@@ -435,7 +456,9 @@ void vk_set_status(PurpleAccount* account, PurpleStatus* status)
                                                 purple_status_get_type(status));
     if (primitive_status == PURPLE_STATUS_AVAILABLE)
         mark_deferred_messages_as_read(purple_account_get_connection(account), false);
-    update_status(purple_account_get_connection(account));
+
+    PurpleConnection* gc = purple_account_get_connection(account);
+    vk_set_status_impl(gc, status);
 }
 
 void vk_add_buddy_with_invite(PurpleConnection* gc, PurpleBuddy* buddy, PurpleGroup* group,
@@ -832,6 +855,10 @@ void vkcom_prpl_init(PurplePlugin*)
 
     // Options, listed on "Advanced" page when creating or modifying account.
     PurpleAccountOption *option;
+    option = purple_account_option_bool_new(i18n("Synchronize status text with Vk.com page"),
+                                            "synchronize_status_text", false);
+    prpl_info.protocol_options = g_list_append(prpl_info.protocol_options, option);
+
     option = purple_account_option_bool_new(i18n("Show only friends in buddy list"),
                                             "only_friends_in_blist", true);
     prpl_info.protocol_options = g_list_append(prpl_info.protocol_options, option);

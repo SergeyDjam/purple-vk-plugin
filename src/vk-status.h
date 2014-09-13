@@ -15,3 +15,6 @@ void set_online(PurpleConnection* gc);
 
 // Sets account as offline. Should be called when disconnecting.
 void set_offline(PurpleConnection* gc);
+
+// Sets status text on Vk.com page.
+void set_status_text(PurpleConnection* gc, const char* text);

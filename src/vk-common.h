@@ -19,6 +19,7 @@ using std::set;
 // inconsistencies. As a bonus,it is more type-safe.
 struct VkOptions
 {
+    bool synchronize_status_text;
     bool only_friends_in_blist;
     bool chats_in_blist;
     bool mark_as_read_online_only;

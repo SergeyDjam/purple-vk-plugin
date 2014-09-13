@@ -39,3 +39,10 @@ void set_offline(PurpleConnection* gc)
 {
     vk_call_api(gc, "account.setOffline", CallParams(), nullptr, nullptr);
 }
+
+
+void set_status_text(PurpleConnection* gc, const char* text)
+{
+    CallParams params = { { "text", text } };
+    vk_call_api(gc, "status.set", params, nullptr, nullptr);
+}

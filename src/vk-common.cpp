@@ -10,7 +10,7 @@
 #include "vk-common.h"
 
 const char VK_CLIENT_ID[] = "3833170";
-const char VK_PERMISSIONS[] = "friends,photos,audio,video,docs,messages,offline";
+const char VK_PERMISSIONS[] = "friends,photos,audio,video,docs,status,messages,offline";
 
 namespace {
 
@@ -172,15 +172,13 @@ VkData::VkData(PurpleConnection* gc, const string& email, const string& password
         m_self_user_id = atoll(purple_account_get_string(account, "self_user_id", "0"));
     }
 
-    m_options.only_friends_in_blist = purple_account_get_bool(account,
-                                                              "only_friends_in_blist", false);
+    m_options.synchronize_status_text = purple_account_get_bool(account, "synchronize_status_text", false);
+    m_options.only_friends_in_blist = purple_account_get_bool(account, "only_friends_in_blist", true);
     m_options.chats_in_blist = purple_account_get_bool(account, "chats_in_blist", true);
-    m_options.mark_as_read_online_only = purple_account_get_bool(account,
-                                                                 "mark_as_read_online_only", true);
-    m_options.mark_as_read_replying_only = purple_account_get_bool(account,
-                                                                 "mark_as_read_replying_only", false);
-    m_options.imitate_mobile_client = purple_account_get_bool(account,
-                                                              "imitate_mobile_client", false);
+    m_options.mark_as_read_online_only = purple_account_get_bool(account, "mark_as_read_online_only", true);
+    m_options.mark_as_read_replying_only = purple_account_get_bool(account, "mark_as_read_replying_only",
+                                                                   false);
+    m_options.imitate_mobile_client = purple_account_get_bool(account, "imitate_mobile_client", false);
     m_options.blist_default_group = purple_account_get_string(account, "blist_default_group", "");
     m_options.blist_chat_group = purple_account_get_string(account, "blist_chat_group", "");
 
