@@ -25,18 +25,6 @@ string urlencode_form(const vector<pair<string, string>>& params);
 // Returns mapping key -> value from urlencoded form.
 map<string, string> parse_urlencoded_form(const char* encoded);
 
-// A rather specific function, which returns the length of prefix (the first part of the string),
-// urlencoded version of which is no longer than max_urlencoded_len. Used when you have large
-// input parameters for API and need to split them to fit into max URL length. Function tries
-// to split the string on a) line breaks, b) punctuation, c) spaces in order to be suitable
-// for splitting message text.
-const size_t MAX_URLENCODED_STRING = 1700;
-size_t max_urlencoded_prefix(const char* s, size_t max_urlencoded_len = MAX_URLENCODED_STRING);
-
-// A version of max_urlencoded_prefix, which works with arrays of integers (prefix is the subarray).
-size_t max_urlencoded_int(const uint64* start, const uint64* end,
-                          size_t max_urlencoded_len = MAX_URLENCODED_STRING);
-
 // Checks if JSON value is an object, contains key and the type of value for that key is T.
 template<typename T>
 bool field_is_present(const picojson::value& v, const string& key)

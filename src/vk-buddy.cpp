@@ -840,8 +840,9 @@ void update_open_conv_presence(PurpleConnection *gc)
     string user_ids_str = str_concat_int(',', user_ids);
     vkcom_debug_info("Updating online status for buddies %s\n", user_ids_str.data());
 
-    CallParams params = { {"fields", "online,online_mobile"} };
-    vk_call_api_ids(gc, "users.get", params, "user_ids", user_ids, [=](const picojson::value& result) {
+    CallParams params = { {"fields", "online,online_mobile"},
+                          {"user_ids", str_concat_int(',', user_ids)} };
+    vk_call_api(gc, "users.get", params, [=](const picojson::value& result) {
         if (!result.is<picojson::array>()) {
             vkcom_debug_error("Strange response from users.get: %s\n", result.serialize().data());
             return;
@@ -875,7 +876,7 @@ void update_open_conv_presence(PurpleConnection *gc)
             info->online_mobile = online_mobile;
             update_buddy_presence_impl(gc, user_name_from_id(user_id), *info);
         }
-    }, nullptr, nullptr);
+    }, nullptr);
 }
 
 void update_user_infos(PurpleConnection* gc, const set<uint64>& user_ids, const SuccessCb& on_update_cb)
@@ -889,9 +890,9 @@ void update_user_infos(PurpleConnection* gc, const set<uint64>& user_ids, const 
     string user_ids_str = str_concat_int(',', user_ids);
     vkcom_debug_info("Updating information on buddies %s\n", user_ids_str.data());
 
-    CallParams params = { {"fields", user_fields} };
-    vk_call_api_ids(gc, "users.get", params, "user_ids", to_vector(user_ids),
-    [=](const picojson::value& result) {
+    CallParams params = { {"fields", user_fields},
+                          {"user_ids", str_concat_int(',', user_ids)} };
+    vk_call_api(gc, "users.get", params, [=](const picojson::value& result) {
         if (!result.is<picojson::array>()) {
             vkcom_debug_error("Strange response from users.get: %s\n", result.serialize().data());
             purple_connection_error_reason(gc, PURPLE_CONNECTION_ERROR_NETWORK_ERROR,
@@ -907,7 +908,7 @@ void update_user_infos(PurpleConnection* gc, const set<uint64>& user_ids, const 
             }
             update_user_info_from(gc, v);
         }
-    }, [=] {
+
         if (on_update_cb)
             on_update_cb();
     }, [=](const picojson::value&) {
@@ -996,9 +997,9 @@ void update_chat_infos(PurpleConnection* gc, const set<uint64>& chat_ids,
     string chat_ids_str = str_concat_int(',', chat_ids);
     vkcom_debug_info("Updating information on chats %s\n", chat_ids_str.data());
 
-    CallParams params = { {"fields", user_fields} };
-    vk_call_api_ids(gc, "messages.getChat", params, "chat_ids", to_vector(chat_ids),
-    [=](const picojson::value& v) {
+    CallParams params = { {"fields", user_fields},
+                          {"chat_ids", str_concat_int(',', chat_ids)} };
+    vk_call_api(gc, "messages.getChat", params, [=](const picojson::value& v) {
         if (!v.is<picojson::array>()) {
             vkcom_debug_error("Strange response from messages.getChat: %s\n", v.serialize().data());
             purple_connection_error_reason(gc, PURPLE_CONNECTION_ERROR_NETWORK_ERROR,
@@ -1009,7 +1010,7 @@ void update_chat_infos(PurpleConnection* gc, const set<uint64>& chat_ids,
         const picojson::array& a = v.get<picojson::array>();
         for (const picojson::value& chat: a)
             update_chat_info_from(gc, chat, update_blist);
-    }, [=] {
+
         if (on_update_cb)
             on_update_cb();
     }, [=](const picojson::value&) {

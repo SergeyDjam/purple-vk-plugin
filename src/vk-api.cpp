@@ -45,23 +45,14 @@ void vk_call_api(PurpleConnection* gc, const char* method_name, const CallParams
 
     string method_url = str_format("https://api.vk.com/method/%s?v=%s&access_token=%s", method_name,
                                    api_version, gc_data.access_token().data());
-    if (!params.empty()) {
-        method_url += "&";
-        method_url += urlencode_form(params);
-
-        // MAX_URLENCODED_STRING is usually the largest params, all other parts of URL should
-        // definitely be less than 300 bytes long.
-        if (method_url.size() > MAX_URLENCODED_STRING + 300) {
-            vkcom_debug_error("Too large method params length: %d\n", (int)method_url.size());
-
-            if (error_cb)
-                error_cb(picojson::value());
-            return;
-        }
-    }
-
     PurpleHttpRequest* req = purple_http_request_new(method_url.data());
     purple_http_request_set_method(req, "POST");
+    purple_http_request_header_add(req, "Content-Type", "application/x-www-form-urlencoded");
+    if (!params.empty()) {
+        string body = urlencode_form(params);
+        purple_http_request_set_contents(req, body.data(), body.length());
+    }
+
     http_request(gc, req, [=](PurpleHttpConnection* http_conn, PurpleHttpResponse* response) {
         // Connection has been cancelled due to account being disconnected. Do not do any response
         // processing, as callbacks may initiate new HTTP requests.
@@ -293,47 +284,4 @@ void vk_call_api_items(PurpleConnection* gc, const char* method_name, const Call
     CallParams_ptr params_ptr{ new CallParams(params) };
     vk_call_api_items_impl(gc, method_name, params_ptr, pagination, call_process_item_cb,
                            call_finished_cb, error_cb, 0);
-}
-
-namespace
-{
-
-// We do not want to copy id_values when storing in lambda, the easiest way is storing them in shared_ptr.
-typedef shared_ptr<vector<uint64>> IdValues_ptr;
-
-void vk_call_api_ids_impl(PurpleConnection* gc, const char* method_name, const CallParams_ptr& params,
-                          const char* id_param_name, const IdValues_ptr& id_values, const CallSuccessCb& success_cb,
-                          const CallFinishedCb& call_finished_cb, const CallErrorCb& error_cb, size_t offset)
-{
-    size_t num = max_urlencoded_int(id_values->data() + offset, id_values->data() + id_values->size());
-    string ids_str = str_concat_int(',', itrange_n(id_values->begin() + offset, num));
-    add_or_replace_call_param(*params, id_param_name, ids_str.data());
-
-    vk_call_api(gc, method_name, *params, [=](const picojson::value& v) {
-        if (success_cb)
-            success_cb(v);
-
-        size_t next_offset = offset + num;
-        if (next_offset < id_values->size()) {
-            vk_call_api_ids_impl(gc, method_name, params, id_param_name, id_values, success_cb, call_finished_cb,
-                                 error_cb, next_offset);
-        } else {
-            if (call_finished_cb)
-                call_finished_cb();
-        }
-    }, error_cb);
-}
-
-} // anonymous namespace
-
-
-void vk_call_api_ids(PurpleConnection* gc, const char* method_name, const CallParams& params,
-                     const char* id_param_name, const vector<uint64>& id_values, const CallSuccessCb& success_cb,
-                     const CallFinishedCb& call_finished_cb, const CallErrorCb& error_cb)
-{
-    CallParams_ptr params_ptr{ new CallParams(params) };
-    IdValues_ptr id_values_ptr{ new vector<uint64>(id_values) };
-
-    vk_call_api_ids_impl(gc, method_name, params_ptr, id_param_name, id_values_ptr, success_cb,
-                         call_finished_cb, error_cb, 0);
 }

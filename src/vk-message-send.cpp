@@ -249,13 +249,7 @@ void send_message_internal(PurpleConnection* gc, const SendMessage_ptr& message,
 {
     CallParams params = { {"attachment", message->attachments }, {"type", "1"} };
 
-    // We cannot send large messages at once due to URL limits (message is encoded in URL).
-    size_t text_len = max_urlencoded_prefix(message->text.data());
-
-    if (text_len == message->text.length())
-        params.emplace_back("message", message->text);
-    else
-        params.emplace_back("message", message->text.substr(0, text_len));
+    params.emplace_back("message", message->text);
     if (message->user_id != 0)
         params.emplace_back("user_id", to_string(message->user_id));
     else
@@ -279,18 +273,8 @@ void send_message_internal(PurpleConnection* gc, const SendMessage_ptr& message,
         uint64 msg_id = v.get<double>();
         get_data(gc).add_sent_msg_id(msg_id);
 
-        // Check if we have sent the whole message.
-        if (text_len == message->text.length()) {
-            if (message->success_cb)
-                message->success_cb();
-        } else {
-            vkcom_debug_info("Sent another %d bytes of the message, sending the remainder\n",
-                              (int)text_len);
-
-            // Send next part of message.
-            message->text.erase(0, text_len);
-            send_message_internal(gc, message, captcha_sid, captcha_key);
-        }
+        if (message->success_cb)
+            message->success_cb();
     }, [=](const picojson::value& error) {
         process_im_error(error, gc, message);
     });

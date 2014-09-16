@@ -332,7 +332,8 @@ void update_groups_info(PurpleConnection* gc, vector<uint64> group_ids, const Su
     string group_ids_str = str_concat_int(',', group_ids);
     vkcom_debug_info("Getting infos for groups %s\n", group_ids_str.data());
 
-    vk_call_api_ids(gc, "groups.getById", CallParams(), "group_ids", group_ids, [=](const picojson::value& result) {
+    CallParams params = { {"group_ids", str_concat_int(',', group_ids)} };
+    vk_call_api(gc, "groups.getById", params, [=](const picojson::value& result) {
         if (!result.is<picojson::array>()) {
             vkcom_debug_error("Wrong type returned as users.get call result: %s\n",
                                result.serialize().data());
@@ -356,7 +357,7 @@ void update_groups_info(PurpleConnection* gc, vector<uint64> group_ids, const Su
                 info.screen_name = v.get("screen_name").get<string>();
             info.last_updated = steady_clock::now();
         }
-    }, [=] {
+
         if (success_cb)
             success_cb();
     }, [=](const picojson::value&) {

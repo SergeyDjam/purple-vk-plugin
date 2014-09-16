@@ -145,10 +145,7 @@ void receive_messages_range(PurpleConnection* gc, uint64 last_msg_id, const Rece
     }
 }
 
-namespace
-{
-
-void receive_messages_impl(PurpleConnection* gc, const vector<uint64>& message_ids, size_t offset)
+void receive_messages(PurpleConnection* gc, const vector<uint64>& message_ids)
 {
     if (message_ids.empty())
         return;
@@ -157,27 +154,14 @@ void receive_messages_impl(PurpleConnection* gc, const vector<uint64>& message_i
     data->gc = gc;
     data->received_cb = nullptr;
 
-    size_t num = max_urlencoded_int(message_ids.data() + offset, message_ids.data() + message_ids.size());
-    string ids_str = str_concat_int(',', itrange_n(message_ids.begin() + offset, num));
-    CallParams params = { {"message_ids", ids_str} };
+    CallParams params = { {"message_ids", str_concat_int(',', message_ids)} };
     vk_call_api_items(data->gc, "messages.getById", params, false, [=](const picojson::value& message) {
         process_message(data, message);
     }, [=] {
         download_thumbnail(data, 0, 0);
     }, [=](const picojson::value&) {
         finish_receiving(data);
-
-        size_t next_offset = offset + num;
-        if (next_offset < message_ids.size())
-            receive_messages_impl(gc, message_ids, next_offset);
     });
-}
-
-}
-
-void receive_messages(PurpleConnection* gc, const vector<uint64>& message_ids)
-{
-    receive_messages_impl(gc, message_ids, 0);
 }
 
 namespace
@@ -994,8 +978,8 @@ void mark_messages_as_read_impl(PurpleConnection* gc, const Cont& message_ids)
         return;
 
     vkcom_debug_info("Marking %d messages as read\n", (int)message_ids.size());
-    vk_call_api_ids(gc, "messages.markAsRead", CallParams(), "message_ids", message_ids,
-                    nullptr, nullptr, nullptr);
+    CallParams params = { {"message_ids", str_concat_int(',', message_ids)} };
+    vk_call_api(gc, "messages.markAsRead", params, nullptr, nullptr);
 }
 
 } // namespace
