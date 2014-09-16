@@ -27,9 +27,13 @@ string urlencode_form(Iter first, Iter last)
     for (Iter it = first; it != last; it++) {
         if (!ret.empty())
             ret += '&';
-        ret += purple_url_encode(it->first.data());
+        char* tmp = g_uri_escape_string(it->first.data(), nullptr, true);
+        ret += tmp;
+        g_free(tmp);
         ret += '=';
-        ret += purple_url_encode(it->second.data());
+        tmp = g_uri_escape_string(it->second.data(), nullptr, true);
+        ret += tmp;
+        g_free(tmp);
     }
     return ret;
 }
