@@ -249,7 +249,24 @@ void send_message_internal(PurpleConnection* gc, const SendMessage_ptr& message,
 {
     CallParams params = { {"attachment", message->attachments }, {"type", "1"} };
 
-    params.emplace_back("message", message->text);
+    // Vk.com servers currently respond with HTTP code 413 if we try to send too large
+    // POST request, the docs specify no exact limits, so let's try to split the message
+    // into something reasonable. The web interface splits on 3980 Javascript chars.
+    const size_t ARBITRARY_MESSAGE_LIMIT = 4096;
+
+    size_t sent_len;
+    if (message->text.length() > ARBITRARY_MESSAGE_LIMIT) {
+        // Try to split on space or \n
+        sent_len = message->text.rfind('\n', ARBITRARY_MESSAGE_LIMIT);
+        if (sent_len == string::npos)
+            sent_len = message->text.rfind(' ', ARBITRARY_MESSAGE_LIMIT);
+        if (sent_len == string::npos)
+            sent_len = ARBITRARY_MESSAGE_LIMIT;
+        params.emplace_back("message", message->text.substr(0, sent_len));
+    } else {
+        sent_len = message->text.length();
+        params.emplace_back("message", message->text);
+    }
     if (message->user_id != 0)
         params.emplace_back("user_id", to_string(message->user_id));
     else
@@ -272,6 +289,19 @@ void send_message_internal(PurpleConnection* gc, const SendMessage_ptr& message,
         // in longpoll.
         uint64 msg_id = v.get<double>();
         get_data(gc).add_sent_msg_id(msg_id);
+
+        // Check if we have sent the whole message.
+        if (sent_len == message->text.length()) {
+            if (message->success_cb)
+                message->success_cb();
+        } else {
+            vkcom_debug_info("Sent another %zu bytes of the message, sending the remainder %zu\n",
+                             sent_len, message->text.length() - sent_len);
+
+            // Send next part of message.
+            message->text.erase(0, sent_len);
+            send_message_internal(gc, message, captcha_sid, captcha_key);
+        }
 
         if (message->success_cb)
             message->success_cb();
