@@ -440,7 +440,7 @@ const char* get_user_status(const VkUserInfo& user_info)
     if (user_info.online_mobile) {
         return "mobile";
     } else if (user_info.online) {
-        return "online";
+        return "available";
     } else {
         return "offline";
     }
