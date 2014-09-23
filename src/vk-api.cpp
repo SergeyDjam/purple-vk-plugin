@@ -1,8 +1,6 @@
 #include <request.h>
 
-#include "contrib/purple/http.h"
-#include "contutils.h"
-#include "strutils.h"
+#include <contrib/purple/http.h>
 
 #include "vk-common.h"
 #include "httputils.h"

@@ -7,7 +7,10 @@
 
 #include "trio.h"
 
-#include "strutils.h"
+#include <cpputils/string.h>
+
+namespace cpputils
+{
 
 std::string str_format(const char* fmt, ...)
 {
@@ -343,3 +346,4 @@ std::string to_string(unsigned long long i)
     return buf;
 }
 
+}

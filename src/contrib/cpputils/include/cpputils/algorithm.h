@@ -1,12 +1,41 @@
 // Copyright 2014, Oleg Andreev. All rights reserved.
 // License: http://www.opensource.org/licenses/BSD-2-Clause
 
-// contutils:
+// algorithm:
 //   A number of STL container-related utilities.
+//
+// NOTE: This header tries to reduce dependencies on STL headers in order to reduce compilation
+// time and improve compatibility with alternative STL implementations.
+// RANT: Including <algorithm> from libstdc++ adds ~42k lines in C++11 mode, including <memory> adds ~25k,
+// this is just insane. C++03 mode is a lot better in this regard.
 
 #pragma once
 
-#include <algorithm>
+// Configuration
+
+// CPPUTILS_STD_NS: which namespace contains standard containers (use e.g. eastl for EASTL)
+#ifndef CPPUTILS_STD_NS
+#define CPPUTILS_STD_NS std
+#endif
+
+// CPPUTILS_USE_STD_ITERATOR_TRAITS: whether to use iterator_traits (used in ItRange) to determine
+// the iterator properties, such as value_type. Setting this to 1 increases compilation time (<iterator>
+// header is huge) but sometimes can fix compilation for strange iterator types.
+#ifndef CPPUTILS_USE_STD_ITERATOR_TRAITS
+#define CPPUTILS_USE_STD_ITERATOR_TRAITS 0
+#endif
+
+// End of configuration
+
+#include <cstddef>
+#include <utility>
+
+#if CPPUTILS_USE_STD_ITERATOR_TRAITS && CPPUTILS_STD_NS == std
+#include <iterator>
+#endif
+
+namespace cpputils
+{
 
 // Check if container has T::key_type typedef, which means it is an associative container.
 // We can probably use std::enable_if here, but do not want to include the whole <type_traits>
@@ -28,6 +57,37 @@ public:
     enum { value = sizeof(test<T>(0)) == sizeof(yes) };
 };
 
+// Either use standard iterator_traits or define our own, which has specialization only on T*
+#if CPPUTILS_USE_STD_ITERATOR_TRAITS
+using CPPUTILS_STD_NS::iterator_traits;
+#else
+// Define our own primitive iterator_traits structure. Yes, yet another one. It would've been nice
+// if libstdc++ <iterator> did not amount to 27k lines.
+template <typename Iterator>
+struct iterator_traits {
+    typedef typename Iterator::value_type        value_type;
+    typedef typename Iterator::difference_type   difference_type;
+    typedef typename Iterator::pointer           pointer;
+    typedef typename Iterator::reference         reference;
+};
+
+template <typename T>
+struct iterator_traits<T*> {
+    typedef T           value_type;
+    typedef ptrdiff_t   difference_type;
+    typedef T*          pointer;
+    typedef T&          reference;
+};
+
+template <typename T>
+struct iterator_traits<const T*> {
+    typedef T           value_type;
+    typedef ptrdiff_t   difference_type;
+    typedef const T*    pointer;
+    typedef const T&    reference;
+};
+#endif
+
 // A container-like class, which stores a pair of iterators. Similar to Boost range concept
 // (http://www.boost.org/doc/libs/1_55_0/libs/range/doc/html/range/concepts/overview.html).
 //
@@ -37,15 +97,15 @@ class ItRange
 {
 public:
     // Let's export all the container-related typedefs.
-    typedef typename std::iterator_traits<It>::value_type value_type;
-    typedef typename std::iterator_traits<It>::reference reference;
+    typedef typename iterator_traits<It>::value_type value_type;
+    typedef typename iterator_traits<It>::reference reference;
     typedef It iterator;
     typedef It const_iterator;
-    typedef typename std::iterator_traits<It>::difference_type difference_type;
+    typedef typename iterator_traits<It>::difference_type difference_type;
 
     ItRange(It b, It e)
-        : m_begin(std::move(b)),
-          m_end(std::move(e))
+        : m_begin(b),
+          m_end(e)
     {
     }
 
@@ -73,7 +133,7 @@ private:
 template<typename It>
 ItRange<It> itrange(It begin, It end)
 {
-    return ItRange<It>(std::move(begin), std::move(end));
+    return ItRange<It>(begin, end);
 }
 
 // A helper function, which makes using ItRange less verbose ala make_pair. Used only when It is
@@ -242,7 +302,22 @@ template<typename Cont, typename Pred>
 static void __erase_if_impl(Cont& cont, const Pred& pred,
                             char(*)[!IsAssociativeContainer<Cont>::value] = nullptr)
 {
-    cont.erase(std::remove_if(cont.begin(), cont.end(), pred), cont.end());
+    typename Cont::iterator begin = cont.begin();
+    typename Cont::iterator end = cont.end();
+    for (; begin != end; ++begin)
+        if (pred(*begin))
+            break;
+    if (begin == end)
+        return;
+    typename Cont::iterator skip = begin;
+    ++skip;
+    for (; skip != end; ++skip) {
+        if (!pred(*skip)) {
+            *begin = std::move(*skip);
+            begin++;
+        }
+    }
+    cont.erase(begin, end);
 }
 
 // Removes all elements, satisfying predicate. Cont may be either sequence or associative container.
@@ -258,7 +333,22 @@ template<typename Cont>
 void unique(Cont& cont)
 {
     static_assert(!IsAssociativeContainer<Cont>::value, "Cont must be a sequence container");
-    cont.erase(std::unique(cont.begin(), cont.end()), cont.end());
+
+    if (cont.empty())
+        return;
+
+    typename Cont::iterator begin = cont.begin();
+    typename Cont::iterator end = cont.end();
+    typename Cont::iterator skip = cont.begin();
+    ++skip;
+    for (; skip != end; ++skip) {
+        if (!(*skip == *begin)) {
+            ++begin;
+            *begin = std::move(*skip);
+        }
+    }
+    ++begin;
+    cont.erase(begin, end);
 }
 
 // Version of unique, which accepts a predicate.
@@ -266,5 +356,22 @@ template<typename Cont, typename Pred>
 void unique(Cont& cont, const Pred& pred)
 {
     static_assert(!IsAssociativeContainer<Cont>::value, "Cont must be a sequence container");
-    cont.erase(std::unique(cont.begin(), cont.end(), pred), cont.end());
+
+    if (cont.empty())
+        return;
+
+    typename Cont::iterator begin = cont.begin();
+    typename Cont::iterator end = cont.end();
+    typename Cont::iterator skip = cont.begin();
+    ++skip;
+    for (; skip != end; ++skip) {
+        if (!pred(*skip, *begin)) {
+            ++begin;
+            *begin = std::move(*skip);
+        }
+    }
+    ++begin;
+    cont.erase(begin, end);
+}
+
 }

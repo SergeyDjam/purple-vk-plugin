@@ -1,7 +1,7 @@
 // Copyright 2014, Oleg Andreev. All rights reserved.
 // License: http://www.opensource.org/licenses/BSD-2-Clause
 
-// strutils:
+// string:
 //   A number of string-related utilities: splitting, concatenating, replacing in strings.
 //
 //   WARNING: All functions assume that std::string contains only one null character (the terminator).
@@ -10,6 +10,9 @@
 
 #include <cstring>
 #include <string>
+
+namespace cpputils
+{
 
 // A small function, which determines if char is an ASCII space (this is independent of locale unlike isspace from stdlib).
 inline bool ascii_isspace(char c)
@@ -170,3 +173,4 @@ std::string to_string(unsigned long i);
 std::string to_string(long long i);
 std::string to_string(unsigned long long i);
 
+}

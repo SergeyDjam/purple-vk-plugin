@@ -2,8 +2,7 @@
 #include <glib.h>
 #include <util.h>
 
-#include "strutils.h"
-#include "trie.h"
+#include <cpputils/trie.h>
 
 #include "miscutils.h"
 

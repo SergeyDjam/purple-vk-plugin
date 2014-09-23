@@ -1,11 +1,9 @@
+#include <algorithm>
 #include <time.h>
 
 #include <imgstore.h>
 #include <server.h>
 #include <util.h>
-
-#include "contutils.h"
-#include "strutils.h"
 
 #include "httputils.h"
 #include "miscutils.h"

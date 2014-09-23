@@ -4,7 +4,7 @@
 
 #include "common.h"
 
-#include "contrib/purple/http.h"
+#include <contrib/purple/http.h>
 
 typedef function_ptr<void(PurpleHttpConnection *http_conn, PurpleHttpResponse *response)> HttpCallback;
 

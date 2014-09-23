@@ -10,6 +10,9 @@
 #include <climits>
 #include <memory>
 
+namespace cpputils
+{
+
 #define TRIE_DISABLE_COPY(Classname) \
     Classname(const Classname&) = delete; \
     Classname& operator =(const Classname&) = delete
@@ -435,3 +438,5 @@ const T* Trie<T>::match_impl(const char* key, size_t offset, const Trie::Node* n
 #undef TRIE_DEFAULT_MOVE
 #undef TRIE_HAS_GCC_LE
 #undef TRIE_ALIGNAS
+
+}

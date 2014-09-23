@@ -2,9 +2,6 @@
 #include <libxml/HTMLparser.h>
 #include <libxml/xpath.h>
 
-#include "contutils.h"
-#include "strutils.h"
-
 #include "httputils.h"
 #include "miscutils.h"
 

@@ -1,5 +1,5 @@
-strutils includes trio printf library (version 1.16, retrieved 05 August 2014).
-The changes (marked with // NOTE: strutils: blocks) include making trio compile
+string includes trio printf library (version 1.16, retrieved 05 August 2014).
+The changes (marked with // NOTE: string: blocks) include making trio compile
 without warnings and embedding trionan.c and triostr.c into trio.c (to make
 integration easier).
 

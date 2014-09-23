@@ -1,6 +1,3 @@
-#include "contutils.h"
-#include "strutils.h"
-
 #include "httputils.h"
 #include "miscutils.h"
 #include "vk-api.h"

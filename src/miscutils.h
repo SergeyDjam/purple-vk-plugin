@@ -12,8 +12,8 @@ using std::map;
 #include <connection.h>
 #include <libxml/tree.h>
 
-#include "contrib/picojson/picojson.h"
-#include "contrib/purple/http.h"
+#include <contrib/picojson/picojson.h>
+#include <contrib/purple/http.h>
 
 // A nicer wrapper around xmlGetProp
 string get_xml_node_prop(xmlNode* node, const char* tag, const char* default_value = "");

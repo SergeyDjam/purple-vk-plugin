@@ -108,6 +108,7 @@ if(WIN32)
   list(APPEND EXTRA_LIBRARIES "ws2_32")
 endif()
 
+include_directories(src)
 include_directories(src/contrib/cpputils/include)
 
 set(SOURCES
@@ -151,12 +152,12 @@ set(SOURCES
   src/contrib/purple/http.c
   src/contrib/purple/http.h
 
-  src/contrib/cpputils/include/contutils.h
-  src/contrib/cpputils/include/strutils.h
-  src/contrib/cpputils/include/trie.h
-  src/contrib/cpputils/src/strutils/strutils.cpp
-  src/contrib/cpputils/src/strutils/trio.c
-  src/contrib/cpputils/src/strutils/trio.h
+  src/contrib/cpputils/include/cpputils/algorithm.h
+  src/contrib/cpputils/include/cpputils/string.h
+  src/contrib/cpputils/include/cpputils/trie.h
+  src/contrib/cpputils/src/string/string.cpp
+  src/contrib/cpputils/src/string/trio.c
+  src/contrib/cpputils/src/string/trio.h
 )
 
 # Primary plugin library.

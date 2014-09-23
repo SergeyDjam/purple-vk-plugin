@@ -5,8 +5,6 @@
 #include <util.h>
 #include <version.h>
 
-#include "strutils.h"
-
 #include "httputils.h"
 #include "miscutils.h"
 #include "vk-api.h"

@@ -16,11 +16,15 @@
 #include <string>
 #include <vector>
 
+#include <cpputils/algorithm.h>
+#include <cpputils/string.h>
 
 // Let's make using most popular names easier.
 using std::shared_ptr;
 using std::vector;
-typedef std::string string;
+using std::string;
+
+using namespace cpputils;
 
 typedef int64_t int64;
 typedef uint64_t uint64;
