@@ -226,7 +226,7 @@ typedef shared_ptr<CallParams> CallParams_ptr;
 // Adds or replaces existing parameter value in CallParams.
 void add_or_replace_call_param(CallParams& params, const char* name, const char* value)
 {
-    for (pair<string, string>& pair: params) {
+    for (CallParams::value_type& pair: params) {
         if (pair.first == name) {
             pair.second = value;
             return;
