@@ -329,7 +329,7 @@ void process_message(PurpleConnection* gc, const picojson::value& v, LastMsg& la
             return;
 
         steady_duration since_last_msg_sent = steady_clock::now() - gc_data.last_msg_sent_time();
-        if (to_milliseconds(since_last_msg_sent) >= 5000) {
+        if (to_milliseconds(since_last_msg_sent) >= 30000) {
             // This is fast path: the message is guaranteed to be sent from someplace else,
             // no need for timeout.
             process_outgoing_message_internal(gc, msg_id, flags, user_id, std::move(text),
@@ -340,8 +340,8 @@ void process_message(PurpleConnection* gc, const picojson::value& v, LastMsg& la
         // The last message, which has been sent by us, has been sent not long ago (i.e. less
         // than 1 second).
         vkcom_debug_info("We sent message not long ago, let's have a check after timeout\n");
-        timeout_add(gc, 5000, [=] {
-            // Check again after 5 seconds, whether we sent the message or not.
+        timeout_add(gc, 30000, [=] {
+            // Check again after 30 seconds, whether we sent the message or not.
             if (get_data(gc).remove_sent_msg_id(msg_id))
                 return false;
 
