@@ -69,6 +69,27 @@ https://build.opensuse.org/package/show/home:Dmitry_R:purple-vk-plugin/purple-vk
   $ wget http://download.opensuse.org/repositories/home:/Dmitry_R:/purple-vk-plugin/Fedora_<номер версии>/home:Dmitry_R:purple-vk-plugin.repo
   $ yum install purple-vk-plugin
 
+Gentoo
+------------
+
+Для установки выполните следующие команды:
+
+Для подключения оверлея необходим пакет layman, если его нет - установить:
+::
+  sudo emerge -av layman
+
+Нужно подключить оверлей stuff, на котором находятся необходимые файлы для установки purple-vk-plugin:
+::
+  sudo layman -a stuff
+
+Установка последней версии purple-vk-plugin:
+::
+  sudo emerge -av purple-vk-plugin
+
+Если требуется более ранняя версия, укажите её при установке, к примеру:
+::
+  sudo emerge -av =purple-vk-plugin-0.9-r298
+
 Другие дистрибутивы Linux
 -------------------------
 
