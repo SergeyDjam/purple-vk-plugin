@@ -8,7 +8,7 @@
 
 #include "vk-api.h"
 
-const char api_version[] = "5.52";
+const char api_version[] = "5.78";
 
 namespace
 {
