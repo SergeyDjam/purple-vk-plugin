@@ -361,7 +361,7 @@ const uint64 CHAT_ID_OFFSET = 2000000000LL;
 const uint64 PLATFORM_WEB = 7;
 
 void process_incoming_message_internal(PurpleConnection* gc, uint64 msg_id, int flags,
-                                       uint64 user_id, string text, uint64 timestamp,
+                                       uint64 /*user_id*/, string text, uint64 /*timestamp*/,
                                        const picojson::value* attachments)
 {
     // NOTE:
@@ -380,48 +380,11 @@ void process_incoming_message_internal(PurpleConnection* gc, uint64 msg_id, int 
     if (attachments)
         vkcom_debug_info("Raw attachments: %s\n", attachments->serialize().data());
 
-    /*if (flags & MESSAGE_FLAG_MEDIA_OLD) {
-        receive_messages(gc, { msg_id });
-    } else {*/
     convert_incoming_smileys(text);
-
-    if (user_id < CHAT_ID_OFFSET) {
-        receive_messages(gc, { msg_id });
-    } else {
-        uint64 chat_id = user_id - CHAT_ID_OFFSET;
-
-        if (!attachments || !attachments->contains("from")
-                || !attachments->get("attach1").is<string>()) {
-            vkcom_debug_error("Chat message has wrong attachments: %s\n", attachments
-                              ? attachments->serialize().data() : "null");
-            // Let's try to receive the message the other way.
-            receive_messages(gc, { msg_id });
-            return;
-        }
-
-        const string& from_user_id_str = attachments->get("from").get<string>();
-        uint64 from_user_id = atoll(from_user_id_str.data());
-        if (from_user_id == 0) {
-            vkcom_debug_error("Chat message has wrong attachments: %s\n", attachments
-                              ? attachments->serialize().data() : "null");
-            // Let's try to receive the message the other way.
-            receive_messages(gc, { msg_id });
-            return;
-        }
-
-        // TODO: Remove code duplication with vk-message-recv.cpp
-        open_chat_conv(gc, chat_id, [=] {
-            int conv_id = chat_id_to_conv_id(gc, chat_id);
-            string from = get_user_display_name(gc, from_user_id, chat_id);
-            serv_got_chat_in(gc, conv_id, from.data(), PURPLE_MESSAGE_RECV, text.data(),
-                             timestamp);
-            mark_message_as_read(gc, { VkReceivedMessage{ msg_id, from_user_id, chat_id } });
-        });
-    }
-    /* } */
+    receive_messages(gc, { msg_id });
 }
 
-void process_outgoing_message_internal(PurpleConnection* gc, uint64 msg_id, int flags,
+void process_outgoing_message_internal(PurpleConnection* gc, uint64 /*msg_id*/, int /*flags*/,
                                        uint64 user_id, string text, uint64 timestamp)
 {
     // See NOTE in process_incoming_message_internal. Unlik incoming messages, we know perfectly
