@@ -234,6 +234,9 @@ void process_message(const MessagesData_ptr& data, const picojson::value& fields
         return;
     }
 
+    //DEBUG
+    vkcom_debug_info("Got Message: %s\n", fields.serialize().data());
+
     Message message;
     message.mid = fields.get("id").get<double>();
     message.user_id = fields.get("user_id").get<double>();
@@ -344,11 +347,66 @@ void process_fwd_message(PurpleConnection* gc, const picojson::value& fields, Me
         process_geo(fields.get("geo"), message);
 }
 
+static const picojson::value * find_biggest_picture(const picojson::array &sizes,
+                                                   const char *width_field,
+                                                   const char *height_field)
+{
+    const picojson::value *sz_biggest = nullptr;
+    uint64 sz_biggest_w = 0, sz_biggest_h = 0;
+
+    for (const picojson::value &sz : sizes) {
+        const uint64 photo_width = sz.get(width_field).get<double>();
+        const uint64 photo_height = sz.get(height_field).get<double>();
+        if (sz_biggest) {
+            if (photo_width > sz_biggest_w || photo_height > sz_biggest_h) {
+                sz_biggest = &sz;
+                sz_biggest_w = photo_width;
+                sz_biggest_h = photo_height;
+            }
+        } else {
+            sz_biggest = &sz;
+            sz_biggest_w = photo_width;
+            sz_biggest_h = photo_height;
+        }
+    }
+
+    return sz_biggest;
+}
+static const picojson::value * find_minsize_picture(const picojson::array &sizes,
+                                                   const char*width_field,
+                                                   const char *height_field,
+                                                   uint64 min_width, uint64 min_height)
+{
+    const picojson::value *sz_smallest = nullptr;
+    uint64 sz_smallest_w = 0, sz_smallest_h = 0;
+    for (const picojson::value &img : sizes) {
+        const uint64 picture_width = img.get(width_field).get<double>();
+        const uint64 piucture_height = img.get(height_field).get<double>();
+        if (sz_smallest) {
+            if ( ((picture_width < sz_smallest_w) && (picture_width >= min_width)) ||
+                 ((picture_width >= sz_smallest_w) && (sz_smallest_w < min_width)) ||
+                 ((piucture_height < sz_smallest_h) && (piucture_height >= min_height)) ||
+                 ((piucture_height >= sz_smallest_h) && (sz_smallest_h < min_height)) ) {
+                sz_smallest = &img;
+                sz_smallest_w = picture_width;
+                sz_smallest_h = piucture_height;
+            }
+        } else {
+            sz_smallest = &img;
+            sz_smallest_w = picture_width;
+            sz_smallest_h = piucture_height;
+        }
+    }
+    return sz_smallest;
+}
+
 void process_photo_attachment(const picojson::value& fields, Message& message,
                               const VkOptions& options)
 {
-    if (!field_is_present<double>(fields, "id") || !field_is_present<double>(fields, "owner_id")
-            || !field_is_present<string>(fields, "text") || !field_is_present<string>(fields, "photo_604")) {
+    if (!field_is_present<double>(fields, "id")
+        || !field_is_present<double>(fields, "owner_id")
+        || !field_is_present<string>(fields, "text")
+        || !field_is_present<picojson::array>(fields, "sizes")) {
         vkcom_debug_error("Strange attachment in response from messages.get "
                            "or messages.getById: %s\n", fields.serialize().data());
         return;
@@ -356,39 +414,41 @@ void process_photo_attachment(const picojson::value& fields, Message& message,
     const uint64 id = fields.get("id").get<double>();
     const int64 owner_id = fields.get("owner_id").get<double>();
     const string& photo_text = fields.get("text").get<string>();
-    const string& thumbnail = fields.get("photo_604").get<string>();
+    const picojson::array &sizes = fields.get("sizes").get<picojson::array>();
+    string thumbnail;
 
     // Apparently, there is no URL for private photos (such as the one for docs:
     // https://vk.com/docXXX_XXX?hash="access_key". If we've got "access_key" as a parameter, it means
     // that the photo is private, so we should rather link to the biggest version of the photo.
     string url;
     if (field_is_present<string>(fields, "access_key")) {
-        // We have to find the max photo URL, as we do not always receive all sizes.
-        if (field_is_present<string>(fields, "photo_2560"))
-            url = fields.get("photo_2560").get<string>();
-        else if (field_is_present<string>(fields, "photo_1280"))
-            url = fields.get("photo_1280").get<string>();
-        else if (field_is_present<string>(fields, "photo_807"))
-            url = fields.get("photo_807").get<string>();
-        else
-            url = thumbnail;
+        if (!sizes.empty()) {
+            const picojson::value *sz_biggest = find_biggest_picture(sizes, "width", "height");
+            const picojson::value *sz_smallest = find_minsize_picture(sizes, "width", "height", 400, 300);
+            if (sz_biggest) {
+                url = sz_biggest->get("url").get<string>();
+            }
+            thumbnail = sz_smallest ? sz_smallest->get("url").get<string>() : url;
+        }
     } else {
         url = str_format("https://vk.com/photo%lld_%llu", (long long)owner_id,
                          (unsigned long long)id);
     }
 
     if (!photo_text.empty())
-        message.text += str_format("<a href='%s'>%s</a>", url.data(), photo_text.data());
+        message.text += str_format("📷 <a href='%s'>%s</a>", url.data(), photo_text.data());
     else
-        message.text += str_format("<a href='%s'>%s</a>", url.data(), url.data());
+        message.text += str_format("📷 <a href='%s'>%s</a>", url.data(), url.data());
     append_thumbnail_placeholder(thumbnail, message, options);
 }
 
 void process_video_attachment(const picojson::value& fields, Message& message,
                               const VkOptions& options)
 {
-    if (!field_is_present<double>(fields, "id") || !field_is_present<double>(fields, "owner_id")
-            || !field_is_present<string>(fields, "title") || !field_is_present<string>(fields, "photo_320")) {
+    if (!field_is_present<double>(fields, "id") ||
+        !field_is_present<double>(fields, "owner_id") ||
+        !field_is_present<string>(fields, "title") ||
+        !field_is_present<string>(fields, "photo_320")) {
         vkcom_debug_error("Strange attachment in response from messages.get "
                            "or messages.getById: %s\n", fields.serialize().data());
         return;
@@ -397,9 +457,17 @@ void process_video_attachment(const picojson::value& fields, Message& message,
     const int64 owner_id = fields.get("owner_id").get<double>();
     const string& title = fields.get("title").get<string>();
     const string& thumbnail = fields.get("photo_320").get<string>();
+    string description;
+    if (field_is_present<string>(fields, "description")) {
+        description = fields.get("description").get<string>();
+    }
 
-    message.text += str_format("<a href='https://vk.com/video%lld_%llu'>%s</a>",
-                               (long long)owner_id, (unsigned long long)id, title.data());
+    message.text += str_format("🎞️ <h3><a href='https://vk.com/video%lld_%llu'>%s</a></h3>"
+                               "<br>"
+                               "%s",
+                               (long long)owner_id, (unsigned long long)id,
+                               title.data(),
+                               description.c_str());
 
     append_thumbnail_placeholder(thumbnail, message, options);
 }
@@ -416,7 +484,7 @@ void process_audio_attachment(const picojson::value& fields, Message& message)
     const string& artist = fields.get("artist").get<string>();
     const string& title = fields.get("title").get<string>();
 
-    message.text += str_format("<a href='%s'>%s - %s</a>", url.data(), artist.data(), title.data());
+    message.text += str_format("🎵 <a href='%s'>%s - %s</a>", url.data(), artist.data(), title.data());
 }
 
 void process_doc_attachment(const picojson::value& fields, Message& message,
@@ -430,7 +498,7 @@ void process_doc_attachment(const picojson::value& fields, Message& message,
     const string& url = fields.get("url").get<string>();
     const string& title = fields.get("title").get<string>();
 
-    message.text += str_format("<a href='%s'>%s</a>", url.data(), title.data());
+    message.text += str_format("🖹 <a href='%s'>%s</a>", url.data(), title.data());
 
     // Check if we've got a thumbnail.
     if (field_is_present<string>(fields, "photo_130")) {
@@ -519,7 +587,7 @@ void process_link_attachment(const picojson::value& fields, Message& message,
         image_src = fields.get("image_src").get<string>();
 
     if (!title.empty())
-        message.text += str_format("<a href='%s'>%s</a>", url.data(), title.data());
+        message.text += str_format("🔗 <a href='%s'>%s</a>", url.data(), title.data());
     else
         message.text += url.data();
 
@@ -551,14 +619,26 @@ void process_album_attachment(const picojson::value& fields, Message& message)
 void process_sticker_attachment(const picojson::value& fields, Message& message,
                                 const VkOptions& options)
 {
-    if (!field_is_present<string>(fields, "photo_64")) {
+    if (!field_is_present<picojson::array>(fields, "images")) {
         vkcom_debug_error("Strange attachment in response from messages.get "
                            "or messages.getById: %s\n", fields.serialize().data());
         return;
     }
-    const string& thumbnail = fields.get("photo_64").get<string>();
+    const picojson::array &images = fields.get("images_with_background").get<picojson::array>();
+    if (!images.empty()) {
+        std::string thumbnail;
+        const picojson::value *sz_biggest = find_biggest_picture(images, "width", "height");
+        const picojson::value *sz_smallest = find_minsize_picture(images, "width", "height", 200, 200);
 
-    append_thumbnail_placeholder(thumbnail, message, options, false);
+        if (sz_biggest) {
+            std::string url = sz_biggest->get("url").get<string>();
+            message.text += str_format("<a href='%s'>%s</a>", url.data(), url.data());
+        }
+        if (sz_smallest) {
+            thumbnail = sz_smallest->get("url").get<string>();
+            append_thumbnail_placeholder(thumbnail, message, options, false);
+        }
+    }
 }
 
 void process_gift_attachment(const picojson::value& fields, Message& message, const VkOptions& options)

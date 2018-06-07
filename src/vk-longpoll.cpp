@@ -219,12 +219,12 @@ enum MessageFlags
     MESSAGE_FLAGS_OUTBOX = 2,
     MESSAGE_FLAG_REPLIED = 4,
     MESSAGE_FLAG_IMPORTANT = 8,
-    MESSAGE_FLAG_CHAT = 16,
+    MESSAGE_FLAG_CHAT_OLD = 16,/*DEPRECATED*/
     MESSAGE_FLAG_FRIENDS = 32,
     MESSAGE_FLAG_SPAM = 64,
     MESSAGE_FLAG_DELETED = 128,
-    MESSAGE_FLAG_FIXED = 256,
-    MESSAGE_FLAG_MEDIA = 512
+    MESSAGE_FLAG_FIXED_OLD = 256,/*DEPRECATED*/
+    MESSAGE_FLAG_MEDIA_OLD = 512 /*DEPRECATED*/
 };
 
 // Processes message event.
@@ -314,7 +314,6 @@ void process_message(PurpleConnection* gc, const picojson::value& v, LastMsg& la
     if (!(flags & MESSAGE_FLAGS_OUTBOX)) {
         // Processing incoming message
         vkcom_debug_info("Got incoming message from %llu\n", (unsigned long long)user_id);
-
         process_incoming_message_internal(gc, msg_id, flags, user_id, std::move(text), timestamp,
                                           attachments);
     } else {
@@ -376,49 +375,55 @@ void process_incoming_message_internal(PurpleConnection* gc, uint64 msg_id, int 
     //   * there is no video.getById so we can show no information on video;
     //   * it takes at least one additional call per message (receive_messages takes exactly one
     //     call).
-    if (flags & MESSAGE_FLAG_MEDIA) {
+
+    vkcom_debug_info("Input message specs: id %lu, flags: %d, has attachments: %d\n", (unsigned long)msg_id, (int)flags, (int)(attachments != NULL));
+    if (attachments)
+        vkcom_debug_info("Raw attachments: %s\n", attachments->serialize().data());
+
+    /*if (flags & MESSAGE_FLAG_MEDIA_OLD) {
+        receive_messages(gc, { msg_id });
+    } else {*/
+    convert_incoming_smileys(text);
+
+    if (user_id < CHAT_ID_OFFSET) {
+        add_buddy_if_needed(gc, user_id, [=] {
+            serv_got_im(gc, user_name_from_id(user_id).data(), text.data(), PURPLE_MESSAGE_RECV,
+                        timestamp);
+            mark_message_as_read(gc, { VkReceivedMessage{ msg_id, user_id, 0 } });
+        });
         receive_messages(gc, { msg_id });
     } else {
-        convert_incoming_smileys(text);
+        uint64 chat_id = user_id - CHAT_ID_OFFSET;
 
-        if (user_id < CHAT_ID_OFFSET) {
-            add_buddy_if_needed(gc, user_id, [=] {
-                serv_got_im(gc, user_name_from_id(user_id).data(), text.data(), PURPLE_MESSAGE_RECV,
-                            timestamp);
-                mark_message_as_read(gc, { VkReceivedMessage{ msg_id, user_id, 0 } });
-            });
-        } else {
-            uint64 chat_id = user_id - CHAT_ID_OFFSET;
-
-            if (!attachments || !attachments->contains("from")
-                    || !attachments->get("from").is<string>()) {
-                vkcom_debug_error("Chat message has wrong attachments: %s\n", attachments
-                                  ? attachments->serialize().data() : "null");
-                // Let's try to receive the message the other way.
-                receive_messages(gc, { msg_id });
-                return;
-            }
-
-            const string& from_user_id_str = attachments->get("from").get<string>();
-            uint64 from_user_id = atoll(from_user_id_str.data());
-            if (from_user_id == 0) {
-                vkcom_debug_error("Chat message has wrong attachments: %s\n", attachments
-                                  ? attachments->serialize().data() : "null");
-                // Let's try to receive the message the other way.
-                receive_messages(gc, { msg_id });
-                return;
-            }
-
-            // TODO: Remove code duplication with vk-message-recv.cpp
-            open_chat_conv(gc, chat_id, [=] {
-                int conv_id = chat_id_to_conv_id(gc, chat_id);
-                string from = get_user_display_name(gc, from_user_id, chat_id);
-                serv_got_chat_in(gc, conv_id, from.data(), PURPLE_MESSAGE_RECV, text.data(),
-                                 timestamp);
-                mark_message_as_read(gc, { VkReceivedMessage{ msg_id, from_user_id, chat_id } });
-            });
+        if (!attachments || !attachments->contains("attach1")
+                || !attachments->get("attach1").is<string>()) {
+            vkcom_debug_error("Chat message has wrong attachments: %s\n", attachments
+                              ? attachments->serialize().data() : "null");
+            // Let's try to receive the message the other way.
+            receive_messages(gc, { msg_id });
+            return;
         }
+
+        const string& from_user_id_str = attachments->get("from").get<string>();
+        uint64 from_user_id = atoll(from_user_id_str.data());
+        if (from_user_id == 0) {
+            vkcom_debug_error("Chat message has wrong attachments: %s\n", attachments
+                              ? attachments->serialize().data() : "null");
+            // Let's try to receive the message the other way.
+            receive_messages(gc, { msg_id });
+            return;
+        }
+
+        // TODO: Remove code duplication with vk-message-recv.cpp
+        open_chat_conv(gc, chat_id, [=] {
+            int conv_id = chat_id_to_conv_id(gc, chat_id);
+            string from = get_user_display_name(gc, from_user_id, chat_id);
+            serv_got_chat_in(gc, conv_id, from.data(), PURPLE_MESSAGE_RECV, text.data(),
+                             timestamp);
+            mark_message_as_read(gc, { VkReceivedMessage{ msg_id, from_user_id, chat_id } });
+        });
     }
+    /* } */
 }
 
 void process_outgoing_message_internal(PurpleConnection* gc, uint64 msg_id, int flags,
@@ -426,38 +431,38 @@ void process_outgoing_message_internal(PurpleConnection* gc, uint64 msg_id, int 
 {
     // See NOTE in process_incoming_message_internal. Unlik incoming messages, we know perfectly
     // well who is the message author for outgoing messages.
-    if (flags & MESSAGE_FLAG_MEDIA) {
+    /* if (flags & MESSAGE_FLAG_MEDIA_OLD) {
         receive_messages(gc, { msg_id });
-    } else {
-        convert_incoming_smileys(text);
+    } else {*/
+    convert_incoming_smileys(text);
 
-        // Check if the conversation is open, so that we write to the conversation, not the log.
-        // TODO: Remove code duplication with vk-message-recv.cpp
-        if (user_id < CHAT_ID_OFFSET) {
-            PurpleConversation* conv = find_conv_for_id(gc, user_id, 0);
-            string from = purple_account_get_name_for_display(purple_connection_get_account(gc));
-            if (conv) {
-                purple_conv_im_write(PURPLE_CONV_IM(conv), from.data(), text.data(),
-                                     PURPLE_MESSAGE_SEND, timestamp);
-            } else {
-                PurpleLogCache logs(gc);
-                PurpleLog* log = logs.for_user(user_id);
-                purple_log_write(log, PURPLE_MESSAGE_SEND, from.data(), timestamp, text.data());
-            }
+    // Check if the conversation is open, so that we write to the conversation, not the log.
+    // TODO: Remove code duplication with vk-message-recv.cpp
+    if (user_id < CHAT_ID_OFFSET) {
+        PurpleConversation* conv = find_conv_for_id(gc, user_id, 0);
+        string from = purple_account_get_name_for_display(purple_connection_get_account(gc));
+        if (conv) {
+            purple_conv_im_write(PURPLE_CONV_IM(conv), from.data(), text.data(),
+                                 PURPLE_MESSAGE_SEND, timestamp);
         } else {
-            uint64 chat_id = user_id - CHAT_ID_OFFSET;
-            PurpleConversation* conv = find_conv_for_id(gc, 0, chat_id);
-            string from = get_self_chat_display_name(gc);
-            if (conv) {
-                purple_conv_chat_write(PURPLE_CONV_CHAT(conv), from.data(), text.data(),
-                                       PURPLE_MESSAGE_SEND, timestamp);
-            } else {
-                PurpleLogCache logs(gc);
-                PurpleLog* log = logs.for_chat(chat_id);
-                purple_log_write(log, PURPLE_MESSAGE_SEND, from.data(), timestamp, text.data());
-            }
+            PurpleLogCache logs(gc);
+            PurpleLog* log = logs.for_user(user_id);
+            purple_log_write(log, PURPLE_MESSAGE_SEND, from.data(), timestamp, text.data());
+        }
+    } else {
+        uint64 chat_id = user_id - CHAT_ID_OFFSET;
+        PurpleConversation* conv = find_conv_for_id(gc, 0, chat_id);
+        string from = get_self_chat_display_name(gc);
+        if (conv) {
+            purple_conv_chat_write(PURPLE_CONV_CHAT(conv), from.data(), text.data(),
+                                   PURPLE_MESSAGE_SEND, timestamp);
+        } else {
+            PurpleLogCache logs(gc);
+            PurpleLog* log = logs.for_chat(chat_id);
+            purple_log_write(log, PURPLE_MESSAGE_SEND, from.data(), timestamp, text.data());
         }
     }
+    /* } */
 }
 
 void process_online(PurpleConnection* gc, const picojson::value& v, bool online)
