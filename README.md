@@ -1,3 +1,6 @@
+# проект более не развивается
+
+
 # purple-vk-plugin
 
 Это форк оригинального плагина Олега Андреева для социальной сети vkontakte  https://bitbucket.org/olegoandreev/purple-vk-plugin
